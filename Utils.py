@@ -2,6 +2,8 @@ from ctypes import windll, wintypes, byref
 top_infos = {}# {top_id: {'widget': top,'id': block_id,'type': type,'x': snapped_x,'y': snapped_y,'width': width,'height': height,'in_connections': [],'out_connections': []}}
 paths = {}#{connection_id{'line': line_id, 'waypoints': waypoints, 'from': self.start_node['widget'], 'to': widget}}
 variables = {}# {'var_name': {'name': name, 'PIN': PIN}}
+vars_same = {}
+
 
 config = {
     'grid_size': 25,

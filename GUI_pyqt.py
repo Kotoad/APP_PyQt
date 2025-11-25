@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QMenuBar, QMenu, QPushButton, QLabel,
-                             QFrame, QScrollArea)
+                             QFrame, QScrollArea, QLineEdit, QComboBox)
 from PyQt6.QtCore import Qt, QPoint, QRect, QSize, pyqtSignal
 from PyQt6.QtGui import QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent
 import sys
@@ -217,6 +217,29 @@ class MainWindow(QMainWindow):
             QMenu::item:selected {
                 background-color: #1F538D;
             }
+            QLineEdit {
+                background-color: #3A3A3A;
+                color: #FFFFFF;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                padding: 4px;
+            }
+            QComboBox {
+                background-color: #3A3A3A;
+                color: #FFFFFF;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                padding: 4px;
+            }
+            QPushButton {
+                background-color: #C74343;
+                color: #FFFFFF;
+                border: none;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #E05555;
+            }
         """)
         
         self.variable_frame = None
@@ -302,19 +325,23 @@ class MainWindow(QMainWindow):
                 }
             """)
             
-            layout = QVBoxLayout(self.variable_frame)
             
-            # Title
+            main_layout = QVBoxLayout(self.variable_frame)
+            
+            
+            header = QWidget()
+            header_layout = QHBoxLayout(header)
+            header_layout.setContentsMargins(0, 0, 0, 0)
+
             title = QLabel("Variables")
-            title.setStyleSheet("""
-                QLabel {
-                    color: #FFFFFF;
-                    font-size: 16px;
-                    font-weight: bold;
-                    padding: 10px;
-                }
-            """)
-            layout.addWidget(title)
+            hide_btn = QPushButton("×")
+            hide_btn.setFixedWidth(24)
+            hide_btn.clicked.connect(self.hide_variable_frame)
+
+            header_layout.addWidget(title)
+            header_layout.addStretch()
+            header_layout.addWidget(hide_btn)
+            main_layout.addWidget(header)
             
             # Add button
             add_btn = QPushButton("Add Variable")
@@ -331,11 +358,22 @@ class MainWindow(QMainWindow):
                 }
             """)
             add_btn.clicked.connect(self.add_variable_row)
-            layout.addWidget(add_btn)
+            main_layout.addWidget(add_btn)
             
-            layout.addStretch()
-            
-            # Add to main layout
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+
+            # Content widget inside scroll area
+            self.var_content_widget = QWidget()
+            self.var_content_layout = QVBoxLayout(self.var_content_widget)
+            self.var_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+            # Add stretch at end if you want padding at the bottom:
+            self.var_content_layout.addStretch()
+
+            scroll_area.setWidget(self.var_content_widget)
+            main_layout.addWidget(scroll_area)
+                        # Add to main layout
             central_widget = self.centralWidget()
             if central_widget:
                 main_layout = central_widget.layout()
@@ -351,12 +389,107 @@ class MainWindow(QMainWindow):
             self.variable_frame.hide()
         self.variable_frame_visible = False
     
+    def remove_variable_row(self, row_widget, var_id):
+        """Remove a variable row"""
+        if var_id in Utils.variables:
+            del Utils.variables[var_id]
+        
+        panel_layout = self.variable_frame.layout()
+        panel_layout.removeWidget(row_widget)
+        
+        row_widget.setParent(None)
+        row_widget.deleteLater()
+        
+        self.variable_row_count -= 1
+        
+        print(f"Deleted variable: {var_id}")
+    
+    def name_changed(self, text, var_id, name_imput):
+        Utils.variables[var_id]['name'] = text
+        
+        # Step 1: Group all var_ids by their name value
+        Utils.vars_same.clear()
+        Utils.variables[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+        for v_id, v_info in Utils.variables.items():
+            name = v_info['name_imput'].text().strip()
+            if name:
+                Utils.vars_same.setdefault(name, []).append(v_id)
+                print("neco")
+        
+        # Step 2: Color red if duplicate
+        for name, id_list in Utils.vars_same.items():
+            print(id_list)
+            border_col = "border-color: #ff0000;" if len(id_list) > 1 else "border-color: #3F3F3F;"
+            for v_id in id_list:
+                Utils.variables[v_id]['name_imput'].setStyleSheet(border_col) 
+    
+    def type_changed(self, imput):
+        print(f"Updating variable {imput}")
+        
+        if self.var_id in Utils.variables:
+            Utils.variables[self.var_id]['type_imput'] = imput
+            print(f"Type {self.var_id} value changed to: {imput}")
+    
+    def value_changed(self, imput):
+        print(f"Updating variable {imput}")
+        
+        if self.var_id in Utils.variables:
+            Utils.variables[self.var_id]['value_imput'] = imput
+            print(f"Value {self.var_id} value changed to: {imput}")
+    
     def add_variable_row(self):
         """Add a new variable row"""
-        print(f"Adding variable row {self.variable_row_count}")
-        # TODO: Implement variable row UI
+        var_id = f"var_{self.variable_row_count}"
+        self.var_id = var_id
+        print(f"Adding variable row {self.var_id}")
+        
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(5, 5, 5, 5)
+ 
+        name_imput = QLineEdit()
+        name_imput.setPlaceholderText("Variable Name")
+        
+        name_imput.textChanged.connect(lambda text, v_id=var_id, n_i=name_imput: self.name_changed(text, v_id, n_i))
+        
+        type_input = QComboBox()
+        type_input.addItems(["Int", "Float", "String", "Boo"])
+        
+        type_input.currentTextChanged.connect(self.type_changed)
+        
+        value_input = QLineEdit()
+        value_input.setPlaceholderText("Initial Value")
+        
+        value_input.textChanged.connect(self.value_changed)
+        
+        delete_btn = QPushButton("×")
+        delete_btn.setFixedWidth(30)
+        
+        row_layout.addWidget(name_imput)
+        row_layout.addWidget(type_input)
+        row_layout.addWidget(value_input)
+        row_layout.addWidget(delete_btn)
+        
+        delete_btn.clicked.connect(lambda _, v_id=var_id, rw=row_widget: self.remove_variable_row(rw, v_id))
+        
+        Utils.variables[var_id] = {
+            'name': '',
+            'type': 'int',
+            'value': '',
+            'PIN': None,
+            'widget': row_widget,
+            'name_imput': name_imput,
+            'type_input': type_input,
+            'value_input': value_input
+        } 
+        
+        panel_layout = self.variable_frame.layout()
+        self.var_content_layout.insertWidget(self.var_content_layout.count() - 1, row_widget)
+        
         self.variable_row_count += 1
-    
+        
+        print(f"Added variable: {self.var_id}")
+        
     def open_elements_window(self):
         """Open the elements window"""
         elements_window = ElementsWindow.get_instance(self.canvas)

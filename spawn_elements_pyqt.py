@@ -32,6 +32,7 @@ class spawning_elements:
         self.parent.mousePressEvent = self.on_mouse_press
         
     def on_mouse_press(self, event):
+        print("Mouse Pressed")
         """Handle mouse press for placing element"""
         if event.button() == Qt.MouseButton.LeftButton:
             self.place(event)
