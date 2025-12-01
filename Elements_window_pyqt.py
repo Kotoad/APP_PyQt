@@ -17,6 +17,9 @@ class ElementsWindow(QDialog):
         self.element_spawner.elements_window = self
         self.is_hidden = False
         
+        if hasattr(parent, 'spawner'):
+            parent.spawner = self.element_spawner  
+        
         self.setup_ui()
         
     @classmethod
@@ -88,6 +91,11 @@ class ElementsWindow(QDialog):
         self.create_shapes_tab()
         self.create_logic_tab()
         self.create_io_tab()
+    
+    def mousePressEvent(self, event):
+        """Debug: Track if elements window gets mouse press"""
+        #print("⚠ ElementsWindow.mousePressEvent fired!")
+        super().mousePressEvent(event)
     
     def create_shapes_tab(self):
         """Create shapes tab"""

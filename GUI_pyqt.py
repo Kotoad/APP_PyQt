@@ -8,7 +8,7 @@ import Utils
 from Path_manager_pyqt import PathManager
 from Elements_window_pyqt import ElementsWindow
 import code_compiler
-
+from spawn_elements_pyqt import spawning_elements, Elements_events
 
 class GridCanvas(QWidget):
     """Canvas widget with grid and draggable widgets"""
@@ -22,7 +22,9 @@ class GridCanvas(QWidget):
         self.is_dragging = False
         self.offset_x = 0
         self.offset_y = 0
-        
+        self.spawner = spawning_elements(self)
+        self.path_manager = PathManager(self)
+        self.elements_events = Elements_events(self)
         # Setup widget
         self.setMinimumSize(800, 600)
         self.setMouseTracking(True)
@@ -36,7 +38,7 @@ class GridCanvas(QWidget):
         """)
         
         # Path manager
-        self.path_manager = PathManager(self)
+
         
     def paintEvent(self, event):
         """Draw grid lines and connection paths"""
@@ -76,14 +78,57 @@ class GridCanvas(QWidget):
                 dashed=True
             )
     
-    def mouseMoveEvent(self, event):
-        """Handle mouse movement - update connection preview"""
+    """def mouseMoveEvent(self, event):
+        Handle mouse movement - update connection preview
         super().mouseMoveEvent(event)
         
         # Update connection preview if creating a connection
         if self.path_manager.start_node:
             self.path_manager.update_preview_path(event.pos())
+            self.update()"""
+    
+    def mousePressEvent(self, event):
+        """Debug: Track if canvas gets mouse press"""
+        #print("✓ GridCanvas.mousePressEvent fired!")
+        #print(f"  Position: {event.pos()}")
+        # Call the existing one if you had it, or let it propagate
+        print(f"Canvas mousePressEvent at {event.pos()}")
+        super().mousePressEvent(event)
+        
+    def mouseMoveEvent(self, event):
+        #print(f"Canvas.mouseMoveEvent fired at {event.pos()}")
+        #print(f"start_node is: {self.path_manager.start_node}")
+        
+        if self.path_manager.start_node:
+            #print("Updating preview from CANVAS mouseMoveEvent")
+            self.path_manager.update_preview_path(event.pos())
             self.update()
+    
+    def keyPressEvent(self, event):
+        #print(f"Spawner ID in Canvas: {id(self.spawner)}")
+        #print(f"Spawner in Canvas has placing_active: {self.spawner.placing_active if self.spawner else 'None'}")
+        #print(f"Element placed: {self.spawner.element_placed if self.spawner else 'None'}")
+
+        if self.spawner and self.spawner.element_placed:
+            #print(f"Key pressed: {event.key()}")
+            #print(f"Element placed before: {self.spawner.element_placed}")
+            
+            if event.key() in [Qt.Key.Key_Escape, Qt.Key.Key_Return, Qt.Key.Key_Enter]:
+                self.spawner.stop_placing(self)
+                event.accept()
+            else:
+                event.ignore()
+        elif self.path_manager.start_node:
+            #print(f"Key pressed during path creation: {event.key()}")
+            if event.key() == Qt.Key.Key_Escape:
+                self.path_manager.cancel_connection()
+                self.update()
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            super().keyPressEvent(event)
+
     
     def snap_to_grid(self, x, y, widget=None, during_drag=False):
         """Snap coordinates to nearest grid intersection"""
@@ -121,14 +166,19 @@ class GridCanvas(QWidget):
         
         def on_press(event):
             if event.button() == Qt.MouseButton.LeftButton:
-                self.on_canvas_click(event, widget)
+                # ← NEW: Check if on circle BEFORE setting dragged_widget
+                circle_type = self.elements_events.check_click_on_circle(widget, event.pos())
+                if not circle_type:  # Only set dragged_widget if NOT on circle
+                    self.on_canvas_click(event, widget)
+            
             original_press(event)
         
         def on_move(event):
             if event.buttons() & Qt.MouseButton.LeftButton:
                 self.on_canvas_drag(event, widget)
+            
             original_move(event)
-        
+                
         def on_release(event):
             if event.button() == Qt.MouseButton.LeftButton:
                 self.on_canvas_release(event, widget)
@@ -139,6 +189,7 @@ class GridCanvas(QWidget):
         widget.mouseReleaseEvent = on_release
     
     def on_canvas_click(self, event, widget):
+        #print(f"Pressed {type(self).__name__}")
         """Handle mouse click on widget"""
         for block_id, widget_info in Utils.top_infos.items():
             if widget_info['widget'] is widget:
@@ -147,6 +198,7 @@ class GridCanvas(QWidget):
                 self.dragged_widget = widget_info
                 self.is_dragging = True
                 widget.raise_()
+                #print(f"Click {self.mousePressEvent}")
                 break
     
     def on_canvas_drag(self, event, widget):
@@ -165,6 +217,7 @@ class GridCanvas(QWidget):
             # Update paths
             self.path_manager.update_paths_for_widget(widget)
             self.update()
+            #print(f"Drag {self.mousePressEvent}")
     
     def on_canvas_release(self, event, widget):
         """Handle mouse release - snap to grid"""
@@ -182,6 +235,8 @@ class GridCanvas(QWidget):
             self.dragged_widget = None
             self.is_dragging = False
             self.update()
+            self.path_manager.update_paths_for_widget(widget)
+            #print(f"Release {self.mousePressEvent}")
 
 
 class MainWindow(QMainWindow):
@@ -249,11 +304,16 @@ class MainWindow(QMainWindow):
         
         self.create_menu_bar()
         self.create_canvas_frame()
+    
+    def mousePressEvent(self, event):
+        """Debug: Track if main window gets mouse press"""
+        #print("⚠ MainWindow.mousePressEvent fired!")
+        super().mousePressEvent(event)
         
     def create_menu_bar(self):
         """Create the menu bar"""
         menubar = self.menuBar()
-        
+        print(f"Menubar Height: {menubar.height()}")
         # File menu
         file_menu = menubar.addMenu("File")
         
@@ -303,6 +363,7 @@ class MainWindow(QMainWindow):
         # Canvas
         self.canvas = GridCanvas(grid_size=Utils.config['grid_size'])
         self.canvas.main_window = self
+        self.canvas.spawner = None
         main_layout.addWidget(self.canvas, stretch=1)
     
     def toggle_variable_frame(self):
@@ -391,8 +452,24 @@ class MainWindow(QMainWindow):
     
     def remove_variable_row(self, row_widget, var_id):
         """Remove a variable row"""
+        
+        del Utils.var_items[var_id]
+            
         if var_id in Utils.variables:
+            #print(f"Deleting {var_id}")
             del Utils.variables[var_id]
+            for imput, var_ids in Utils.vars_same.items():
+                if var_id in var_ids:
+                    var_ids.remove(var_id)
+                    #print(f"Vars_same {var_ids}")
+        
+        for imput2, var in Utils.vars_same.items():
+            #print(f"Var {var}, len var {len(var)}")
+            if len(var) <= 1:
+                for var_id in var:
+                    Utils.variables[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+            
+        self.refresh_all_if_blocks()
         
         panel_layout = self.variable_frame.layout()
         panel_layout.removeWidget(row_widget)
@@ -402,11 +479,15 @@ class MainWindow(QMainWindow):
         
         self.variable_row_count -= 1
         
-        print(f"Deleted variable: {var_id}")
+        #print(f"Deleted variable: {var_id}")
     
     def name_changed(self, text, var_id, name_imput):
         Utils.variables[var_id]['name'] = text
-        
+
+        if var_id in Utils.var_items:
+            Utils.var_items[var_id] = text
+        else:
+            Utils.var_items.setdefault(var_id, text)
         # Step 1: Group all var_ids by their name value
         Utils.vars_same.clear()
         Utils.variables[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
@@ -414,34 +495,45 @@ class MainWindow(QMainWindow):
             name = v_info['name_imput'].text().strip()
             if name:
                 Utils.vars_same.setdefault(name, []).append(v_id)
-                print("neco")
         
         # Step 2: Color red if duplicate
         for name, id_list in Utils.vars_same.items():
-            print(id_list)
+            #print(id_list)
             border_col = "border-color: #ff0000;" if len(id_list) > 1 else "border-color: #3F3F3F;"
             for v_id in id_list:
-                Utils.variables[v_id]['name_imput'].setStyleSheet(border_col) 
+                Utils.variables[v_id]['name_imput'].setStyleSheet(border_col)
+        
+        self.refresh_all_if_blocks()
+    
+    def refresh_all_if_blocks(self):
+        """Find all If blocks on canvas and refresh their dropdowns"""
+        for block_id, block_info in Utils.top_infos.items():
+            widget = block_info['widget']
+            
+            # Check if it's an If block with the refresh method
+            if hasattr(widget, 'refresh_if_dropdown'):
+                widget.refresh_if_dropdown()
+                #print(f"Refreshed If block dropdown for {block_id}")
     
     def type_changed(self, imput):
-        print(f"Updating variable {imput}")
+        #print(f"Updating variable {imput}")
         
         if self.var_id in Utils.variables:
             Utils.variables[self.var_id]['type_imput'] = imput
-            print(f"Type {self.var_id} value changed to: {imput}")
+            #print(f"Type {self.var_id} value changed to: {imput}")
     
     def value_changed(self, imput):
-        print(f"Updating variable {imput}")
+        #print(f"Updating variable {imput}")
         
         if self.var_id in Utils.variables:
             Utils.variables[self.var_id]['value_imput'] = imput
-            print(f"Value {self.var_id} value changed to: {imput}")
+            #print(f"Value {self.var_id} value changed to: {imput}")
     
     def add_variable_row(self):
         """Add a new variable row"""
         var_id = f"var_{self.variable_row_count}"
         self.var_id = var_id
-        print(f"Adding variable row {self.var_id}")
+        #print(f"Adding variable row {self.var_id}")
         
         row_widget = QWidget()
         row_layout = QHBoxLayout(row_widget)
@@ -488,7 +580,7 @@ class MainWindow(QMainWindow):
         
         self.variable_row_count += 1
         
-        print(f"Added variable: {self.var_id}")
+        #print(f"Added variable: {self.var_id}")
         
     def open_elements_window(self):
         """Open the elements window"""
@@ -503,14 +595,15 @@ class MainWindow(QMainWindow):
         """Compile the visual code"""
         try:
             code_compiler.Codecompiler.Start()
-            print("Code compiled successfully")
+            #print("Code compiled successfully")
         except Exception as e:
-            print(f"Compilation error: {e}")
+            #print(f"Compilation error: {e}")
+            pass
     
     # Menu actions
     def on_new_file(self):
         """Create new file"""
-        print("New file")
+        #print("New file")
         Utils.top_infos.clear()
         Utils.paths.clear()
         Utils.variables.clear()
@@ -518,12 +611,12 @@ class MainWindow(QMainWindow):
     
     def on_open_file(self):
         """Open file"""
-        print("Open file")
+        #print("Open file")
         # TODO: Implement file opening
     
     def on_save_file(self):
         """Save file"""
-        print("Save file")
+        #print("Save file")
         # TODO: Implement file saving
 
 
