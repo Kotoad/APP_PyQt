@@ -176,7 +176,7 @@ class BlockWidget(QWidget):
         if self.block_type == "While":
             print("While")
             self.create_While_inputs()
-            
+    #MARK: IF Inputs      
     def create_If_inputs(self):
         print("creating if input")
         self.If_input_1 = MaxWidthComboBox(self, max_popup_width=300)
@@ -321,6 +321,10 @@ class BlockWidget(QWidget):
         self.If_combobox.raise_()
         self.If_combobox.show()
         
+        self.If_input_1.currentIndexChanged.connect(self.on_value_1_changed)
+        self.If_input_2.textChanged.connect(self.on_value_2_changed)
+        self.If_combobox.currentIndexChanged.connect(self.on_combo_changed)
+    #MARK: WHILE Inputs      
     def create_While_inputs(self):
         print("creating if input")
         self.While_input_1 = MaxWidthComboBox(self, max_popup_width=300)
@@ -465,6 +469,10 @@ class BlockWidget(QWidget):
         self.While_combobox.raise_()
         self.While_combobox.show()
 
+        self.While_input_1.currentIndexChanged.connect(self.on_value_1_changed)
+        self.While_input_2.textChanged.connect(self.on_value_2_changed)
+        self.While_combobox.currentIndexChanged.connect(self.on_combo_changed)
+        
     def refresh_if_dropdown(self):
         """Refresh the If block's variable dropdown with updated names"""
         if self.block_type not in ('If', 'While'):
@@ -492,7 +500,7 @@ class BlockWidget(QWidget):
             self.While_input_1.blockSignals(False)
         
         print(f"Refreshed If block {self.block_id} dropdown")    
-    
+    #MARK: Timer Input
     def create_timer_input(self):
         """Create number input field for timer block"""
         self.timer_input = QLineEdit(self)
@@ -527,15 +535,28 @@ class BlockWidget(QWidget):
         self.timer_input.show()
         
         # Store the value when changed
-        self.timer_input.textChanged.connect(self.on_timer_value_changed)
+        self.timer_input.textChanged.connect(self.on_value_1_changed)
     
-    def on_timer_value_changed(self, text):
+    def on_value_1_changed(self, text):
         """Handle timer value changes"""
         # Store in Utils for later use
         if self.block_id in Utils.top_infos:
-            Utils.top_infos[self.block_id]['timer_value'] = text
+            Utils.top_infos[self.block_id]['value_1'] = text
         print(f"Timer {self.block_id} value changed to: {text}")
-    
+        print(Utils.top_infos)
+    def on_value_2_changed(self, text):
+        """Handle second value changes (if needed)"""
+        # Store in Utils for later use
+        if self.block_id in Utils.top_infos:
+            Utils.top_infos[self.block_id]['value_2'] = text
+        print(f"Block {self.block_id} value 2 changed to: {text}")
+        print(Utils.top_infos)
+    def on_combo_changed(self, index):
+        """Handle combo box selection changes (if needed)"""
+        if self.block_id in Utils.top_infos:
+            Utils.top_infos[self.block_id]['combo_index'] = index
+        print(f"Block {self.block_id} combo changed to index: {index}")
+        print(Utils.top_infos)
     def create_block_image(self):
         """Create the block image using PIL"""
         if self.block_type == "Start":
