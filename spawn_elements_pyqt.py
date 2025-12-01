@@ -1,10 +1,12 @@
 from PyQt6.QtWidgets import QWidget, QLabel, QLineEdit, QComboBox, QApplication, QStyleOptionComboBox
-from PyQt6.QtCore import Qt, QPoint, QRect, pyqtSignal, QObject
-from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QPixmap, QImage, QMouseEvent, QStandardItem
+from PyQt6.QtCore import Qt, QPoint, QRect, pyqtSignal, QObject, QRegularExpression
+from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QPixmap, QImage, QMouseEvent, QStandardItem, QIntValidator, QRegularExpressionValidator
 from PIL import Image, ImageDraw, ImageFont
 import random
 import Utils
 from PyQt6.QtWidgets import QStyledItemDelegate
+
+items = ["=", "!=", "<=", ">=", "<", ">"]
 
 class NoTruncateDelegate(QStyledItemDelegate):
     """Delegate that prevents text truncation"""
@@ -208,7 +210,6 @@ class BlockWidget(QWidget):
 
         # ALSO set the view minimum height to match item size
         self.If_input_1.view().setSpacing(0) 
-        
         self.If_input_1.setCurrentIndex(0)
 
         input_x = self.width() - 95
@@ -248,6 +249,8 @@ class BlockWidget(QWidget):
 
         self.If_input_2 = QLineEdit(self)
         self.If_input_2.setFixedSize(30, 20)
+        validator = QIntValidator(-9999, 9999, self)
+        self.If_input_2.setValidator(validator)
         input_x = self.width() - 40
         input_y =3* ((self.height() - 20) // 4)
         self.If_input_2.move(input_x, input_y)
@@ -265,7 +268,6 @@ class BlockWidget(QWidget):
         }
         """)
         self.If_input_2.setPlaceholderText("0")
-        self.If_input_2.setText("1")
         self.If_input_2.setAlignment(Qt.AlignmentFlag.AlignCenter)  
         self.If_input_2.raise_()
         self.If_input_2.show()
@@ -275,7 +277,6 @@ class BlockWidget(QWidget):
         self.If_combobox.setFixedSize(25, 20)
         self.If_combobox.setEditable(False)
         model = self.If_combobox.model()
-        items = ["=", "<=", ">=", "<", ">"]
 
         for text in items:
             item = QStandardItem(text)
@@ -396,6 +397,9 @@ class BlockWidget(QWidget):
 
         self.While_input_2 = QLineEdit(self)
         self.While_input_2.setFixedSize(30, 20)
+        regex = QRegularExpression(r"^-?\d*$")  # Allow optional minus sign, then digits
+        validator = QRegularExpressionValidator(regex, self)
+        self.While_input_2.setValidator(validator)
         input_x = self.width() - 40
         input_y =3* ((self.height() - 20) // 4)
         self.While_input_2.move(input_x, input_y)
@@ -413,7 +417,6 @@ class BlockWidget(QWidget):
         }
         """)
         self.While_input_2.setPlaceholderText("0")
-        self.While_input_2.setText("1")
         self.While_input_2.setAlignment(Qt.AlignmentFlag.AlignCenter)  
         self.While_input_2.raise_()
         self.While_input_2.show()
@@ -423,7 +426,6 @@ class BlockWidget(QWidget):
         self.While_combobox.setFixedSize(25, 20)
         self.While_combobox.setEditable(False)
         model = self.While_combobox.model()
-        items = ["=", "<=", ">=", "<", ">"]
 
         for text in items:
             item = QStandardItem(text)
@@ -505,7 +507,9 @@ class BlockWidget(QWidget):
         """Create number input field for timer block"""
         self.timer_input = QLineEdit(self)
         self.timer_input.setFixedSize(50, 20)
-        
+        regex = QRegularExpression(r"^\d*$")  # Only digits, no spaces
+        validator = QRegularExpressionValidator(regex, self)
+        self.timer_input.setValidator(validator)
         # Position the input in the middle-right area of the block
         input_x = self.width() - 65  # 15px from right edge
         input_y = (self.height() - 20) // 2  # Center vertically
@@ -528,7 +532,6 @@ class BlockWidget(QWidget):
         
         # Set validator for numbers only
         self.timer_input.setPlaceholderText("0")
-        self.timer_input.setText("1")
         
         # Ensure input stays on top
         self.timer_input.raise_()
@@ -540,21 +543,126 @@ class BlockWidget(QWidget):
     def on_value_1_changed(self, text):
         """Handle timer value changes"""
         # Store in Utils for later use
-        if self.block_id in Utils.top_infos:
-            Utils.top_infos[self.block_id]['value_1'] = text
-        print(f"Timer {self.block_id} value changed to: {text}")
-        print(Utils.top_infos)
+        if not text:  # User cleared the field
+            return
+        
+        for block_id, top_info in Utils.top_infos.items():
+            if top_info['id'] is self.block_id:
+                type = top_info['type']
+        
+        if type == "If":
+            value_1 = self.If_input_1.currentText()
+            Utils.top_infos[self.block_id]['value_1'] = value_1
+        elif type == "While":
+            value_1 = self.While_input_1.currentText()
+            Utils.top_infos[self.block_id]['value_1'] = value_1
+        elif type == "Timer":
+            try:
+                value = len(text)
+                
+                if value > 4:
+                    self.timer_input.blockSignals(True)
+                    text = text[:4]
+                    self.timer_input.setText(text)
+                    self.timer_input.blockSignals(False)
+                
+                elif value < 0:
+                    self.timer_input.blockSignals(True)
+                    self.timer_input.setText("0")
+                    self.timer_input.blockSignals(False)
+                
+                # Store the valid value
+                if self.block_id in Utils.top_infos:
+                    Utils.top_infos[self.block_id]['value_1'] = text
+                    print(f"Timer {self.block_id} value: {text}")
+                    
+            except ValueError:
+                # Text is empty or can't convert (shouldn't happen with regex)
+                pass        
     def on_value_2_changed(self, text):
         """Handle second value changes (if needed)"""
         # Store in Utils for later use
-        if self.block_id in Utils.top_infos:
-            Utils.top_infos[self.block_id]['value_2'] = text
-        print(f"Block {self.block_id} value 2 changed to: {text}")
-        print(Utils.top_infos)
+        if not text:  # User cleared the field
+            return
+        if self.block_type == "Timer":
+            try:
+                value = len(text)
+                
+                if value > 4:
+                    self.timer_input.blockSignals(True)
+                    text = text[:4]
+                    self.timer_input.setText(text)
+                    self.timer_input.blockSignals(False)
+            
+                elif value < 0:
+                    self.timer_input.blockSignals(True)
+                    self.timer_input.setText("0")
+                    self.timer_input.blockSignals(False)
+                
+                # Store the valid value
+                if self.block_id in Utils.top_infos:
+                    Utils.top_infos[self.block_id]['value_2'] = text
+                    print(f"Timer {self.block_id} value: {text}")
+            except ValueError:
+                        # Text is empty or can't convert (shouldn't happen with regex)
+                        pass 
+        elif self.block_type == "If":
+            try:
+                value = len(text)
+                
+                if value > 4:
+                    self.If_input_2.blockSignals(True)
+                    text = text[:4]
+                    self.If_input_2.setText(text)
+                    self.If_input_2.blockSignals(False)
+
+                elif value < 0:
+                    self.If_input_2.blockSignals(True)
+                    self.If_input_2.setText("0")
+                    self.If_input_2.blockSignals(False)
+                
+                # Store the valid value
+                if self.block_id in Utils.top_infos:
+                    Utils.top_infos[self.block_id]['value_2'] = text
+                    print(f"If {self.block_id} value: {text}")
+            except ValueError:
+                        # Text is empty or can't convert (shouldn't happen with regex)
+                        pass
+        elif self.block_type == "While":
+            try:
+                value = len(text)
+                
+                if value > 4:
+                    self.While_input_2.blockSignals(True)
+                    text = text[:4]
+                    self.While_input_2.setText(text)
+                    self.While_input_2.blockSignals(False)
+                
+                elif value < 0:
+                    self.While_input_2.blockSignals(True)
+                    self.While_input_2.setText("0")
+                    self.While_input_2.blockSignals(False)
+                
+                # Store the valid value
+                if self.block_id in Utils.top_infos:
+                    Utils.top_infos[self.block_id]['value_2'] = text
+                    print(f"While {self.block_id} value: {text}")
+            except ValueError:
+                        # Text is empty or can't convert (shouldn't happen with regex)
+                        pass 
+        
     def on_combo_changed(self, index):
         """Handle combo box selection changes (if needed)"""
-        if self.block_id in Utils.top_infos:
-            Utils.top_infos[self.block_id]['combo_index'] = index
+        for block_id, top_info in Utils.top_infos.items():
+            if top_info['id'] is self.block_id:
+                type = top_info['type']
+        
+        if type == "If":
+            combo_value = self.If_combobox.currentText()
+            Utils.top_infos[self.block_id]['combo_value'] = combo_value
+        elif type == "While":
+            combo_value = self.While_combobox.currentText()
+            Utils.top_infos[self.block_id]['combo_value'] = combo_value
         print(f"Block {self.block_id} combo changed to index: {index}")
         print(Utils.top_infos)
     def create_block_image(self):
