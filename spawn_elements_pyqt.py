@@ -1,12 +1,187 @@
 from PyQt6.QtWidgets import QWidget, QLabel, QLineEdit, QComboBox, QApplication, QStyleOptionComboBox
-from PyQt6.QtCore import Qt, QPoint, QRect, pyqtSignal, QObject, QRegularExpression
-from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QPixmap, QImage, QMouseEvent, QStandardItem, QIntValidator, QRegularExpressionValidator
+from PyQt6.QtCore import pyqtProperty, QEasingCurve, QRectF, Qt, QPoint, QPropertyAnimation, QRect, pyqtSignal, QObject, QRegularExpression
+from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QPixmap, QImage, QMouseEvent, QStandardItem, QIntValidator, QRegularExpressionValidator, QPainterPath, QFont
+
 from PIL import Image, ImageDraw, ImageFont
 import random
 import Utils
 from PyQt6.QtWidgets import QStyledItemDelegate
 
 items = ["=", "!=", "<=", ">=", "<", ">"]
+
+class CustomSwitch(QWidget):
+    """
+    YOUR CustomSwitch - Has FULL control over circle size!
+    """
+    
+    toggled = pyqtSignal(bool)
+    clicked = pyqtSignal(bool)
+    
+    def __init__(self, parent=None, 
+                 width=80, height=40,
+                 bg_off_color="#e0e0e0",
+                 bg_on_color="#4CAF50",
+                 circle_color="#ffffff",
+                 border_color="#999999",
+                 animation_speed=300):
+        super().__init__(parent)
+        
+        # State management
+        self._is_checked = False
+        self._circle_x = 0.0
+        self._is_enabled = True
+        
+        # Size configuration - YOU CONTROL CIRCLE SIZE HERE!
+        self.base_width = width
+        self.base_height = height
+        self.circle_diameter = height - 8  # <-- CIRCLE SIZE DEPENDS ON HEIGHT!
+        self.padding = 4
+        self.border_width = 2
+        
+        # Color configuration
+        self.bg_off_color = bg_off_color
+        self.bg_on_color = bg_on_color
+        self.circle_color = circle_color
+        self.border_color = border_color
+        self.disabled_alpha = 0.5
+        
+        # Animation setup
+        self.animation = QPropertyAnimation(self, b"circle_x")
+        self.animation.setDuration(animation_speed)
+        self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        
+        self._is_animating = False
+        self.animation.stateChanged.connect(self.animation_state_changed)
+        
+        # Widget configuration
+        self.setFixedSize(self.base_width, self.base_height)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        
+        # Initialize circle position
+        self._update_circle_position(animate=False)
+    
+    @pyqtProperty(float)
+    def circle_x(self):
+        return self._circle_x
+    
+    @circle_x.setter
+    def circle_x(self, value):
+        self._circle_x = value
+        self.update()
+    
+    def animation_state_changed(self, state):
+        from PyQt6.QtCore import QAbstractAnimation
+    
+        if state == QAbstractAnimation.State.Running:
+            self._is_animating = True
+        else:  # Stopped
+            self._is_animating = False
+
+    
+    def on_switch_changed(self):
+        return self._is_checked
+    
+    def set_checked(self, state, emit_signal=True):
+        if self._is_checked != state:
+            self._is_checked = state
+            self._update_circle_position(animate=True)
+            if emit_signal:
+                self.toggled.emit(self._is_checked)
+            self.clicked.emit(self._is_checked)
+    
+    def toggle(self):
+        self.set_checked(not self._is_checked)
+    
+    def set_enabled_custom(self, enabled):
+        self._is_enabled = enabled
+        self.setCursor(
+            Qt.CursorShape.PointingHandCursor if enabled 
+            else Qt.CursorShape.ForbiddenCursor
+        )
+        self.update()
+    
+    def _update_circle_position(self, animate=True):
+        if self._is_checked:
+            end_pos = self.base_width - self.circle_diameter - self.padding
+        else:
+            end_pos = self.padding
+        
+        if animate:
+            self.animation.setStartValue(self._circle_x)
+            self.animation.setEndValue(end_pos)
+            self.animation.start()
+        else:
+            self._circle_x = end_pos
+    
+    def mousePressEvent(self, event):
+        if self._is_animating:
+            event.ignore()
+            return
+        
+        if event.button() == Qt.MouseButton.LeftButton and self._is_enabled:
+            self.toggle()
+    
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self.update()
+    
+    def focusOutEvent(self, event):
+        super().focusOutEvent(event)
+        self.update()
+    
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        if not self._is_enabled:
+            painter.setOpacity(self.disabled_alpha)
+        
+        radius = self.base_height / 2
+        path = QPainterPath()
+        path.addRoundedRect(0, 0, self.base_width, self.base_height, radius, radius)
+        painter.setClipPath(path)
+
+        # 2) BACKGROUND: USE SAME OUTER RECT (NO INSET)
+        bg_rect = QRectF(0, 0, self.base_width, self.base_height)
+        bg_color = QColor(self.bg_on_color if self._is_checked else self.bg_off_color)
+        painter.fillRect(bg_rect, bg_color)
+
+        # 3) BORDER: DRAW ON SAME RECT & RADIUS
+        border_pen = QPen(QColor(self.border_color), self.border_width)
+        painter.setPen(border_pen)
+        painter.drawRoundedRect(bg_rect, radius, radius)
+
+        # 4) FOCUS RECT: SLIGHTLY INSET, SAME SHAPE
+        if self.hasFocus():
+            focus_pen = QPen(QColor("#2196f3"), 2, Qt.PenStyle.SolidLine)
+            painter.setPen(focus_pen)
+            focus_margin = 2
+            focus_rect = QRectF(
+                focus_margin,
+                focus_margin,
+                self.base_width - 2 * focus_margin,
+                self.base_height - 2 * focus_margin,
+            )
+            painter.drawRoundedRect(focus_rect, radius - focus_margin, radius - focus_margin)
+
+        # 5) CIRCLE
+        circle_rect = QRectF(
+            self._circle_x,
+            self.padding,
+            self.circle_diameter,
+            self.circle_diameter,
+        )
+        painter.setBrush(QBrush(QColor(self.circle_color)))
+        painter.setPen(QPen(QColor("#cccccc"), 1))
+        painter.drawEllipse(circle_rect)
+
+        shadow_pen = QPen(QColor("#000000"), 1)
+        shadow_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(shadow_pen)
+        painter.setOpacity(0.15)
+        painter.drawEllipse(circle_rect.adjusted(1, 1, 1, 1))
+
 
 class NoTruncateDelegate(QStyledItemDelegate):
     """Delegate that prevents text truncation"""
@@ -90,16 +265,16 @@ class spawning_elements:
         
         # Connect mouse click to place element
 
-        #print(f"Before: {self.parent.mousePressEvent}")
+        print(f"Before: {self.parent.mousePressEvent}")
         self.old_mousePressEvent = parent.mousePressEvent
         parent.mousePressEvent = self.on_mouse_press
-        #print(f"After: {self.parent.mousePressEvent}")
+        print(f"After: {self.parent.mousePressEvent}")
         parent.setFocus()
-        #print(f"Canvas enabled: {parent.isEnabled()}")
-        #print(f"Canvas transparent for mouse: {parent.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)}")
-        #print(f"Canvas focus: {parent.hasFocus()}")
+        print(f"Canvas enabled: {parent.isEnabled()}")
+        print(f"Canvas transparent for mouse: {parent.testAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)}")
+        print(f"Canvas focus: {parent.hasFocus()}")
         parent.raise_()
-        #print("Canvas raised to top")
+        print("Canvas raised to top")
         
         
     def on_mouse_press(self, event):
@@ -144,7 +319,7 @@ class spawning_elements:
             self.elements_window.is_hidden = False
             self.elements_window.open()
 
-
+#MARK: Block Widget
 class BlockWidget(QWidget):
     """Custom widget for visual programming blocks"""
     
@@ -178,6 +353,8 @@ class BlockWidget(QWidget):
         if self.block_type == "While":
             print("While")
             self.create_While_inputs()
+        if self.block_type == "Switch":
+            self.create_Switch_inputs()
     #MARK: IF Inputs      
     def create_If_inputs(self):
         print("creating if input")
@@ -470,7 +647,7 @@ class BlockWidget(QWidget):
         
         self.While_combobox.raise_()
         self.While_combobox.show()
-
+        
         self.While_input_1.currentIndexChanged.connect(self.on_value_1_changed)
         self.While_input_2.textChanged.connect(self.on_value_2_changed)
         self.While_combobox.currentIndexChanged.connect(self.on_combo_changed)
@@ -540,6 +717,25 @@ class BlockWidget(QWidget):
         # Store the value when changed
         self.timer_input.textChanged.connect(self.on_value_1_changed)
     
+    def create_Switch_inputs(self):
+        self.Switch = CustomSwitch(parent= self, width=40, height=20)
+        input_x = self.width() - 65
+        input_y = (self.height() - 20) // 2 
+        self.Switch.move(input_x, input_y)
+        self.Switch.toggled.connect(self.on_switch_changed)
+        
+        self.Switch.raise_()
+        self.Switch.show()
+    
+    def on_switch_changed(self, state):
+        """Called automatically when switch toggles"""
+        print(f"Switch state changed to: {state}")
+        # True = ON, False = OFF
+        
+        # Store in Utils if needed
+        if self.block_id in Utils.top_infos:
+            Utils.top_infos[self.block_id]['switch_value'] = state
+    
     def on_value_1_changed(self, text):
         """Handle timer value changes"""
         # Store in Utils for later use
@@ -579,6 +775,7 @@ class BlockWidget(QWidget):
             except ValueError:
                 # Text is empty or can't convert (shouldn't happen with regex)
                 pass        
+            
     def on_value_2_changed(self, text):
         """Handle second value changes (if needed)"""
         # Store in Utils for later use
@@ -665,6 +862,7 @@ class BlockWidget(QWidget):
             Utils.top_infos[self.block_id]['combo_value'] = combo_value
         print(f"Block {self.block_id} combo changed to index: {index}")
         print(Utils.top_infos)
+        
     def create_block_image(self):
         """Create the block image using PIL"""
         if self.block_type == "Start":
@@ -677,6 +875,8 @@ class BlockWidget(QWidget):
             return self.create_if_image()
         elif self.block_type == "While":
             return self.create_while_image()
+        elif self.block_type == "Switch":
+            return self.create_switch_image()
         else:
             return self.create_start_end_image(self.block_type, "#FFD700")
     
@@ -1090,6 +1290,100 @@ class BlockWidget(QWidget):
         qimage = QImage(img_data, int(total_width), height, QImage.Format.Format_RGBA8888)
         
         return QPixmap.fromImage(qimage)
+    
+    def create_switch_image(self):
+        width = 140  # Increased width to accommodate input
+        height = 36
+        color = "#87CEEB"
+        scale = 3
+        text = "Switch"
+        
+        radius = height / 6
+        semi_y_offset = (height - 2 * radius) / 2
+        total_width = width + 2 * radius
+        
+        # Scale for high resolution
+        img_width = int(total_width * scale)
+        img_height = int(height * scale)
+        scaled_width = int(width * scale)
+        scaled_radius = radius * scale
+        scaled_semi_offset = semi_y_offset * scale
+        scaled_outline = 2 * scale
+        
+        # Create RGBA image
+        img_rgba = Image.new('RGBA', (img_width, img_height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img_rgba)
+        
+        # Draw filled rectangle
+        draw.rectangle(
+            [scaled_radius, 0, scaled_width + scaled_radius, img_height],
+            fill=color + 'FF'
+        )
+        
+        # Left white circle (input)
+        draw.ellipse(
+            [0, scaled_semi_offset, 2 * scaled_radius, scaled_semi_offset + 2 * scaled_radius],
+            fill=color + 'FF'
+        )
+        draw.ellipse(
+            [0, scaled_semi_offset, 2 * (scaled_radius-1), scaled_semi_offset + 2 * (scaled_radius-1)],
+            fill='white'
+        )
+        
+        # Right red circle (output)
+        draw.ellipse(
+            [scaled_width, scaled_semi_offset, scaled_width + 2 * scaled_radius, scaled_semi_offset + 2 * scaled_radius],
+            fill=color + 'FF'
+        )
+        draw.ellipse(
+            [scaled_width, scaled_semi_offset, scaled_width + 2 * (scaled_radius-1), scaled_semi_offset + 2 * (scaled_radius-1)],
+            fill='red'
+        )
+        
+        # Draw "Timer" text on the left side
+        try:
+            font = ImageFont.truetype("arial.ttf", int(15 * scale))
+        except:
+            font = ImageFont.load_default()
+        
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # Position text on left side
+        text_x = scaled_radius + int(10 * scale)
+        text_y = ((img_height - text_height) // 2)
+        draw.text((text_x, text_y), text, fill='black', font=font)
+        
+        # Draw outline
+        draw.ellipse(
+            [0, scaled_semi_offset, 2 * scaled_radius, scaled_semi_offset + 2 * scaled_radius],
+            outline='black',
+            width=int(scaled_outline)
+        )
+        draw.ellipse(
+            [scaled_width, scaled_semi_offset, scaled_width + 2 * scaled_radius, scaled_semi_offset + 2 * scaled_radius],
+            outline='black',
+            width=int(scaled_outline)
+        )
+        draw.line(
+            [scaled_radius, int(scaled_outline/2), scaled_width + scaled_radius, int(scaled_outline/2)],
+            fill='black',
+            width=int(scaled_outline)
+        )
+        draw.line(
+            [scaled_radius, img_height - int(scaled_outline/2), scaled_width + scaled_radius, img_height - int(scaled_outline/2)],
+            fill='black',
+            width=int(scaled_outline)
+        )
+        
+        # Resize with antialiasing
+        img_rgba_resized = img_rgba.resize((int(total_width), height), Image.LANCZOS)
+        
+        # Convert to QPixmap
+        img_data = img_rgba_resized.tobytes("raw", "RGBA")
+        qimage = QImage(img_data, int(total_width), height, QImage.Format.Format_RGBA8888)
+        return QPixmap.fromImage(qimage)
       
     def paintEvent(self, event):
         """Draw the block"""
@@ -1099,12 +1393,12 @@ class BlockWidget(QWidget):
     
     def mousePressEvent(self, event):
         """Unified mouse handler - emit signal instead of handling directly"""
-        #print(f"\n✓ Block {self.block_id} mousePressEvent fired!")
-        #print(f"  Click position (local): {event.pos()}")
-        #print(f"  events_handler: {self.events_handler}")
+        print(f"\n✓ Block {self.block_id} mousePressEvent fired!")
+        print(f"  Click position (local): {event.pos()}")
+        print(f"  events_handler: {self.events_handler}")
         
         if self.events_handler is None:
-            #print("  ⚠ ERROR: events_handler is None!")
+            print("  ⚠ ERROR: events_handler is None!")
             return
         
         # Check which circle was clicked
@@ -1120,7 +1414,9 @@ class BlockWidget(QWidget):
                 print(f"  → Emitting block_input_clicked signal")
                 self.events_handler.block_input_clicked.emit(self, circle_center, circle_type)
             elif circle_type in ('out', 'out1', 'out2'):
-                print(f"  → Emitting block_output_clicked signal")
+                print(f"\n🚀 Emitting block_output_clicked")
+                print(f"   Circle type: {circle_type}")
+                print(f"   self.events_handler: {self.events_handler}")
                 self.events_handler.block_output_clicked.emit(self, circle_center, circle_type)
         else:
             print(f"  ✗ Not on a circle - treating as drag")
@@ -1138,10 +1434,15 @@ class Elements_events(QObject):
         self.canvas = canvas
         self.path_manager = canvas.path_manager if hasattr(canvas, 'path_manager') else None
         
+        print(f"🔗 Elements_events.__init__(): Connecting signals...")
+        print(f"   block_output_clicked signal: {self.block_output_clicked}")
+        print(f"   on_output_clicked slot: {self.on_output_clicked}")
         # Connect signals to slots
         self.block_input_clicked.connect(self.on_input_clicked)
         self.block_output_clicked.connect(self.on_output_clicked)
     
+        print(f"✓ Signals connected successfully")
+        
     def on_input_clicked(self, block, circle_center, circle_type):
         """Handle input circle clicks"""
         if self.path_manager:
@@ -1149,15 +1450,15 @@ class Elements_events(QObject):
     
     def on_output_clicked(self, block, circle_center, circle_type):
         """Handle output circle clicks"""
-        #print(f"\n✓✓ on_output_clicked FIRED!")
-        #print(f"  Block: {block.block_id}, circle_type: {circle_type}")
-        #print(f"  path_manager: {self.path_manager}")
+        print(f"\n✓✓ on_output_clicked FIRED!")
+        print(f"  Block: {block.block_id}, circle_type: {circle_type}")
+        print(f"  path_manager: {self.path_manager}")
         
         if self.path_manager:
-            #print(f"  → Calling path_manager.start_connection()")
+            print(f"  → Calling path_manager.start_connection()")
             self.path_manager.start_connection(block, circle_center, circle_type)
         else:
-            #print(f"  ⚠ path_manager is None!")
+            print(f"  ⚠ path_manager is None!")
             pass
     
     def get_circle_info(self, block, circle_type):
@@ -1263,8 +1564,26 @@ class Element_spawn:
         # Generate unique ID
         block_id = random.randint(10000, 99999)
         
+        Utils.top_infos[block_id] = {
+            'widget': None,  # Will set after block created
+            'id': block_id,
+            'type': element_type,
+            'x': 0, 'y': 0,  # Will update after positioning
+            'width': 0, 'height': 0,
+            'in_connections': [],
+            'out_connections': [],
+            'value_1': '--',  # Default values
+            'value_2': '',
+            'combo_value': '='
+        }
+        
         # Create block widget
         block = BlockWidget(parent, element_type, block_id)
+        
+        Utils.top_infos[block_id]['widget'] = block
+        Utils.top_infos[block_id]['width'] = block.width()
+        Utils.top_infos[block_id]['height'] = block.height()
+        
         
         block.events_handler = parent.elements_events
         #print(f"✓ Assigned events_handler to block {block_id}")
@@ -1278,18 +1597,5 @@ class Element_spawn:
         
         # Add to canvas
         parent.add_draggable_widget(block)
-        
-        # Store in Utils
-        Utils.top_infos[block_id] = {
-            'widget': block,
-            'id': block_id,
-            'type': element_type,
-            'x': x,
-            'y': y,
-            'width': block.width(),
-            'height': block.height(),
-            'in_connections': [],
-            'out_connections': []
-        }
         
         print(f"Created block: {element_type} at ({x}, {y})")

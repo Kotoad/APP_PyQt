@@ -21,6 +21,8 @@ class PathManager:
         print(f"  circle_center: {circle_center}")
         
         for block_id, top_info in Utils.top_infos.items():
+            print(f"  Checking block {block_id}...")
+            print(f"    top_info['widget']: {top_info['widget']}, widget: {widget}")
             if top_info["widget"] == widget:
                 widget_id = block_id
                 print(f"  ✓ Found block {widget_id}")
@@ -225,8 +227,8 @@ class PathManager:
     
     def update_paths_for_widget(self, widget):
         """Recalculate paths when element moves"""
-        print(f"Updating paths for moved widget: {widget}")
-        print(f"Current paths: {Utils.paths}")
+        #print(f"Updating paths for moved widget: {widget}")
+        #print(f"Current paths: {Utils.paths}")
         for conn_id, path_data in Utils.paths.items():
             if path_data['from'] == widget or path_data['to'] == widget:
                 # Get new positions using specific circle types

@@ -1,128 +1,196 @@
 import Utils
-
-class Codecompiler:
+class CodeCompiler:
     def __init__(self):
-        pass
+        self.file = None
+        self.indent_level = 0
+        self.indent_str = "    "  # 4 spaces
     
-    def Start():
-        print("Code Compilation Started")
-        for block_id, top_info in Utils.top_infos.items():
-            if top_info['type'] == 'Start':
-                print(f"Start, top_info: out_connection: {top_info['out_connections']}")
-                IDS_unspit = str(top_info['out_connections'])
-                IDS = IDS_unspit.split("_")[1].strip("']")
-                with open("File.py", "a") as file:
-                    file.write("import RPi.GPIO as GPIO\n")
-                    for block_id, top_info in Utils.top_infos.items():
-                        if top_info['type'] == 'Timer':
-                            file.write("import time\n")
-                            break
-                    for var_name, var_info in Utils.variables.items():
-                        file.write(f"{var_name} = {var_info['PIN']}\n")
-                    file.write("GPIO.setmode(GPIO.BCM)\n")
-                    for var_name, var_info in Utils.variables.items():
-                        file.write(f"GPIO.setup({var_info['name']}, GPIO.OUT)\n")
-                break
+    def compile(self):
+        """Main entry point"""
+        self.file = open("File.py", "w")
+        print("Compiling code to File.py...")
+        self.write_imports()
+        self.write_setup()
         
-        while True:
-            found_match = False
-            for block_id, top_info in Utils.top_infos.items():
-                if top_info['type'] != 'Start' and top_info['type'] != 'End':
-                    print(f"IDS {IDS}, Top ID {top_info['id']}")
-                    if IDS == str(top_info['id']):
-                        print(f"Process, top_info: out_connection: {top_info['out_connections']}")
-                        if top_info['type'] == 'If':
-                            print("If")
-                            condition = top_info['value_1'] + " " + top_info['combo_index'] + " " + top_info['value_2']
-                            if top_info['value_1'] is not int:
-                                for var_name, var_info in Utils.variables.items():
-                                    if top_info['value_1'] == var_info['name']:
-                                        value_1 = var_info['value']
-                            if top_info['value_2'] is not int:
-                                for var_name, var_info in Utils.variables.items():
-                                    if top_info['value_2'] == var_info['name']:
-                                        value_2 = var_info['value']
-                            combo_value = top_info['combo_index']
-                            if combo_value == "==":
-                                with open("File.py", "a") as file:
-                                    file.write(f"#condition: {condition}\n")
-                                    file.write(f"if {value_1} == {value_2}:\n")
-                            elif combo_value == "!=":
-                                with open("File.py", "a") as file:
-                                    file.write(f"#condition: {condition}\n")
-                                    file.write(f"if {value_1} != {value_2}:\n")
-                            elif combo_value == "<":
-                                with open("File.py", "a") as file:
-                                    file.write(f"#condition: {condition}\n")
-                                    file.write(f"if {value_1} < {value_2}:\n")
-                            elif combo_value == "<=":
-                                with open("File.py", "a") as file:
-                                    file.write(f"#condition: {condition}\n")
-                                    file.write(f"if {value_1} <= {value_2}:\n")
-                            elif combo_value == ">":
-                                with open("File.py", "a") as file:
-                                    file.write(f"#condition: {condition}\n")
-                                    file.write(f"if {value_1} > {value_2}:\n")
-                            elif combo_value == ">=":
-                                with open("File.py", "a") as file:
-                                    file.write(f"#condition: {condition}\n")
-                                    file.write(f"if {value_1} >= {value_2}:\n")
-                        elif top_info['type'] == 'While':
-                            print("While")
-                            condition = top_info['value_1'] + " " + top_info['combo_index'] + " " + top_info['value_2']
-                            if top_info['value_1'] is not int:
-                                for var_name, var_info in Utils.variables.items():
-                                    if top_info['value_1'] == var_info['name']:
-                                        value_1 = var_info['value']
-                            if top_info['value_2'] is not int:
-                                for var_name, var_info in Utils.variables.items():
-                                    if top_info['value_2'] == var_info['name']:
-                                        value_2 = var_info['value']
-                            combo_value = top_info['combo_index']
-                            if combo_value == "==":
-                                with open("File.py", "a") as file:
-                                    file.write(f"#condition: {condition}\n")
-                                    file.write(f"while {value_1} == {value_2}:\n")
-                            elif combo_value == "!=":
-                                with open("File.py", "a") as file:
-                                    file.write(f"#condition: {condition}\n")
-                                    file.write(f"while {value_1} != {value_2}:\n")
-                            elif combo_value == "<":
-                                with open("File.py", "a") as file:
-                                    file.write(f"#condition: {condition}\n")
-                                    file.write(f"while {value_1} < {value_2}:\n")
-                            elif combo_value == "<=":
-                                with open("File.py", "a") as file:
-                                    file.write(f"#condition: {condition}\n")
-                                    file.write(f"while {value_1} <= {value_2}:\n")
-                            elif combo_value == ">":
-                                with open("File.py", "a") as file:
-                                    file.write(f"#condition: {condition}\n")
-                                    file.write(f"while {value_1} > {value_2}:\n")
-                            elif combo_value == ">=":
-                                with open("File.py", "a") as file:
-                                    file.write(f"#condition: {condition}\n")
-                                    file.write(f"while {value_1} >= {value_2}:\n")
-                        elif top_info['type'] == 'Timer':
-                            print("Time Delay")
-                            with open("File.py", "a") as file:
-                                print(f"Time Delay of {top_info['value_1']} seconds")
-                                file.write(f"time.sleep({top_info['value_1']})\n")
-                        
-                        IDS_unspit = str(top_info['out_connections'])
-                        IDS = IDS_unspit.split("_")[1].strip("']")
-                        print(f"IDS updated to {IDS}")
-                        with open("File.py", "a") as file:
-                            file.write("Process\n")
-                        found_match = True
-                        break  # Přeruš vnitřní smyčku a začni znovu
-            
-            if not found_match:
-                break
-                
+        # Find Start block
+        start_block = self.find_block_by_type('Start')
+        if start_block:
+            next_id = self.get_next_block(start_block['id'])
+            self.process_block(next_id)
+        
+        self.write_cleanup()
+        self.file.close()
+    
+    def process_block(self, block_id):
+        """Process single block - dispatch to handler"""
+        if not block_id:
+            return
+        
+        block = Utils.top_infos[block_id]
+        
+        print(f"Processing block {block_id} of type {block['type']}")
+        
+        if block['type'] == 'If':
+            self.handle_if_block(block)
+        elif block['type'] == 'While':
+            self.handle_while_block(block)
+        elif block['type'] == 'Timer':
+            self.handle_timer_block(block)
+        elif block['type'] == 'End':
+            self.handle_end_block(block)
+        else:
+            print(f"Unknown block type: {block['type']}")
+            pass
+        
+    def write_imports(self):
+        self.file.write("import RPi.GPIO as GPIO\n")
         for block_id, top_info in Utils.top_infos.items():
-            if top_info['type'] == 'End':
-                if IDS == str(top_info['id']):
-                    print("End")
-                    with open("File.py", "a") as file:
-                        file.write("End\n")
+            if top_info['type'] == 'Timer':
+                self.file.write("import time\n")
+                break
+    
+    def write_setup(self):
+        for var_name, var_info in Utils.variables.items():
+            self.file.write(f"{var_info['name']} = {var_info['value']}\n")
+        self.file.write("GPIO.setmode(GPIO.BCM)\n")
+        for var_name, var_info in Utils.variables.items():
+            self.file.write(f"GPIO.setup({var_info['name']}, GPIO.OUT)\n")
+    
+    def write_cleanup(self):
+        self.file.write("GPIO.cleanup()\n")
+    
+    def find_block_by_type(self, block_type):
+        """Find first block of given type"""
+        for block_id, top_info in Utils.top_infos.items():
+            if top_info['type'] == block_type:
+                return top_info
+        return None
+    
+    def get_next_block(self, current_block_id):
+        """Get the block connected to output of current block"""
+        current_info = Utils.top_infos[current_block_id]
+        
+        # Get first out_connection
+        if current_info['out_connections']:
+            first_connection_id = current_info['out_connections'][0]
+            
+            # Find which block this connection goes to
+            for block_id, info in Utils.top_infos.items():
+                if first_connection_id in info['in_connections']:
+                    return block_id
+        return None 
+    
+    def resolve_value(self, value_str):
+        """Convert value to actual value - handle variable or literal"""
+        if self.is_variable_reference(value_str):
+            print(f"Resolving variable reference: {value_str}")
+            # Look up variable's current runtime value
+            for var_id, var_info in Utils.variables.items():
+                if var_info['name'] == value_str:
+                    print(f"Found variable {value_str} with value {var_info['value']}")
+                    return var_info['value']  # Or actual value storage
+        return value_str  # It's a literal
+    
+    def is_variable_reference(self, value_str):
+        """Check if value is a variable name (not a number)"""
+        try:
+            float(value_str)  # Can convert to number?
+            print(f"{value_str} is a literal number.")
+            return False      # It's a literal number
+        except ValueError:
+            print(f"{value_str} is a variable reference.")
+            return True 
+        
+    def writeline(self, text):
+        """Write indented line"""
+        indent = self.indent_str * self.indent_level
+        self.file.write(indent + text + "\n")
+        
+    def write_condition(self, type,  value1, operator, value2):
+        """Write condition code - DRY principle"""
+        text = f"{type} {value1} {operator} {value2}:"
+        print(f"Writing condition: {text}")
+        self.writeline(text)
+    
+    def get_comparison_operator(self, combo_value):
+        print(f"Mapping combo value '{combo_value}' to operator")
+        """Map combo box value to Python operator"""
+        operators = {
+            "==": "==",
+            "!=": "!=",
+            "<": "<",
+            "<=": "<=",
+            ">": ">",
+            ">=": ">="
+        }
+        print(f"Mapped to operator: {operators.get(combo_value, '==')}")
+        return operators.get(combo_value, "==")
+
+    def get_next_block_from_output(self, current_block_id, output_circle):
+        """Get the block connected to specific output circle of current block"""
+        current_info = Utils.top_infos[current_block_id]
+        
+        # Find connection from specified output circle
+        for conn_id in current_info['out_connections']:
+            conn_info = Utils.paths.get(conn_id)
+            if conn_info and conn_info['from_circle'] == output_circle:
+                # Find which block this connection goes to
+                for block_id, info in Utils.top_infos.items():
+                    if conn_id in info['in_connections']:
+                        return block_id
+        return None
+    
+    def handle_if_block(self, block):
+        value_1 = self.resolve_value(block['value_1'])
+        value_2 = self.resolve_value(block['value_2'])
+        print(f"Resolved If block values: {value_1}, {value_2}")
+        operator = self.get_comparison_operator(block['combo_value'])
+        print(f"Using operator: {operator}")
+        out1_id = self.get_next_block_from_output(block['id'], 'out1')  # True path
+        out2_id = self.get_next_block_from_output(block['id'], 'out2')  # False path
+        print(f"If block outputs: out1 -> {out1_id}, out2 -> {out2_id}")
+        self.write_condition(
+            "if", value_1, operator, value_2
+        )
+        self.indent_level += 1
+        self.process_block(out1_id)
+        print(f"Completed If true branch, now handling else branch")
+        self.indent_level -= 1
+        self.writeline("else:")
+        print(f"Processing else branch for If block")
+        self.indent_level += 1
+        self.process_block(out2_id)
+        
+        self.indent_level -= 1
+    
+    def handle_while_block(self, block):
+        value_1 = self.resolve_value(block['value_1'])
+        value_2 = self.resolve_value(block['value_2'])
+        print(f"Resolved While block values: {value_1}, {value_2}")
+        operator = self.get_comparison_operator(block['combo_value'])
+        print(f"Using operator: {operator}")
+        out1_id = self.get_next_block_from_output(block['id'], 'out1')  # True path
+        out2_id = self.get_next_block_from_output(block['id'], 'out2')  # False path
+        print(f"While block outputs: out1 -> {out1_id}, out2 -> {out2_id}")
+        self.write_condition(
+            "while", value_1, operator, value_2
+        )
+        self.indent_level += 1
+        print(f"Processing While true branch for While block")
+        self.process_block(out1_id)
+        self.indent_level -= 1
+        print(f"Processing While false branch for While block")
+        self.process_block(out2_id)
+        
+    def handle_timer_block(self, block):
+        self.writeline(f"time.sleep({block['value_1']})")
+        
+        next_id = self.get_next_block(block['id'])
+        if next_id:
+            print(f"Processing next block after Timer: {next_id}")
+        self.process_block(next_id)
+    
+    def handle_end_block(self, block):
+        print(f"Handling End block {block['id']}")
+        # End block - no action needed, just return
+        return

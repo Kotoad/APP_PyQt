@@ -7,7 +7,7 @@ import sys
 import Utils
 from Path_manager_pyqt import PathManager
 from Elements_window_pyqt import ElementsWindow
-import code_compiler
+from code_compiler import CodeCompiler
 from spawn_elements_pyqt import spawning_elements, Elements_events
 
 class GridCanvas(QWidget):
@@ -78,21 +78,12 @@ class GridCanvas(QWidget):
                 dashed=True
             )
     
-    """def mouseMoveEvent(self, event):
-        Handle mouse movement - update connection preview
-        super().mouseMoveEvent(event)
-        
-        # Update connection preview if creating a connection
-        if self.path_manager.start_node:
-            self.path_manager.update_preview_path(event.pos())
-            self.update()"""
-    
     def mousePressEvent(self, event):
         """Debug: Track if canvas gets mouse press"""
         #print("✓ GridCanvas.mousePressEvent fired!")
         #print(f"  Position: {event.pos()}")
         # Call the existing one if you had it, or let it propagate
-        print(f"Canvas mousePressEvent at {event.pos()}")
+        #print(f"Canvas mousePressEvent at {event.pos()}")
         super().mousePressEvent(event)
         
     def mouseMoveEvent(self, event):
@@ -170,12 +161,14 @@ class GridCanvas(QWidget):
                 circle_type = self.elements_events.check_click_on_circle(widget, event.pos())
                 if not circle_type:  # Only set dragged_widget if NOT on circle
                     self.on_canvas_click(event, widget)
+                    event.accept()
             
             original_press(event)
         
         def on_move(event):
             if event.buttons() & Qt.MouseButton.LeftButton:
                 self.on_canvas_drag(event, widget)
+                event.accept()
             
             original_move(event)
                 
@@ -198,7 +191,7 @@ class GridCanvas(QWidget):
                 self.dragged_widget = widget_info
                 self.is_dragging = True
                 widget.raise_()
-                #print(f"Click {self.mousePressEvent}")
+                print(f"Click {self.mousePressEvent}")
                 break
     
     def on_canvas_drag(self, event, widget):
@@ -236,7 +229,7 @@ class GridCanvas(QWidget):
             self.is_dragging = False
             self.update()
             self.path_manager.update_paths_for_widget(widget)
-            #print(f"Release {self.mousePressEvent}")
+            print(f"Release {self.mousePressEvent}")
 
 
 class MainWindow(QMainWindow):
@@ -246,7 +239,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Visual Programming Interface")
         self.resize(1200, 800)
-        
+        self.code_compiler = CodeCompiler()
         # Style
         self.setStyleSheet("""
             QMainWindow {
@@ -307,7 +300,7 @@ class MainWindow(QMainWindow):
     
     def mousePressEvent(self, event):
         """Debug: Track if main window gets mouse press"""
-        #print("⚠ MainWindow.mousePressEvent fired!")
+        print("⚠ MainWindow.mousePressEvent fired!")
         super().mousePressEvent(event)
         
     def create_menu_bar(self):
@@ -519,14 +512,14 @@ class MainWindow(QMainWindow):
         #print(f"Updating variable {imput}")
         
         if self.var_id in Utils.variables:
-            Utils.variables[self.var_id]['type_imput'] = imput
+            Utils.variables[self.var_id]['type'] = imput
             #print(f"Type {self.var_id} value changed to: {imput}")
     
     def value_changed(self, imput):
         #print(f"Updating variable {imput}")
         
         if self.var_id in Utils.variables:
-            Utils.variables[self.var_id]['value_imput'] = imput
+            Utils.variables[self.var_id]['value'] = imput
             #print(f"Value {self.var_id} value changed to: {imput}")
     
     def add_variable_row(self):
@@ -594,10 +587,11 @@ class MainWindow(QMainWindow):
     def compile_code(self):
         """Compile the visual code"""
         try:
-            code_compiler.Codecompiler.Start()
-            #print("Code compiled successfully")
+            print("Starting code compilation...")
+            self.code_compiler.compile()
+            print("Code compiled successfully")
         except Exception as e:
-            #print(f"Compilation error: {e}")
+            print(f"Compilation error: {e}")
             pass
     
     # Menu actions

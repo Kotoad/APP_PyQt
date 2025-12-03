@@ -4,7 +4,6 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from spawn_elements_pyqt import spawning_elements
 
-
 class ElementsWindow(QDialog):
     """Elements selection window with tabs"""
     
@@ -144,6 +143,7 @@ class ElementsWindow(QDialog):
         logic_elements = [
             ("If", "If"),
             ("While", "While"),
+            ("Switch", "Switch"),
             ("For Loop", "For Loop")
         ]
         
