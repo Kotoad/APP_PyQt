@@ -608,8 +608,6 @@ class BlockWidget(QWidget):
             item = QStandardItem(text)
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             model.appendRow(item)
-            
-        #self.If_combobox.view().setMinimumWidth(60)
         
         input_x = self.width() - 65
         input_y =3* ((self.height() - 20) // 4)
@@ -654,7 +652,7 @@ class BlockWidget(QWidget):
         
     def refresh_if_dropdown(self):
         """Refresh the If block's variable dropdown with updated names"""
-        if self.block_type not in ('If', 'While'):
+        if self.block_type not in ('If', 'While', 'Switch'):
             return
         
         # Block signals so we don't trigger change events
@@ -664,6 +662,9 @@ class BlockWidget(QWidget):
         if self.block_type == 'While':
             self.While_input_1.blockSignals(True)
             self.While_input_1.clear()
+        if self.block_type == 'Switch':
+            self.Var_input_1.blockSignals(True)
+            self.Var_input_1.clear()
         
         # Add new items from updated Utils.items_If
         for var_id, var_name in Utils.var_items.items():
@@ -671,13 +672,16 @@ class BlockWidget(QWidget):
                 self.If_input_1.addItem(var_name)
             if self.block_type == 'While':
                 self.While_input_1.addItem(var_name)
+            if self.block_type == 'Switch':
+                self.Var_input_1.addItem(var_name)
         
         # Unblock signals
         if self.block_type == 'If':
             self.If_input_1.blockSignals(False)
         if self.block_type == 'While':
             self.While_input_1.blockSignals(False)
-        
+        if self.block_type == 'Switch':
+            self.Var_input_1.blockSignals(False)
         print(f"Refreshed If block {self.block_id} dropdown")    
     #MARK: Timer Input
     def create_timer_input(self):
@@ -716,16 +720,85 @@ class BlockWidget(QWidget):
         
         # Store the value when changed
         self.timer_input.textChanged.connect(self.on_value_1_changed)
-    
+    #MARK: Switch Input
     def create_Switch_inputs(self):
-        self.Switch = CustomSwitch(parent= self, width=40, height=20)
-        input_x = self.width() - 65
-        input_y = (self.height() - 20) // 2 
-        self.Switch.move(input_x, input_y)
+        self.Switch = CustomSwitch(parent=self, width=40, height=20)
+        input_x = (self.Switch_width/2 - self.Switch.width()/2)+3
+        input_y = 6*((self.Switch_height - self.Switch.height()) // 6)
+        self.Switch.move(int(input_x), int(input_y))
         self.Switch.toggled.connect(self.on_switch_changed)
         
         self.Switch.raise_()
         self.Switch.show()
+        
+        self.Var_input_1 = MaxWidthComboBox(self, max_popup_width=300)
+        self.Var_input_1.setEditable(False)
+        self.Var_input_1.setFixedHeight(20)
+        self.Var_input_1.setMinimumWidth(30) 
+        model = self.Var_input_1.model()
+        
+        Utils.var_items.setdefault("default_item", "--")
+        for var_id, vars in Utils.variables.items():
+            Utils.var_items.setdefault(var_id, vars['name'])
+        print(Utils.var_items)
+        
+        for var_id, var_name in Utils.var_items.items():
+            item = QStandardItem(var_name)
+            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            model.appendRow(item)
+            
+        delegate = NoTruncateDelegate()
+        self.Var_input_1.setItemDelegate(delegate)
+        self.Var_input_1.view().setItemDelegate(delegate)
+        
+        self.Var_input_1.view().setMaximumWidth(300)
+        self.Var_input_1.view().horizontalScrollBar().setStyleSheet("""
+            QScrollBar:horizontal {
+                height: 0px;
+            }
+        """)
+
+        # ALSO set the view minimum height to match item size
+        self.Var_input_1.view().setSpacing(0) 
+        
+        self.Var_input_1.setCurrentIndex(0)
+
+        input_x = self.Switch_width - 30
+        input_y =(self.height() - 20) // 4
+        self.Var_input_1.move(input_x, input_y)
+        self.Var_input_1.setStyleSheet("""
+        QComboBox {
+            background-color: white;
+            border: 1px solid #333;
+            border-radius: 3px;
+            padding: 2px 2px;
+            font-size: 12px;
+            color: #333;
+        }
+        QComboBox::drop-down { 
+            width: 0px; 
+            border: none; 
+        }
+        QComboBox::down-arrow { 
+            width: 0px; 
+            image: none; 
+        }
+        QComboBox:focus {
+            border: 2px solid #4CAF50;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #eeeeee;
+            color: #333333;
+            border: 1px solid #555555;
+            selection-background-color: #1F538D;
+            max-width: 300px;
+            outline: none;  
+        }
+        """) 
+        self.Var_input_1.raise_()
+        self.Var_input_1.show()
+        
+        self.Var_input_1.currentIndexChanged.connect(self.on_value_1_changed)
     
     def on_switch_changed(self, state):
         """Called automatically when switch toggles"""
@@ -735,6 +808,7 @@ class BlockWidget(QWidget):
         # Store in Utils if needed
         if self.block_id in Utils.top_infos:
             Utils.top_infos[self.block_id]['switch_value'] = state
+            print(f"Switch {self.block_id} value: {Utils.top_infos[self.block_id]['switch_value']}")
     
     def on_value_1_changed(self, text):
         """Handle timer value changes"""
@@ -879,7 +953,7 @@ class BlockWidget(QWidget):
             return self.create_switch_image()
         else:
             return self.create_start_end_image(self.block_type, "#FFD700")
-    
+    #MAEK: Start/End Image
     def create_start_end_image(self, text, color, width=100, height=36, scale=3):
         """Create rounded rectangle with semicircular caps"""
         radius = height / 6
@@ -973,7 +1047,7 @@ class BlockWidget(QWidget):
         qimage = QImage(img_data, int(total_width), height, QImage.Format.Format_RGBA8888)
         
         return QPixmap.fromImage(qimage)
-    
+    #MARK: Timer Image
     def create_timer_image(self):
         """Create timer block image with space for number input"""
         width = 140  # Increased width to accommodate input
@@ -1068,7 +1142,7 @@ class BlockWidget(QWidget):
         img_data = img_rgba_resized.tobytes("raw", "RGBA")
         qimage = QImage(img_data, int(total_width), height, QImage.Format.Format_RGBA8888)
         return QPixmap.fromImage(qimage)
-    
+    #MARK: If Image
     def create_if_image(self):
         """Create if block image with 1 input and 2 outputs"""
         width = 100
@@ -1179,7 +1253,7 @@ class BlockWidget(QWidget):
         qimage = QImage(img_data, int(total_width), height, QImage.Format.Format_RGBA8888)
         
         return QPixmap.fromImage(qimage)
-    
+    #MARK: While Image
     def create_while_image(self):
         """Create if block image with 1 input and 2 outputs"""
         width = 100
@@ -1290,22 +1364,21 @@ class BlockWidget(QWidget):
         qimage = QImage(img_data, int(total_width), height, QImage.Format.Format_RGBA8888)
         
         return QPixmap.fromImage(qimage)
-    
+    #MARK: Switch Image
     def create_switch_image(self):
-        width = 140  # Increased width to accommodate input
-        height = 36
+        self.Switch_width = 100  # Increased width to accommodate input
+        self.Switch_height = 54
         color = "#87CEEB"
         scale = 3
-        text = "Switch"
         
-        radius = height / 6
-        semi_y_offset = (height - 2 * radius) / 2
-        total_width = width + 2 * radius
+        radius = self.Switch_height / 10
+        semi_y_offset = (self.Switch_height - 2 * radius) / 2
+        total_width = self.Switch_width + 2 * radius
         
         # Scale for high resolution
         img_width = int(total_width * scale)
-        img_height = int(height * scale)
-        scaled_width = int(width * scale)
+        img_height = int(self.Switch_height * scale)
+        scaled_width = int(self.Switch_width * scale)
         scaled_radius = radius * scale
         scaled_semi_offset = semi_y_offset * scale
         scaled_outline = 2 * scale
@@ -1321,48 +1394,66 @@ class BlockWidget(QWidget):
         )
         
         # Left white circle (input)
+        input_y_offset = 3 * img_height / 4 - scaled_radius
         draw.ellipse(
-            [0, scaled_semi_offset, 2 * scaled_radius, scaled_semi_offset + 2 * scaled_radius],
+            [0, input_y_offset, 2 * scaled_radius, input_y_offset + 2 * scaled_radius],
             fill=color + 'FF'
         )
         draw.ellipse(
-            [0, scaled_semi_offset, 2 * (scaled_radius-1), scaled_semi_offset + 2 * (scaled_radius-1)],
+            [0, input_y_offset, 2 * (scaled_radius-1), input_y_offset + 2 * (scaled_radius-1)],
             fill='white'
         )
         
         # Right red circle (output)
+        output2_y_offset = 3 * img_height / 4 - scaled_radius
         draw.ellipse(
-            [scaled_width, scaled_semi_offset, scaled_width + 2 * scaled_radius, scaled_semi_offset + 2 * scaled_radius],
+            [scaled_width, output2_y_offset, scaled_width + 2 * scaled_radius, output2_y_offset + 2 * scaled_radius],
             fill=color + 'FF'
         )
         draw.ellipse(
-            [scaled_width, scaled_semi_offset, scaled_width + 2 * (scaled_radius-1), scaled_semi_offset + 2 * (scaled_radius-1)],
+            [scaled_width, output2_y_offset, scaled_width + 2 * (scaled_radius-1), output2_y_offset + 2 * (scaled_radius-1)],
             fill='red'
         )
         
         # Draw "Timer" text on the left side
         try:
             font = ImageFont.truetype("arial.ttf", int(15 * scale))
+            font2 = ImageFont.truetype("arial.ttf", int(11 * scale))
         except:
             font = ImageFont.load_default()
         
-        bbox = draw.textbbox((0, 0), text, font=font)
+        
+        
+        bbox = draw.textbbox((0, 0), "Variable", font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
+        text_x = (4*scale) + (10 * scale)
+        text_y = ((img_height - text_height) // 4)
+        draw.text((text_x, text_y), "Variable", fill='black', font=font)
         
-        # Position text on left side
-        text_x = scaled_radius + int(10 * scale)
-        text_y = ((img_height - text_height) // 2)
-        draw.text((text_x, text_y), text, fill='black', font=font)
+        bbox_on = draw.textbbox((0, 0), "ON", font=font2 )
+        on_width = bbox_on[2] - bbox_on[0]
+        on_height = bbox_on[3] - bbox_on[1]
+        on_x = (4*scale) + (10 * scale)
+        on_y = (img_height - on_height) - 30
+        print(f"ON text position: ({on_x}, {on_y})")
+        draw.text((on_x, on_y), "ON", fill='black', font=font2)
+        
+        bbox_off = draw.textbbox((0, 0), "OFF", font=font2)
+        off_width = bbox_off[2] - bbox_off[0]
+        off_height = bbox_off[3] - bbox_off[1]
+        off_x = scaled_width - off_width -(4*scale)
+        off_y = (img_height - off_height) - 30
+        draw.text((off_x, off_y), "OFF", fill='black', font=font2)
         
         # Draw outline
         draw.ellipse(
-            [0, scaled_semi_offset, 2 * scaled_radius, scaled_semi_offset + 2 * scaled_radius],
+            [0, input_y_offset, 2 * scaled_radius, input_y_offset + 2 * scaled_radius],
             outline='black',
             width=int(scaled_outline)
         )
         draw.ellipse(
-            [scaled_width, scaled_semi_offset, scaled_width + 2 * scaled_radius, scaled_semi_offset + 2 * scaled_radius],
+            [scaled_width, output2_y_offset, scaled_width + 2 * scaled_radius, output2_y_offset + 2 * scaled_radius],
             outline='black',
             width=int(scaled_outline)
         )
@@ -1378,11 +1469,11 @@ class BlockWidget(QWidget):
         )
         
         # Resize with antialiasing
-        img_rgba_resized = img_rgba.resize((int(total_width), height), Image.LANCZOS)
+        img_rgba_resized = img_rgba.resize((int(total_width), self.Switch_height), Image.LANCZOS)
         
         # Convert to QPixmap
         img_data = img_rgba_resized.tobytes("raw", "RGBA")
-        qimage = QImage(img_data, int(total_width), height, QImage.Format.Format_RGBA8888)
+        qimage = QImage(img_data, int(total_width), self.Switch_height, QImage.Format.Format_RGBA8888)
         return QPixmap.fromImage(qimage)
       
     def paintEvent(self, event):
@@ -1421,7 +1512,7 @@ class BlockWidget(QWidget):
         else:
             print(f"  ✗ Not on a circle - treating as drag")
             super().mousePressEvent(event)
-
+#MARK: Elements_events
 class Elements_events(QObject):
     """Centralized event handler for block interactions"""
     
@@ -1513,14 +1604,21 @@ class Elements_events(QObject):
         
         # Input circle
         if block.block_type in ('If', 'While'):
-            # If has TWO inputs
+            # If has ONE input at 3/4 height
             in2_x, in2_y = radius, 3 * (block.height() / 4)
             print(f"  Checking If block inputs at ({in2_x}, {in2_y})")
             dist_in2 = ((click_pos.x() - in2_x)**2 + (click_pos.y() - in2_y)**2)**0.5
             print(f"  Distances to inputs: in2={dist_in2}, effective_radius={effective_radius}")
             if dist_in2 <= effective_radius:
                 return 'in1'  # ✅ Matches get_circle_info case
-        
+        elif block.block_type == 'Switch':
+            # Switch has ONE input at 3/4 height
+            in_x, in_y = radius, 3 * (block.height() / 4)
+            dist_in = ((click_pos.x() - in_x)**2 + (click_pos.y() - in_y)**2)**0.5
+            
+            if dist_in <= effective_radius:
+                return 'in1'
+            
         else:
             # All other blocks: ONE input
             in_x, in_y = radius, block.height() / 2
@@ -1542,6 +1640,13 @@ class Elements_events(QObject):
             if dist_out1 <= effective_radius:
                 return 'out1'
             if dist_out2 <= effective_radius:
+                return 'out2'
+        elif block.block_type == 'Switch':
+            # Single output circle at 3/4 height
+            out_y = 3 * (block.height() / 4)
+            dist_out = ((click_pos.x() - out_x)**2 + (click_pos.y() - out_y)**2)**0.5
+            
+            if dist_out <= effective_radius:
                 return 'out2'
         else:
             # Single output circle
@@ -1574,7 +1679,8 @@ class Element_spawn:
             'out_connections': [],
             'value_1': '--',  # Default values
             'value_2': '',
-            'combo_value': '='
+            'combo_value': '=',
+            'switch_value': 'OFF',
         }
         
         # Create block widget

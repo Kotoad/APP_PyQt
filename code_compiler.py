@@ -38,6 +38,8 @@ class CodeCompiler:
             self.handle_timer_block(block)
         elif block['type'] == 'End':
             self.handle_end_block(block)
+        elif block['type'] == 'Switch':
+            self.handle_switch_block(block)
         else:
             print(f"Unknown block type: {block['type']}")
             pass
@@ -188,6 +190,24 @@ class CodeCompiler:
         next_id = self.get_next_block(block['id'])
         if next_id:
             print(f"Processing next block after Timer: {next_id}")
+        self.process_block(next_id)
+    
+    def handle_switch_block(self, block):
+        Switch_value = self.resolve_value(block['switch_value'])
+        Var_1 = self.resolve_value(block['value_1'])
+        print(f"Resolved Switch block value: {Switch_value}")
+        if Switch_value == 'ON':
+            print(f"Writing GPIO HIGH for Switch block")
+            self.writeline(f"GPIO.output({Var_1}, GPIO.HIGH)")
+        elif Switch_value == 'OFF':
+            print(f"Writing GPIO LOW for Switch block")
+            self.writeline(f"GPIO.output({Var_1}, GPIO.LOW)")
+        else:
+            print(f"Unknown Switch value: {Switch_value}, defaulting to LOW")
+        
+        next_id = self.get_next_block(block['id'])
+        if next_id:
+            print(f"Processing next block after Switch: {next_id}")
         self.process_block(next_id)
     
     def handle_end_block(self, block):

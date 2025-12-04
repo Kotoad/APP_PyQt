@@ -1,10 +1,5 @@
 import RPi.GPIO as GPIO
-import time
+d = 
 GPIO.setmode(GPIO.BCM)
-if -- == :
-    while -- == :
-        time.sleep(1)
-    time.sleep(2)
-else:
-    time.sleep(3)
+GPIO.setup(d, GPIO.OUT)
 GPIO.cleanup()
