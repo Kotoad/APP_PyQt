@@ -116,6 +116,20 @@ paths = {}
 #   pin = Utils.variables['var_1']['PIN']  # Returns 5
 variables = {}
 
+# DEVICES DATA STRUCTURE
+# Purpose: Stores all user-defined devices in the program
+# Key: device_id (unique identifier for each device)
+# Value: Dictionary containing device metadata
+# {
+#     'device_id_1': {
+#         'name': '',          # User-friendly device name (shown in UI)
+#         'type': 'Output' | 'Input' | 'PWM',  # Device type
+#         'PIN': 5,            # GPIO PIN number (for Raspberry Pi)
+#     },
+#     ...
+# }
+devices = {}
+
 # VARIABLES WITH SAME NAME TRACKING
 # Purpose: Handles cases where multiple variables might have the same name
 # This is a lookup optimization to quickly check if a name is already used
@@ -136,6 +150,20 @@ variables = {}
 #   # Find all variables named 'temperature'
 #   temp_vars = Utils.vars_same.get('temperature', [])
 vars_same = {}
+
+# DEVICES WITH SAME NAME TRACKING
+# Purpose: Handles cases where multiple devices might have the same name
+# This is a lookup optimization to quickly check if a name is already used
+# Key: device_name (string)
+# Value: list of device_ids with that name
+# Structure:
+# { 
+#     'led_light': ['dev_id_1', 'dev_id_3'],  # Multiple devices can have same name
+#     'motor': ['dev_id_2'],
+#     ...
+# }
+
+devs_same = {}
 
 # VARIABLE UI ITEMS MAPPING
 # Purpose: Maps variable IDs to their visual representation in combo boxes/dropdowns
@@ -160,6 +188,21 @@ vars_same = {}
 #       if var_id != '--':  # Skip placeholder
 #           combo_box.addItem(var_name, var_id)  # Text: var_name, Data: var_id
 var_items = {}
+
+# DEVICE UI ITEMS MAPPING
+# Purpose: Maps device IDs to their visual representation in combo boxes/dropdowns
+# Used to populate device selection dropdowns
+# Key: device_id (unique identifier) OR special key '--'
+# Value: Display name (what user sees in the dropdown)
+# Structure:
+# {
+#     'dev_id_1': 'led_light',          # Maps ID to display name
+#     'dev_id_2': 'motor',
+#     '--': '-- select device --',      # Special placeholder entry
+#     ...
+# }
+
+dev_items = {}
 
 # CONFIGURATION DATA STRUCTURE
 # Purpose: Stores application-wide settings and constants

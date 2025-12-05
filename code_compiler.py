@@ -52,12 +52,16 @@ class CodeCompiler:
                 break
     
     def write_setup(self):
-        for var_name, var_info in Utils.variables.items():
-            self.file.write(f"{var_info['name']} = {var_info['value']}\n")
+        for dev_name, dev_info in Utils.devices.items():
+            self.file.write(f"{dev_info['name']} = {dev_info['value']}\n")
         self.file.write("GPIO.setmode(GPIO.BCM)\n")
-        for var_name, var_info in Utils.variables.items():
-            self.file.write(f"GPIO.setup({var_info['name']}, GPIO.OUT)\n")
-    
+        for dev_name, dev_info in Utils.devices.items():
+            if dev_info['type'] == 'Output':
+                self.file.write(f"GPIO.setup({dev_info['name']}, GPIO.OUT)\n")
+            elif dev_info['type'] == 'Input':
+                self.file.write(f"GPIO.setup({dev_info['name']}, GPIO.IN)\n")
+            else:
+                print(f"Unknown device type: {dev_info['type']}")
     def write_cleanup(self):
         self.file.write("GPIO.cleanup()\n")
     
@@ -193,17 +197,28 @@ class CodeCompiler:
         self.process_block(next_id)
     
     def handle_switch_block(self, block):
-        Switch_value = self.resolve_value(block['switch_value'])
+        switch_value = block['switch_value']
+    
+    # ✅ Check if it's already a boolean
+        if isinstance(switch_value, bool):
+            Switch_value = switch_value
+        else:
+            # Only resolve if it's a string (variable reference or literal)
+            Switch_value = self.resolve_value(switch_value)
+        
         Var_1 = self.resolve_value(block['value_1'])
-        print(f"Resolved Switch block value: {Switch_value}")
-        if Switch_value == 'ON':
+        
+        print(f"Resolved Switch block value: {Switch_value} (type: {type(Switch_value).__name__})")
+        
+        if Switch_value is True:
             print(f"Writing GPIO HIGH for Switch block")
             self.writeline(f"GPIO.output({Var_1}, GPIO.HIGH)")
-        elif Switch_value == 'OFF':
+        elif Switch_value is False:
             print(f"Writing GPIO LOW for Switch block")
             self.writeline(f"GPIO.output({Var_1}, GPIO.LOW)")
         else:
-            print(f"Unknown Switch value: {Switch_value}, defaulting to LOW")
+            print(f"Unknown Switch value {Switch_value}, defaulting to LOW")
+            self.writeline(f"GPIO.output({Var_1}, GPIO.LOW)")
         
         next_id = self.get_next_block(block['id'])
         if next_id:

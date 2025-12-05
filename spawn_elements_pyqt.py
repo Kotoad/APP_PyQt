@@ -1,6 +1,12 @@
-from PyQt6.QtWidgets import QWidget, QLabel, QLineEdit, QComboBox, QApplication, QStyleOptionComboBox
-from PyQt6.QtCore import pyqtProperty, QEasingCurve, QRectF, Qt, QPoint, QPropertyAnimation, QRect, pyqtSignal, QObject, QRegularExpression
-from PyQt6.QtGui import QPainter, QPen, QBrush, QColor, QPixmap, QImage, QMouseEvent, QStandardItem, QIntValidator, QRegularExpressionValidator, QPainterPath, QFont
+from PyQt6.QtWidgets import (QWidget, QLabel, QLineEdit,
+                QComboBox, QApplication, QStyleOptionComboBox)
+from PyQt6.QtCore import (pyqtProperty, QEasingCurve, QRectF,
+                Qt, QPoint, QPropertyAnimation, QRect,
+                pyqtSignal, QObject, QRegularExpression)
+from PyQt6.QtGui import (QPainter, QPen, QBrush, QColor,
+                QPixmap, QImage, QMouseEvent, QStandardItem,
+                QIntValidator, QRegularExpressionValidator,
+                QPainterPath, QFont)
 
 from PIL import Image, ImageDraw, ImageFont
 import random
@@ -355,6 +361,30 @@ class BlockWidget(QWidget):
             self.create_While_inputs()
         if self.block_type == "Switch":
             self.create_Switch_inputs()
+        
+    def insert_items(self, combo_box):
+        model = combo_box.model()
+        item = QStandardItem("--")
+        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        model.appendRow(item)
+        if self.block_type == "Switch":
+            for id, text in Utils.dev_items.items():
+                item = QStandardItem(text)
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                item.setBackground(QColor(255, 240, 200))
+                model.appendRow(item)
+        else:
+            for id, text in Utils.var_items.items():
+                item = QStandardItem(text)
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                item.setBackground(QColor(220, 240, 255))
+                model.appendRow(item)
+            for id, text in Utils.dev_items.items():
+                item = QStandardItem(text)
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                item.setBackground(QColor(255, 240, 200))
+                model.appendRow(item)
+            
     #MARK: IF Inputs      
     def create_If_inputs(self):
         print("creating if input")
@@ -364,16 +394,8 @@ class BlockWidget(QWidget):
         self.If_input_1.setMinimumWidth(30) 
         model = self.If_input_1.model()
         
-        Utils.var_items.setdefault("default_item", "--")
-        for var_id, vars in Utils.variables.items():
-            Utils.var_items.setdefault(var_id, vars['name'])
-        print(Utils.var_items)
+        self.insert_items(self.If_input_1)
         
-        for var_id, var_name in Utils.var_items.items():
-            item = QStandardItem(var_name)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            model.appendRow(item)
-            
         delegate = NoTruncateDelegate()
         self.If_input_1.setItemDelegate(delegate)
         self.If_input_1.view().setItemDelegate(delegate)
@@ -426,7 +448,8 @@ class BlockWidget(QWidget):
 
         self.If_input_2 = QLineEdit(self)
         self.If_input_2.setFixedSize(30, 20)
-        validator = QIntValidator(-9999, 9999, self)
+        regex = QRegularExpression(r"^-?\d*$")  # Allow optional minus sign, then digits
+        validator = QRegularExpressionValidator(regex, self)
         self.If_input_2.setValidator(validator)
         input_x = self.width() - 40
         input_y =3* ((self.height() - 20) // 4)
@@ -511,16 +534,8 @@ class BlockWidget(QWidget):
         self.While_input_1.setMinimumWidth(30) 
         model = self.While_input_1.model()
         
-        Utils.var_items.setdefault("default_item", "--")
-        for var_id, vars in Utils.variables.items():
-            Utils.var_items.setdefault(var_id, vars['name'])
-        print(Utils.var_items)
-        
-        for var_id, var_name in Utils.var_items.items():
-            item = QStandardItem(var_name)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            model.appendRow(item)
-            
+        self.insert_items(self.While_input_1)
+
         delegate = NoTruncateDelegate()
         self.While_input_1.setItemDelegate(delegate)
         self.While_input_1.view().setItemDelegate(delegate)
@@ -649,40 +664,7 @@ class BlockWidget(QWidget):
         self.While_input_1.currentIndexChanged.connect(self.on_value_1_changed)
         self.While_input_2.textChanged.connect(self.on_value_2_changed)
         self.While_combobox.currentIndexChanged.connect(self.on_combo_changed)
-        
-    def refresh_if_dropdown(self):
-        """Refresh the If block's variable dropdown with updated names"""
-        if self.block_type not in ('If', 'While', 'Switch'):
-            return
-        
-        # Block signals so we don't trigger change events
-        if self.block_type == 'If':
-            self.If_input_1.blockSignals(True)
-            self.If_input_1.clear()
-        if self.block_type == 'While':
-            self.While_input_1.blockSignals(True)
-            self.While_input_1.clear()
-        if self.block_type == 'Switch':
-            self.Var_input_1.blockSignals(True)
-            self.Var_input_1.clear()
-        
-        # Add new items from updated Utils.items_If
-        for var_id, var_name in Utils.var_items.items():
-            if self.block_type == 'If':
-                self.If_input_1.addItem(var_name)
-            if self.block_type == 'While':
-                self.While_input_1.addItem(var_name)
-            if self.block_type == 'Switch':
-                self.Var_input_1.addItem(var_name)
-        
-        # Unblock signals
-        if self.block_type == 'If':
-            self.If_input_1.blockSignals(False)
-        if self.block_type == 'While':
-            self.While_input_1.blockSignals(False)
-        if self.block_type == 'Switch':
-            self.Var_input_1.blockSignals(False)
-        print(f"Refreshed If block {self.block_id} dropdown")    
+            
     #MARK: Timer Input
     def create_timer_input(self):
         """Create number input field for timer block"""
@@ -737,16 +719,8 @@ class BlockWidget(QWidget):
         self.Var_input_1.setMinimumWidth(30) 
         model = self.Var_input_1.model()
         
-        Utils.var_items.setdefault("default_item", "--")
-        for var_id, vars in Utils.variables.items():
-            Utils.var_items.setdefault(var_id, vars['name'])
-        print(Utils.var_items)
+        self.insert_items(self.Var_input_1)
         
-        for var_id, var_name in Utils.var_items.items():
-            item = QStandardItem(var_name)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            model.appendRow(item)
-            
         delegate = NoTruncateDelegate()
         self.Var_input_1.setItemDelegate(delegate)
         self.Var_input_1.view().setItemDelegate(delegate)
@@ -799,7 +773,7 @@ class BlockWidget(QWidget):
         self.Var_input_1.show()
         
         self.Var_input_1.currentIndexChanged.connect(self.on_value_1_changed)
-    
+    #MARK: Change Handlers
     def on_switch_changed(self, state):
         """Called automatically when switch toggles"""
         print(f"Switch state changed to: {state}")
@@ -825,6 +799,9 @@ class BlockWidget(QWidget):
             Utils.top_infos[self.block_id]['value_1'] = value_1
         elif type == "While":
             value_1 = self.While_input_1.currentText()
+            Utils.top_infos[self.block_id]['value_1'] = value_1
+        elif type == "Switch":
+            value_1 = self.Var_input_1.currentText()
             Utils.top_infos[self.block_id]['value_1'] = value_1
         elif type == "Timer":
             try:
@@ -936,7 +913,47 @@ class BlockWidget(QWidget):
             Utils.top_infos[self.block_id]['combo_value'] = combo_value
         print(f"Block {self.block_id} combo changed to index: {index}")
         print(Utils.top_infos)
+    
+    def refresh_dropdown(self):
+        """Refresh the If block's variable dropdown with updated names"""
+        print("REFRESH for block", self.block_id, "type", self.block_type)
+        print("VARS:", Utils.var_items)
+        print("DEVS:", Utils.dev_items)
+        if self.block_type not in ('If', 'While', 'Switch'):
+            return
         
+        if self.block_type == "If":
+            self.If_input_1.blockSignals(True)
+            self.If_input_1.clear()
+            model = self.If_input_1.model()  # ← Get model reference
+            
+            
+            self.insert_items(self.If_input_1)  # ← Add to model, not addItem()
+            
+            self.If_input_1.blockSignals(False)
+        
+        if self.block_type == "While":
+            self.While_input_1.blockSignals(True)
+            self.While_input_1.clear()
+            model = self.While_input_1.model()  # ← Get model reference
+            
+            # Add variables
+            self.insert_items(self.While_input_1)  # ← Use model, not addItem()
+            
+            self.While_input_1.blockSignals(False)
+        
+        if self.block_type == "Switch":
+            self.Var_input_1.blockSignals(True)
+            self.Var_input_1.clear()
+            model = self.Var_input_1.model()  # ← Get model reference
+            
+            # Add variables
+            self.insert_items(self.Var_input_1)  # ← Use model, not addItem()
+            
+            self.Var_input_1.blockSignals(False)
+        
+        print(f"Refreshed If block {self.block_id} dropdown")
+    
     def create_block_image(self):
         """Create the block image using PIL"""
         if self.block_type == "Start":
@@ -1680,7 +1697,7 @@ class Element_spawn:
             'value_1': '--',  # Default values
             'value_2': '',
             'combo_value': '=',
-            'switch_value': 'OFF',
+            'switch_value': 'True',
         }
         
         # Create block widget

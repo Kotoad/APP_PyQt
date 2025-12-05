@@ -1,15 +1,17 @@
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QMenuBar, QMenu, QPushButton, QLabel,
                              QFrame, QScrollArea, QLineEdit, QComboBox)
-from PyQt6.QtCore import Qt, QPoint, QRect, QSize, pyqtSignal
-from PyQt6.QtGui import QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent
+from PyQt6.QtCore import (Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression)
+from PyQt6.QtGui import (QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent,
+                             QRegularExpressionValidator)
 import sys
 import Utils
 from Path_manager_pyqt import PathManager
 from Elements_window_pyqt import ElementsWindow
 from code_compiler import CodeCompiler
 from spawn_elements_pyqt import spawning_elements, Elements_events
-
+from settings_window import DeviceSettingsWindow
+#MARK: - GridCanvas
 class GridCanvas(QWidget):
     """Canvas widget with grid and draggable widgets"""
     
@@ -120,7 +122,7 @@ class GridCanvas(QWidget):
         else:
             super().keyPressEvent(event)
 
-    
+    #MARK: - Dragging and Snapping    
     def snap_to_grid(self, x, y, widget=None, during_drag=False):
         """Snap coordinates to nearest grid intersection"""
         if widget and not during_drag:
@@ -231,7 +233,7 @@ class GridCanvas(QWidget):
             self.path_manager.update_paths_for_widget(widget)
             print(f"Release {self.mousePressEvent}")
 
-
+#MARK: - MainWindow
 class MainWindow(QMainWindow):
     """Main application window"""
     
@@ -293,6 +295,9 @@ class MainWindow(QMainWindow):
         self.variable_frame = None
         self.variable_frame_visible = False
         self.variable_row_count = 1
+        self.Devices_frame = None
+        self.devices_frame_visible = False
+        self.devices_row_count = 1
         self.blockIDs = {}
         
         self.create_menu_bar()
@@ -302,7 +307,7 @@ class MainWindow(QMainWindow):
         """Debug: Track if main window gets mouse press"""
         print("⚠ MainWindow.mousePressEvent fired!")
         super().mousePressEvent(event)
-        
+    #MARK: - UI Creation Methods
     def create_menu_bar(self):
         """Create the menu bar"""
         menubar = self.menuBar()
@@ -336,6 +341,14 @@ class MainWindow(QMainWindow):
         show_vars = variables_menu.addAction("Show Variables")
         show_vars.triggered.connect(self.toggle_variable_frame)
         
+        show_divs = variables_menu.addAction("Show Devices")
+        show_divs.triggered.connect(self.toggle_devices_frame)
+        
+        
+        settings_menu = menubar.addMenu("Settings")
+        settings_menu_action = settings_menu.addAction("Settings")
+        settings_menu_action.triggered.connect(self.open_settings_window)
+        
         # Compile menu
         compile_menu = menubar.addMenu("Compile")
         
@@ -358,10 +371,12 @@ class MainWindow(QMainWindow):
         self.canvas.main_window = self
         self.canvas.spawner = None
         main_layout.addWidget(self.canvas, stretch=1)
-    
+    #MARK: - Variable Panel Methods
     def toggle_variable_frame(self):
         """Toggle the variable panel visibility"""
         if not self.variable_frame_visible:
+            if self.devices_frame_visible:
+                self.hide_devices_frame()
             self.show_variable_frame()
         else:
             self.hide_variable_frame()
@@ -443,85 +458,6 @@ class MainWindow(QMainWindow):
             self.variable_frame.hide()
         self.variable_frame_visible = False
     
-    def remove_variable_row(self, row_widget, var_id):
-        """Remove a variable row"""
-        
-        del Utils.var_items[var_id]
-            
-        if var_id in Utils.variables:
-            #print(f"Deleting {var_id}")
-            del Utils.variables[var_id]
-            for imput, var_ids in Utils.vars_same.items():
-                if var_id in var_ids:
-                    var_ids.remove(var_id)
-                    #print(f"Vars_same {var_ids}")
-        
-        for imput2, var in Utils.vars_same.items():
-            #print(f"Var {var}, len var {len(var)}")
-            if len(var) <= 1:
-                for var_id in var:
-                    Utils.variables[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
-            
-        self.refresh_all_if_blocks()
-        
-        panel_layout = self.variable_frame.layout()
-        panel_layout.removeWidget(row_widget)
-        
-        row_widget.setParent(None)
-        row_widget.deleteLater()
-        
-        self.variable_row_count -= 1
-        
-        #print(f"Deleted variable: {var_id}")
-    
-    def name_changed(self, text, var_id, name_imput):
-        Utils.variables[var_id]['name'] = text
-
-        if var_id in Utils.var_items:
-            Utils.var_items[var_id] = text
-        else:
-            Utils.var_items.setdefault(var_id, text)
-        # Step 1: Group all var_ids by their name value
-        Utils.vars_same.clear()
-        Utils.variables[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
-        for v_id, v_info in Utils.variables.items():
-            name = v_info['name_imput'].text().strip()
-            if name:
-                Utils.vars_same.setdefault(name, []).append(v_id)
-        
-        # Step 2: Color red if duplicate
-        for name, id_list in Utils.vars_same.items():
-            #print(id_list)
-            border_col = "border-color: #ff0000;" if len(id_list) > 1 else "border-color: #3F3F3F;"
-            for v_id in id_list:
-                Utils.variables[v_id]['name_imput'].setStyleSheet(border_col)
-        
-        self.refresh_all_if_blocks()
-    
-    def refresh_all_if_blocks(self):
-        """Find all If blocks on canvas and refresh their dropdowns"""
-        for block_id, block_info in Utils.top_infos.items():
-            widget = block_info['widget']
-            
-            # Check if it's an If block with the refresh method
-            if hasattr(widget, 'refresh_if_dropdown'):
-                widget.refresh_if_dropdown()
-                #print(f"Refreshed If block dropdown for {block_id}")
-    
-    def type_changed(self, imput):
-        #print(f"Updating variable {imput}")
-        
-        if self.var_id in Utils.variables:
-            Utils.variables[self.var_id]['type'] = imput
-            #print(f"Type {self.var_id} value changed to: {imput}")
-    
-    def value_changed(self, imput):
-        #print(f"Updating variable {imput}")
-        
-        if self.var_id in Utils.variables:
-            Utils.variables[self.var_id]['value'] = imput
-            #print(f"Value {self.var_id} value changed to: {imput}")
-    
     def add_variable_row(self):
         """Add a new variable row"""
         var_id = f"var_{self.variable_row_count}"
@@ -533,39 +469,41 @@ class MainWindow(QMainWindow):
         row_layout.setContentsMargins(5, 5, 5, 5)
  
         name_imput = QLineEdit()
-        name_imput.setPlaceholderText("Variable Name")
+        name_imput.setPlaceholderText("Name")
         
-        name_imput.textChanged.connect(lambda text, v_id=var_id, n_i=name_imput: self.name_changed(text, v_id, n_i))
+        name_imput.textChanged.connect(lambda text, v_id=var_id, t="Variable": self.name_changed(text, v_id, t))
         
         type_input = QComboBox()
-        type_input.addItems(["Int", "Float", "String", "Boo"])
+        type_input.addItems(["Int", "Float", "String", "Bool"])
         
-        type_input.currentTextChanged.connect(self.type_changed)
+        type_input.currentTextChanged.connect(lambda  text, t="Variable": self.type_changed(text, t))
         
-        value_input = QLineEdit()
-        value_input.setPlaceholderText("Initial Value")
-        
-        value_input.textChanged.connect(self.value_changed)
+        self.value_var_input = QLineEdit()
+        self.value_var_input.setPlaceholderText("Initial Value")
+        regex = QRegularExpression(r"^\d*$")
+        validator = QRegularExpressionValidator(regex, self)
+        self.value_var_input.setValidator(validator)
+        self.value_var_input.textChanged.connect(lambda text, t="Variable": self.value_changed(text, t))
         
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
         
         row_layout.addWidget(name_imput)
         row_layout.addWidget(type_input)
-        row_layout.addWidget(value_input)
+        row_layout.addWidget(self.value_var_input)
         row_layout.addWidget(delete_btn)
         
-        delete_btn.clicked.connect(lambda _, v_id=var_id, rw=row_widget: self.remove_variable_row(rw, v_id))
+        delete_btn.clicked.connect(lambda _, v_id=var_id, rw=row_widget, t="Variable": self.remove_row(rw, v_id, t))
         
         Utils.variables[var_id] = {
             'name': '',
-            'type': 'int',
+            'type': 'Out',
             'value': '',
             'PIN': None,
             'widget': row_widget,
             'name_imput': name_imput,
             'type_input': type_input,
-            'value_input': value_input
+            'value_input': self.value_var_input
         } 
         
         panel_layout = self.variable_frame.layout()
@@ -574,11 +512,335 @@ class MainWindow(QMainWindow):
         self.variable_row_count += 1
         
         #print(f"Added variable: {self.var_id}")
+    #MARK: - Devices Panel Methods
+    def toggle_devices_frame(self):
+        """Toggle the devices panel visibility"""
+        if not self.devices_frame_visible:
+            if self.variable_frame_visible:
+                self.hide_variable_frame()
+            self.show_devices_frame()
+        else:
+            self.hide_devices_frame()
         
+    def show_devices_frame(self):
+        """Show the devices panel"""
+        if self.Devices_frame is None:
+            self.Devices_frame = QFrame()
+            self.Devices_frame.setMinimumWidth(250)
+            self.Devices_frame.setMaximumWidth(300)
+            self.Devices_frame.setStyleSheet("""
+                QFrame {
+                    background-color: #2B2B2B;
+                    border-left: 1px solid #3A3A3A;
+                }
+            """)
+            
+            main_layout = QVBoxLayout(self.Devices_frame)
+            
+            header = QWidget()
+            header_layout = QHBoxLayout(header)
+            header_layout.setContentsMargins(0, 0, 0, 0)
+
+            title = QLabel("Devices")
+            hide_btn = QPushButton("×")
+            hide_btn.setFixedWidth(24)
+            hide_btn.clicked.connect(self.hide_devices_frame)
+
+            header_layout.addWidget(title)
+            header_layout.addStretch()
+            header_layout.addWidget(hide_btn)
+            main_layout.addWidget(header)
+            
+            # Add button
+            add_btn = QPushButton("Add Device")
+            add_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #1F538D;
+                    color: #FFFFFF;
+                    border: none;
+                    padding: 8px;
+                    border-radius: 4px;
+                }
+                QPushButton:hover {
+                    background-color: #2667B3;
+                }
+            """)
+            add_btn.clicked.connect(self.add_device_row)
+            main_layout.addWidget(add_btn)
+            
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+
+            # Content widget inside scroll area
+            self.dev_content_widget = QWidget()
+            self.dev_content_layout = QVBoxLayout(self.dev_content_widget)
+            self.dev_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+            # Add stretch at end if you want padding at the bottom:
+            self.dev_content_layout.addStretch()
+            scroll_area.setWidget(self.dev_content_widget)
+            main_layout.addWidget(scroll_area)
+                        # Add to main layout
+            central_widget = self.centralWidget()
+            if central_widget:
+                main_layout = central_widget.layout()
+                if main_layout:
+                    main_layout.addWidget(self.Devices_frame)
+        
+        self.Devices_frame.show()
+        self.devices_frame_visible = True
+    
+    def hide_devices_frame(self):
+        """Hide the devices panel"""
+        if self.Devices_frame:
+            self.Devices_frame.hide()
+        self.devices_frame_visible = False
+    
+    def add_device_row(self):
+        """Add a new device row"""
+        device_id = f"device_{self.devices_row_count}"
+        self.device_id = device_id
+        #print(f"Adding device row {self.device_id}")
+        
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(5, 5, 5, 5)
+ 
+        name_imput = QLineEdit()
+        name_imput.setPlaceholderText("Name")
+        
+        name_imput.textChanged.connect(lambda text, d_id=device_id, t="Device": self.name_changed(text, d_id, t))
+        
+        type_input = QComboBox()
+        type_input.addItems(["Output", "Input", "PWM"])
+        
+        type_input.currentTextChanged.connect(lambda text, t="Device": self.type_changed(text, t))
+        
+        self.value_dev_input = QLineEdit()
+        self.value_dev_input.setPlaceholderText("PIN")
+        regex = QRegularExpression(r"^\d*$")
+        validator = QRegularExpressionValidator(regex, self)
+        self.value_dev_input.setValidator(validator)
+        self.value_dev_input.textChanged.connect(lambda text, t="Device": self.value_changed(text, t))
+        
+        delete_btn = QPushButton("×")
+        delete_btn.setFixedWidth(30)
+        
+        row_layout.addWidget(name_imput)
+        row_layout.addWidget(type_input)
+        row_layout.addWidget(self.value_dev_input)
+        row_layout.addWidget(delete_btn)
+        
+        delete_btn.clicked.connect(lambda _, d_id=device_id, rw=row_widget, t="Device": self.remove_row(rw, d_id, t))
+        
+        Utils.devices[device_id] = {
+            'name': '',
+            'type': 'Output',
+            'value': '',
+            'PIN': None,
+            'widget': row_widget,
+            'name_imput': name_imput,
+            'type_input': type_input,
+            'value_input': self.value_dev_input
+        } 
+        
+        panel_layout = self.Devices_frame.layout()
+        self.dev_content_layout.insertWidget(self.dev_content_layout.count() - 1, row_widget)
+        
+        self.devices_row_count += 1
+    #MARK: - Common Methods
+    def remove_row(self, row_widget, var_id, type):
+        """Remove a variable row"""
+        print(f"Removing row {var_id} of type {type}")
+        if type == "Variable":
+            if var_id in Utils.var_items:
+                del Utils.var_items[var_id]
+                
+            if var_id in Utils.variables:
+                #print(f"Deleting {var_id}")
+                del Utils.variables[var_id]
+                for imput, var_ids in Utils.vars_same.items():
+                    if var_id in var_ids:
+                        var_ids.remove(var_id)
+                        #print(f"Vars_same {var_ids}")
+            
+            for imput2, var in Utils.vars_same.items():
+                #print(f"Var {var}, len var {len(var)}")
+                if len(var) <= 1:
+                    for var_id in var:
+                        Utils.variables[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                
+            self.refresh_all_blocks()
+            
+            panel_layout = self.variable_frame.layout()
+            panel_layout.removeWidget(row_widget)
+            
+            row_widget.setParent(None)
+            row_widget.deleteLater()
+            
+            self.variable_row_count -= 1
+        elif type == "Device":
+            if var_id in Utils.dev_items:
+                del Utils.dev_items[var_id]
+                
+            if var_id in Utils.devices:
+                #print(f"Deleting {var_id}")
+                del Utils.devices[var_id]
+                for imput, dev_ids in Utils.devs_same.items():
+                    if var_id in dev_ids:
+                        dev_ids.remove(var_id)
+                        #print(f"Devs_same {dev_ids}")
+            
+            for imput2, dev in Utils.devs_same.items():
+                #print(f"Dev {dev}, len dev {len(dev)}")
+                if len(dev) <= 1:
+                    for dev_id in dev:
+                        Utils.devices[dev_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                
+            self.refresh_all_blocks()
+            
+            panel_layout = self.Devices_frame.layout()
+            panel_layout.removeWidget(row_widget)
+            
+            row_widget.setParent(None)
+            row_widget.deleteLater()
+            
+            self.devices_row_count -= 1
+        #print(f"Deleted variable: {var_id}")
+    
+    def name_changed(self, text, var_id, type):
+        if type == "Variable":
+            Utils.variables[var_id]['name'] = text
+
+            if var_id in Utils.var_items:
+                Utils.var_items[var_id] = text
+            else:
+                Utils.var_items.setdefault(var_id, text)
+            # Step 1: Group all var_ids by their name value
+            Utils.vars_same.clear()
+            Utils.variables[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+            for v_id, v_info in Utils.variables.items():
+                name = v_info['name_imput'].text().strip()
+                if name:
+                    Utils.vars_same.setdefault(name, []).append(v_id)
+            
+            # Step 2: Color red if duplicate
+            for name, id_list in Utils.vars_same.items():
+                #print(id_list)
+                border_col = "border-color: #ff0000;" if len(id_list) > 1 else "border-color: #3F3F3F;"
+                for v_id in id_list:
+                    Utils.variables[v_id]['name_imput'].setStyleSheet(border_col)
+            
+            self.refresh_all_blocks()
+        
+        elif type == "Device":
+            Utils.devices[var_id]['name'] = text
+
+            if var_id in Utils.dev_items:
+                Utils.dev_items[var_id] = text
+            else:
+                Utils.dev_items.setdefault(var_id, text)
+            print(f"dev_items: {Utils.dev_items}")
+            # Step 1: Group all dev_ids by their name value
+            Utils.devs_same.clear()
+            Utils.devices[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+            for d_id, d_info in Utils.devices.items():
+                name = d_info['name_imput'].text().strip()
+                if name:
+                    Utils.devs_same.setdefault(name, []).append(d_id)
+            
+            # Step 2: Color red if duplicate
+            for name, id_list in Utils.devs_same.items():
+                #print(id_list)
+                border_col = "border-color: #ff0000;" if len(id_list) > 1 else "border-color: #3F3F3F;"
+                for d_id in id_list:
+                    Utils.devices[d_id]['name_imput'].setStyleSheet(border_col)
+            print("Calling refresh_all_blocks from name_changed")
+            self.refresh_all_blocks()
+        
+    
+    def refresh_all_blocks(self):
+        """Find all If blocks on canvas and refresh their dropdowns"""
+        print("Refreshing all blocks' dropdowns")
+        print(f"Total blocks to check: {len(Utils.top_infos)}")
+        print(f"Utils.top_infos: {Utils.top_infos}")
+        print(f"Variables dict: {Utils.variables}")
+        print(f"Devices dict: {Utils.devices}")
+        print(f"Variables: {Utils.var_items}")
+        print(f"Devices: {Utils.dev_items}")
+        for block_id, block_info in Utils.top_infos.items():
+            widget = block_info['widget']
+            print(f"Refreshing block {block_id} of type {block_info['type']}")
+            # Check if it's an If block with the refresh method
+            if hasattr(widget, 'refresh_dropdown'):
+                print(f"Found block {block_id}, refreshing dropdown")
+                widget.refresh_dropdown()
+                #print(f"Refreshed If block dropdown for {block_id}")
+    
+    def type_changed(self, imput, type):
+        #print(f"Updating variable {imput}")
+        if type == "Variable":
+            if self.var_id in Utils.variables:
+                Utils.variables[self.var_id]['type'] = imput
+                print(f"Type {self.var_id} value changed to: {imput}")
+        elif type == "Device":
+            if self.device_id in Utils.devices:
+                Utils.devices[self.device_id]['type'] = imput
+                print(f"Type {self.device_id} value changed to: {imput}")
+    
+    def value_changed(self, imput, type):
+        #print(f"Updating variable {imput}")
+        
+        if type == "Variable":
+            try:
+                value = len(imput)
+                
+                if value > 4:
+                    self.value_var_input.blockSignals(True)
+                    imput = imput[:4]
+                    self.value_var_input.setText(imput)
+                    self.value_var_input.blockSignals(False)
+                
+                elif value < 0:
+                    self.value_var_input.blockSignals(True)
+                    self.value_var_input.setText("0")
+                    self.value_var_input.blockSignals(False)
+            except ValueError:
+                    # Text is empty or can't convert (shouldn't happen with regex)
+                    pass
+            if self.var_id in Utils.variables:
+                Utils.variables[self.var_id]['value'] = imput
+                print(f"Value {self.var_id} value changed to: {imput}")
+        elif type == "Device":
+            try:
+                value = len(imput)
+                
+                if value > 4:
+                    self.value_dev_input.blockSignals(True)
+                    imput = imput[:4]
+                    self.value_dev_input.setText(imput)
+                    self.value_dev_input.blockSignals(False)
+                
+                elif value < 0:
+                    self.value_dev_input.blockSignals(True)
+                    self.value_dev_input.setText("0")
+                    self.value_dev_input.blockSignals(False)
+            except ValueError:
+                    # Text is empty or can't convert (shouldn't happen with regex)
+                    pass
+            if self.device_id in Utils.devices:
+                Utils.devices[self.device_id]['value'] = imput
+                print(f"Value {self.device_id} value changed to: {imput}")   
+    
     def open_elements_window(self):
         """Open the elements window"""
         elements_window = ElementsWindow.get_instance(self.canvas)
         elements_window.open()
+    
+    def open_settings_window(self):
+        """Open the device settings window"""
+        device_settings_window = DeviceSettingsWindow.get_instance(self.canvas)
+        device_settings_window.open()
     
     def block_management(self, block_id, window):
         """Track block windows"""
