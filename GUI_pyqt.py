@@ -1,16 +1,23 @@
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QHBoxLayout, QMenuBar, QMenu, QPushButton, QLabel,
-                             QFrame, QScrollArea, QLineEdit, QComboBox)
-from PyQt6.QtCore import (Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression)
-from PyQt6.QtGui import (QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent,
-                             QRegularExpressionValidator)
-import sys
-import Utils
-from Path_manager_pyqt import PathManager
-from Elements_window_pyqt import ElementsWindow
-from code_compiler import CodeCompiler
-from spawn_elements_pyqt import spawning_elements, Elements_events
-from settings_window import DeviceSettingsWindow
+from Imports import (
+    sys, QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea,
+    QLineEdit, QComboBox, QDialog, QPainter, QPen, QColor, QBrush,
+    QPalette, QMouseEvent, QRegularExpression, QRegularExpressionValidator,
+    QTimer, QMessageBox, QInputDialog, QFileDialog, QFont, Qt, QPoint,
+    QRect, QSize, pyqtSignal,  get_utils, AppSettings, ProjectData,
+)
+from Imports import (
+    get_code_compiler, get_spawn_elements, get_device_settings_window,
+    get_file_manager, get_path_manager, get_Elements_Window
+)
+Utils = get_utils()
+Code_Compiler = get_code_compiler()
+spawning_elements = get_spawn_elements()[0]
+element_events = get_spawn_elements()[1]
+DeviceSettingsWindow = get_device_settings_window()
+FileManager = get_file_manager()
+PathManager = get_path_manager()
+ElementsWindow = get_Elements_Window()
 #MARK: - GridCanvas
 class GridCanvas(QWidget):
     """Canvas widget with grid and draggable widgets"""
@@ -26,7 +33,8 @@ class GridCanvas(QWidget):
         self.offset_y = 0
         self.spawner = spawning_elements(self)
         self.path_manager = PathManager(self)
-        self.elements_events = Elements_events(self)
+        self.elements_events = element_events(self)
+        self.file_manager = FileManager()
         # Setup widget
         self.setMinimumSize(800, 600)
         self.setMouseTracking(True)
@@ -82,10 +90,9 @@ class GridCanvas(QWidget):
     
     def mousePressEvent(self, event):
         """Debug: Track if canvas gets mouse press"""
-        #print("✓ GridCanvas.mousePressEvent fired!")
-        #print(f"  Position: {event.pos()}")
+        print("✓ GridCanvas.mousePressEvent fired!")
+        print(f"  Position: {event.pos()}")
         # Call the existing one if you had it, or let it propagate
-        #print(f"Canvas mousePressEvent at {event.pos()}")
         super().mousePressEvent(event)
         
     def mouseMoveEvent(self, event):
@@ -184,7 +191,7 @@ class GridCanvas(QWidget):
         widget.mouseReleaseEvent = on_release
     
     def on_canvas_click(self, event, widget):
-        #print(f"Pressed {type(self).__name__}")
+        print(f"Pressed {type(self).__name__}")
         """Handle mouse click on widget"""
         for block_id, widget_info in Utils.top_infos.items():
             if widget_info['widget'] is widget:
@@ -241,7 +248,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Visual Programming Interface")
         self.resize(1200, 800)
-        self.code_compiler = CodeCompiler()
+        self.code_compiler = Code_Compiler()
         # Style
         self.setStyleSheet("""
             QMainWindow {
@@ -369,7 +376,7 @@ class MainWindow(QMainWindow):
         # Canvas
         self.canvas = GridCanvas(grid_size=Utils.config['grid_size'])
         self.canvas.main_window = self
-        self.canvas.spawner = None
+        #self.canvas.spawner = None
         main_layout.addWidget(self.canvas, stretch=1)
     #MARK: - Variable Panel Methods
     def toggle_variable_frame(self):
@@ -499,7 +506,6 @@ class MainWindow(QMainWindow):
             'name': '',
             'type': 'Out',
             'value': '',
-            'PIN': None,
             'widget': row_widget,
             'name_imput': name_imput,
             'type_input': type_input,
@@ -831,7 +837,7 @@ class MainWindow(QMainWindow):
             if self.device_id in Utils.devices:
                 Utils.devices[self.device_id]['value'] = imput
                 print(f"Value {self.device_id} value changed to: {imput}")   
-    
+    #MARK: - Other Methods
     def open_elements_window(self):
         """Open the elements window"""
         elements_window = ElementsWindow.get_instance(self.canvas)
@@ -857,25 +863,389 @@ class MainWindow(QMainWindow):
             pass
     
     # Menu actions
+    def on_save_file(self):
+        """Save current project"""
+        
+        name, ok = QInputDialog.getText(self, "Save Project", "Project name:")
+        if ok and name:
+            if FileManager.save_project(name):
+                print(f"✓ Project '{name}' saved")
+
+    def on_open_file(self):
+        """Open saved project"""
+        
+        projects = FileManager.list_projects()
+        if not projects:
+            QMessageBox.information(self, "No Projects", "No saved projects found")
+            return
+        
+        items = [p['name'] for p in projects]
+        item, ok = QInputDialog.getItem(self, "Open Project", 
+            "Select project:", items, 0, False)
+        
+        if ok and item:
+            if FileManager.load_project(item):
+                self.rebuild_from_data()
+                print(f"✓ Project '{item}' loaded")
+
     def on_new_file(self):
-        """Create new file"""
-        #print("New file")
+        """Create new project"""
+        
+        FileManager.new_project()
+        
+        # Clear canvas
+        for block_id in list(Utils.top_infos.keys()):
+            widget = Utils.top_infos[block_id]['widget']
+            widget.setParent(None)
+            widget.deleteLater()
+        
         Utils.top_infos.clear()
         Utils.paths.clear()
-        Utils.variables.clear()
         self.canvas.update()
-    
-    def on_open_file(self):
-        """Open file"""
-        #print("Open file")
-        # TODO: Implement file opening
-    
-    def on_save_file(self):
-        """Save file"""
-        #print("Save file")
-        # TODO: Implement file saving
+        print("✓ New project created")
+
+    #MARK: - Rebuild UI from Saved Data
+    def rebuild_from_data(self):
+        """
+        Reconstruct the entire UI from Utils.project_data
+        
+        Called after loading a project file.
+        
+        Rebuilds:
+        1. All blocks on canvas with their positions
+        2. All connections between blocks
+        3. Variables in the side panel
+        4. Devices in the side panel
+        """
+        print("Starting rebuild from saved data...")
+        
+        # Rebuild variable panel
+        self._rebuild_variables_panel()
+        
+        # Rebuild devices panel
+        self._rebuild_devices_panel()
+        
+        # Clear canvas and rebuild blocks
+        self._rebuild_blocks()
+        
+        # Rebuild connections
+        self._rebuild_connections()
+        
+        
+        
+        print("✓ Project rebuild complete")
 
 
+    def _rebuild_blocks(self):
+        """Recreate all block widgets on canvas from project_data"""
+        print(f"Rebuilding {len(Utils.project_data.blocks)} blocks...")
+        # Clear existing blocks from canvas
+        for block_id in list(Utils.top_infos.keys()):
+            if block_id in Utils.top_infos:
+                widget = Utils.top_infos[block_id]['widget']
+                widget.setParent(None)
+                widget.deleteLater()
+        
+        Utils.top_infos.clear()
+        
+        # Recreate each block
+
+        for block_id, block_data in Utils.project_data.blocks.items():
+            block_id = str(block_id)
+            print(f" Recreating block {block_id} of type {block_data['type']}...")
+            try:
+                # Create the block widget
+                block_widget = self.canvas.spawner.create_block_from_data(
+                    block_id=block_id,
+                    block_type=block_data['type'],
+                    x=block_data['x'],
+                    y=block_data['y'],
+                    value_1=block_data.get('value_1', ''),
+                    value_2=block_data.get('value_2', ''),
+                    combo_value=block_data.get('combo_value', ''),
+                    switch_value=block_data.get('switch_value', False),
+                )
+                
+                # Add to canvas
+                self.canvas.add_draggable_widget(block_widget)
+                
+                # Store in Utils
+                Utils.top_infos[block_id] = {
+                    'widget': block_widget,
+                    'id': block_id,
+                    'type': block_data['type'],
+                    'x': block_data['x'],
+                    'y': block_data['y'],
+                    'width': block_data['width'],
+                    'height': block_data['height'],
+                    'value_1': block_data.get('value_1', ''),
+                    'value_2': block_data.get('value_2', ''),
+                    'combo_value': block_data.get('combo_value', ''),
+                    'switch_value': block_data.get('switch_value', False),
+                    'in_connections': block_data.get('in_connections', []),
+                    'out_connections': block_data.get('out_connections', []),
+                }
+                print(f" Utils.top_infos updated with block {block_id}")
+                print(f" Utils.top_infos now has {len(Utils.top_infos)} blocks")
+                print(f" Block data: {Utils.top_infos[block_id]}")
+                print(f"  ✓ Block {block_id} ({block_data['type']}) recreated")
+                
+            except Exception as e:
+                print(f"  ✗ Error recreating block {block_id}: {e}")
+
+
+    def _rebuild_connections(self):
+        """Recreate all connection paths from projectdata"""
+        print(f"Rebuilding {len(Utils.project_data.connections)} connections...")
+        
+        # Don't clear! The blocks should already be in Utils.top_infos from rebuild_blocks()
+        # Utils.paths.clear()  # KEEP THIS
+        self.canvas.path_manager.clear_all_paths()
+        
+        print(f"Utils.top_infos contains: {list(Utils.top_infos.keys())}")
+        print(f"Project connections: {list(Utils.project_data.connections.keys())}")
+        
+        for conn_id, conn_data in Utils.project_data.connections.items():
+            try:
+                from_block_id = str(conn_data.get("from_block"))
+                to_block_id = str(conn_data.get("to_block"))
+                
+                print(f"Processing connection {conn_id}: {from_block_id} -> {to_block_id}")
+                
+                # DEBUG: Check what's actually in Utils.top_infos
+                print(f"Available block IDs in Utils.top_infos: {list(Utils.top_infos.keys())}")
+                print(f"Is {from_block_id} in top_infos? {from_block_id in Utils.top_infos}")
+                print(f"Is {to_block_id} in top_infos? {to_block_id in Utils.top_infos}")
+                
+                if from_block_id not in Utils.top_infos or to_block_id not in Utils.top_infos:
+                    print(f"❌ Connection {conn_id}: Missing block reference!")
+                    print(f"  from_block_id ({from_block_id}) exists: {from_block_id in Utils.top_infos}")
+                    print(f"  to_block_id ({to_block_id}) exists: {to_block_id in Utils.top_infos}")
+                    continue
+                
+                from_block = Utils.top_infos[from_block_id]
+                to_block = Utils.top_infos[to_block_id]
+                
+                from_blockwidget = from_block.get("widget")
+                to_blockwidget = to_block.get("widget")
+                
+                # Recreate connection
+                Utils.paths[conn_id] = {
+                    "line": None,  # Will be drawn by pathmanager
+                    "waypoints": conn_data.get("waypoints", []),
+                    "from": from_blockwidget,
+                    "to": to_blockwidget,
+                    "from_circle": conn_data.get("from_circle", "out"),
+                    "to_circle": conn_data.get("to_circle", "in"),
+                    "color": None,  # Will use default
+                }
+                
+                # Update block connection references
+                from_block.get("out_connections", []).append(conn_id)
+                to_block.get("in_connections", []).append(conn_id)
+                
+                print(f"✓ Connection {conn_id} recreated")
+                
+            except Exception as e:
+                print(f"❌ Error recreating connection {conn_id}: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        self.canvas.update()
+
+    def _rebuild_variables_panel(self):
+        """Recreate variables in the side panel"""
+        print(f"Rebuilding {len(Utils.project_data.variables)} variables...")
+        
+        if not self.variable_frame:
+            self.show_variable_frame()
+        
+        panel_layout = self.variable_frame.layout()
+        
+        # Clear existing variable rows
+        for var_id in list(Utils.variables.keys()):
+            if var_id in Utils.variables:
+                widget = Utils.variables[var_id].get('widget')
+                if widget:
+                    panel_layout.removeWidget(widget)
+                    widget.setParent(None)
+                    widget.deleteLater()
+        
+        Utils.variables.clear()
+        Utils.var_items.clear()
+        Utils.vars_same.clear()
+        self.variable_row_count = 1
+        
+        # Recreate each variable
+        for var_id, var_data in Utils.project_data.variables.items():
+            try:
+                # Add variable row to UI
+                self._add_variable_row_from_data(var_id, var_data)
+                
+                print(f"  ✓ Variable {var_id} ({var_data['name']}) recreated")
+                
+            except Exception as e:
+                print(f"  ✗ Error recreating variable {var_id}: {e}")
+        if self.variable_frame:
+            self.hide_variable_frame()
+        
+    def _add_variable_row_from_data(self, var_id, var_data):
+        """Add a single variable row to the panel from saved data"""
+        print(f"Adding variable row from data: {var_id} with data {var_data}")
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # Name input
+        name_input = QLineEdit()
+        name_input.setText(var_data['name'])
+        name_input.textChanged.connect(lambda text, v_id=var_id, t="Variable": self.name_changed(text, v_id, t))
+        
+        # Type input
+        type_input = QComboBox()
+        type_input.addItems(["int", "float", "bool", "string"])
+        type_input.setCurrentText(var_data['type'])
+        type_input.currentTextChanged.connect(lambda text, t="Variable": self.type_changed(text, t))
+        
+        # Value input
+        value_input = QLineEdit()
+        value_input.setText(str(var_data['value']))
+        value_input.setPlaceholderText("Value")
+        regex = QRegularExpression(r"^[0-9.\-]*$")
+        validator = QRegularExpressionValidator(regex, self)
+        value_input.setValidator(validator)
+        value_input.textChanged.connect(lambda text, t="Variable": self.value_changed(text, t))
+        
+        # Delete button
+        delete_btn = QPushButton("×")
+        delete_btn.setFixedWidth(30)
+        
+        row_layout.addWidget(name_input)
+        row_layout.addWidget(type_input)
+        row_layout.addWidget(value_input)
+        row_layout.addWidget(delete_btn)
+        
+        delete_btn.clicked.connect(lambda _, v_id=var_id, rw=row_widget, t="Variable": self.remove_row(rw, v_id, t))
+        
+        # Store in Utils
+        Utils.variables[var_id] = {
+            'name': var_data['name'],
+            'type': var_data['type'],
+            'value': str(var_data['value']),
+            'widget': row_widget,
+            'name_imput': name_input,
+            'type_input': type_input,
+            'value_input': value_input,
+        }
+        
+        # Update UI maps
+        Utils.var_items[var_id] = var_data['name']
+        
+        # Add to panel
+        panel_layout = self.variable_frame.layout()
+        if panel_layout:
+            panel_layout.insertWidget(panel_layout.count() - 1, row_widget)
+        
+        self.variable_row_count += 1
+
+
+    def _rebuild_devices_panel(self):
+        """Recreate devices in the side panel"""
+        print(f"Rebuilding {len(Utils.project_data.devices)} devices...")
+        
+        if not self.Devices_frame:
+            self.show_devices_frame()
+            
+        panel_layout = self.Devices_frame.layout()
+        
+        # Clear existing device rows
+        for dev_id in list(Utils.devices.keys()):
+            if dev_id in Utils.devices:
+                widget = Utils.devices[dev_id].get('widget')
+                if widget:
+                    panel_layout.removeWidget(widget)
+                    widget.setParent(None)
+                    widget.deleteLater()
+        
+        Utils.devices.clear()
+        Utils.dev_items.clear()
+        Utils.devs_same.clear()
+        self.devices_row_count = 0
+        
+        # Recreate each device
+        for dev_id, dev_data in Utils.project_data.devices.items():
+            try:
+                # Add device row to UI
+                self._add_device_row_from_data(dev_id, dev_data)
+                
+                print(f"  ✓ Device {dev_id} ({dev_data['name']}) recreated")
+                
+            except Exception as e:
+                print(f"  ✗ Error recreating device {dev_id}: {e}")
+
+        if self.Devices_frame:
+            self.hide_devices_frame()
+
+    def _add_device_row_from_data(self, dev_id, dev_data):
+        """Add a single device row to the panel from saved data"""
+        
+        row_widget = QWidget()
+        row_layout = QHBoxLayout(row_widget)
+        row_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # Name input
+        name_input = QLineEdit()
+        name_input.setText(dev_data['name'])
+        name_input.textChanged.connect(lambda text, d_id=dev_id, t="Device": self.name_changed(text, d_id, t))
+        
+        # Type input
+        type_input = QComboBox()
+        type_input.addItems(["Output", "Input", "PWM"])
+        type_input.setCurrentText(dev_data['type'])
+        type_input.currentTextChanged.connect(lambda text, t="Device": self.type_changed(text, t))
+        
+        # PIN input
+        pin_input = QLineEdit()
+        if dev_data['pin']:
+            pin_input.setText(str(dev_data['pin']))
+        pin_input.setPlaceholderText("PIN")
+        regex = QRegularExpression(r"^\\d*$")
+        validator = QRegularExpressionValidator(regex, self)
+        pin_input.setValidator(validator)
+        pin_input.textChanged.connect(lambda text, t="Device": self.value_changed(text, t))
+        
+        # Delete button
+        delete_btn = QPushButton("×")
+        delete_btn.setFixedWidth(30)
+        
+        row_layout.addWidget(name_input)
+        row_layout.addWidget(type_input)
+        row_layout.addWidget(pin_input)
+        row_layout.addWidget(delete_btn)
+        
+        delete_btn.clicked.connect(lambda _, d_id=dev_id, rw=row_widget, t="Device": self.remove_row(rw, d_id, t))
+        
+        # Store in Utils
+        Utils.devices[dev_id] = {
+            'name': dev_data['name'],
+            'type': dev_data['type'],
+            'PIN': dev_data['pin'],
+            'widget': row_widget,
+            'name_imput': name_input,
+            'type_input': type_input,
+            'value_input': pin_input,
+        }
+        
+        # Update UI maps
+        Utils.dev_items[dev_id] = dev_data['name']
+        
+        # Add to panel
+        panel_layout = self.Devices_frame.layout()
+        if panel_layout:
+            panel_layout.insertWidget(panel_layout.count() - 1, row_widget)
+        
+        self.devices_row_count += 1
+        
 def main():
     app = QApplication(sys.argv)
     

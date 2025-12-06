@@ -1,8 +1,8 @@
-from PyQt6.QtWidgets import (QWidget, QDialog, QVBoxLayout, QHBoxLayout, 
-                             QPushButton, QLabel, QFrame, QTabWidget)
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
-from spawn_elements_pyqt import spawning_elements
+from Imports import (QWidget, QDialog, QVBoxLayout, QHBoxLayout, 
+                     QPushButton, QLabel, QFrame, QTabWidget, Qt, QFont,
+                     pyqtSignal)
+from Imports import get_spawn_elements
+spawning_elements = get_spawn_elements()[0]
 
 class ElementsWindow(QDialog):
     """Elements selection window with tabs"""

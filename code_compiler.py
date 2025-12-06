@@ -1,4 +1,5 @@
-import Utils
+from Imports import get_utils
+Utils = get_utils()
 class CodeCompiler:
     def __init__(self):
         self.file = None

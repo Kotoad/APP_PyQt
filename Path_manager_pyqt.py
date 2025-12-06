@@ -1,7 +1,6 @@
-from PyQt6.QtCore import Qt, QPoint, QLine
-from PyQt6.QtGui import QPainter, QPen, QColor
-import Utils
-
+from Imports import (Qt, QPoint, QLine, QPainter, QPen, QColor)
+from Imports import get_utils
+Utils = get_utils()
 
 class PathManager:
     """Manages path connections between blocks"""
@@ -187,6 +186,11 @@ class PathManager:
                 width=2,
                 dashed=True
             )
+    
+    def clear_all_paths(self):
+        """Clear all paths from the canvas"""
+        Utils.paths.clear()
+        self.canvas.update()
     
     def get_circle_position(self, widget, circle_type):
         """Get the center position of the specified circle on the widget"""

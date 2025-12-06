@@ -1,7 +1,8 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QLabel, QTabWidget,
-                             QWidget, QComboBox)
-from PyQt6.QtCore import Qt, QEvent
-from PyQt6.QtGui import QFont, QMouseEvent
+from operator import index
+from Imports import get_utils
+Utils = get_utils()
+from Imports import (QDialog, QVBoxLayout, QLabel, QTabWidget, QWidget,
+                     QComboBox, Qt, QEvent, QFont, QMouseEvent, json)
 
 models = ["RPI pico/pico W", "RPI zero/zero W", "RPI 2 zero W", "RPI 1 model B/B+", "RPI 2 model B", "RPI 3 model B/B+", "RPI 4 model B", "RPI 5"]
 
@@ -42,8 +43,6 @@ class DeviceSettingsWindow(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.is_hidden = False
-        
-        
         
         self.setup_ui()
     
@@ -128,11 +127,18 @@ class DeviceSettingsWindow(QDialog):
         
         self.rpi_model_combo = MaxWidthComboBox(self, max_popup_width=358)
         self.rpi_model_combo.addItems(models)
+        self.rpi_model_combo.setCurrentIndex(Utils.app_settings.rpi_model_index if hasattr(Utils.app_settings, 'rpi_model_index') else 0)
+        self.rpi_model_combo.currentIndexChanged.connect(self.on_model_changed)
         tab_layout.addWidget(self.rpi_model_combo)
-        print({self.rpi_model_combo.width()})
         tab_layout.addStretch()
         self.tab_widget.addTab(tab, "Devices")
-        
+    
+    def on_model_changed(self, index):
+        """Handle model change"""
+        Utils.app_settings.rpi_model = self.rpi_model_combo.itemText(index)
+        Utils.app_settings.rpi_model_index = index
+        print(f"Model changed to: {Utils.app_settings.rpi_model}")
+    
     def open(self):
         if not self.is_hidden:
             self.show()

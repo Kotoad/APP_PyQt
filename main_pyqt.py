@@ -1,8 +1,6 @@
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import Qt
-from GUI_pyqt import MainWindow
-import sys
-
+from Imports import (QApplication, Qt, sys)
+from Imports import get_gui_main_window
+MainWindow = get_gui_main_window()
 
 def main():
     """Main entry point"""

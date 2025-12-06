@@ -1,17 +1,16 @@
-from PyQt6.QtWidgets import (QWidget, QLabel, QLineEdit,
-                QComboBox, QApplication, QStyleOptionComboBox)
-from PyQt6.QtCore import (pyqtProperty, QEasingCurve, QRectF,
+from Imports import (QWidget, QLabel, QLineEdit,
+                QComboBox, QApplication, QStyleOptionComboBox,
+                pyqtProperty, QEasingCurve, QRectF,
                 Qt, QPoint, QPropertyAnimation, QRect,
-                pyqtSignal, QObject, QRegularExpression)
-from PyQt6.QtGui import (QPainter, QPen, QBrush, QColor,
+                pyqtSignal, QObject, QRegularExpression,
+                QPainter, QPen, QBrush, QColor,
                 QPixmap, QImage, QMouseEvent, QStandardItem,
                 QIntValidator, QRegularExpressionValidator,
-                QPainterPath, QFont)
-
+                QPainterPath, QFont, QStyledItemDelegate)
 from PIL import Image, ImageDraw, ImageFont
 import random
-import Utils
-from PyQt6.QtWidgets import QStyledItemDelegate
+from Imports import get_utils
+Utils = get_utils()
 
 items = ["=", "!=", "<=", ">=", "<", ">"]
 
@@ -324,7 +323,161 @@ class spawning_elements:
         if self.elements_window:
             self.elements_window.is_hidden = False
             self.elements_window.open()
+    #MARK: CREATE BLOCK FROM DATA
+    def create_block_from_data(self, block_id, block_type, x, y, value_1='', value_2='', combo_value='', switch_value=False):
+        """
+        Create a block widget from saved project data.
+        
+        This is called during project loading (rebuild_from_data).
+        
+        Args:
+            block_id: Unique identifier for this block (from saved data)
+            block_type: Type of block ('If', 'While', 'Start', 'End', 'Timer', etc)
+            x, y: Position on canvas
+            value_1: Primary value (variable name, condition, etc)
+            value_2: Secondary value (comparison value, duration, etc)
+            combo_value: Combo box selection (operator like '==', '>')
+        
+        Returns:
+            block_widget: QWidget block ready to add to canvas
+        """
+        
+        # Route to appropriate block creator
+        if block_type == 'If':
+            block_widget = self.create_if_block_loaded(x, y, value_1, value_2, combo_value, block_id)
+        elif block_type == 'While':
+            block_widget = self.create_while_block_loaded(x, y, value_1, value_2, combo_value, block_id)
+        elif block_type == 'Timer':
+            block_widget = self.create_timer_block_loaded(x, y, value_1, block_id)
+        elif block_type == 'Start':
+            block_widget = self.create_start_block_loaded(x, y, block_id)
+        elif block_type == 'End':
+            block_widget = self.create_end_block_loaded(x, y, block_id)
+        elif block_type == 'Switch':
+            block_widget = self.create_switch_block_loaded(x, y, value_1, switch_value, block_id)
+        else:
+            print(f"Warning: Unknown block type '{block_type}' during load. Creating generic block.")
+        
+        # Position the block
+        block_widget.move(x, y)
+        
+        return block_widget
 
+
+    # ============================================================================
+    # BLOCK-SPECIFIC CREATORS FOR LOADING
+    # ============================================================================
+
+    def create_if_block_loaded(self, x, y, value_1, value_2, combo_value, block_id):
+        """Create an If block from saved data"""
+        # Create the BlockWidget properly
+        blockwidget = BlockWidget(self.parent, "If", block_id=block_id)  # blockid will be set in calling code
+        
+        if hasattr(blockwidget, 'If_input_1') and hasattr(blockwidget, 'If_combobox') and hasattr(blockwidget, 'If_input_2'):
+            # If your If block has input fields, populate them
+            
+            blockwidget.If_input_1.blockSignals(True)
+            blockwidget.If_combobox.blockSignals(True)
+            blockwidget.If_input_2.blockSignals(True)
+            
+            for i in range(blockwidget.If_input_1.count()):
+                print(f"Checking If_input_1 item: {blockwidget.If_input_1.itemText(i)} against value_1: {value_1}")
+                if blockwidget.If_input_1.itemText(i) == value_1:
+                    print(f"Setting If_input_1 index to {i}")
+                    blockwidget.If_input_1.setCurrentIndex(i)
+                    break
+            
+            for i in range(blockwidget.If_combobox.count()):
+                if blockwidget.If_combobox.itemText(i) == combo_value:
+                    blockwidget.If_combobox.setCurrentIndex(i)
+                    break
+            
+            blockwidget.If_input_2.setText(value_2)
+            
+            blockwidget.If_input_1.blockSignals(False)
+            blockwidget.If_combobox.blockSignals(False)
+            blockwidget.If_input_2.blockSignals(False)
+            
+        return blockwidget
+
+    def create_while_block_loaded(self, x, y, value_1, value_2, combo_value, block_id):
+        """Create a While block from saved data"""
+        blockwidget = BlockWidget(self.parent, "While", block_id=block_id)
+        
+        if hasattr(blockwidget, 'While_input_1') and hasattr(blockwidget, 'While_combobox') and hasattr(blockwidget, 'While_input_2'):
+            # If your While block has input fields, populate them
+            
+            blockwidget.While_input_1.blockSignals(True)
+            blockwidget.While_combobox.blockSignals(True)
+            blockwidget.While_input_2.blockSignals(True)
+            
+            for i in range(blockwidget.While_input_1.count()):
+                print(f"Checking While_input_1 item: {blockwidget.While_input_1.itemText(i)} against value_1: {value_1}")
+                if blockwidget.While_input_1.itemText(i) == value_1:
+                    print(f"Setting While_input_1 index to {i}")
+                    blockwidget.While_input_1.setCurrentIndex(i)
+                    break
+            
+            for i in range(blockwidget.While_combobox.count()):
+                if blockwidget.While_combobox.itemText(i) == combo_value:
+                    blockwidget.While_combobox.setCurrentIndex(i)
+                    break
+            
+            blockwidget.While_input_2.setText(value_2)
+            
+            blockwidget.If_input_1.blockSignals(False)
+            blockwidget.If_combobox.blockSignals(False)
+            blockwidget.If_input_2.blockSignals(False)
+        
+        return blockwidget
+
+    def create_timer_block_loaded(self, x, y, value_1, block_id):
+        """Create a Timer block from saved data"""
+        blockwidget = BlockWidget(self.parent, "Timer", block_id=block_id)
+        
+        if hasattr(blockwidget, 'value_1'):
+            print("setting timer value")
+            print(f"Timer value: {value_1}")
+            blockwidget.timer_input.setText(value_1)
+        
+        return blockwidget
+
+    def create_start_block_loaded(self, x, y, block_id):
+        """Create a Start block from saved data"""
+        blockwidget = BlockWidget(self.parent, "Start", block_id=block_id)
+        return blockwidget
+
+    def create_end_block_loaded(self, x, y, block_id):
+        """Create an End block from saved data"""
+        blockwidget = BlockWidget(self.parent, "End", block_id=block_id)
+        return blockwidget
+
+    def create_switch_block_loaded(self, x, y, value_1, switch, block_id):
+        """Create a Switch block from saved data"""
+        blockwidget = BlockWidget(self.parent, "Switch", block_id=block_id)
+        print(f"Switch {switch} with value_1 {value_1}")
+        if hasattr(blockwidget, 'Var_input_1') and hasattr(blockwidget, 'Switch'):
+            # If your Switch block has input fields, populate them
+            
+            blockwidget.Var_input_1.blockSignals(True)
+            blockwidget.Switch.blockSignals(True)
+            
+            
+            for i in range(blockwidget.Var_input_1.count()):
+                print(f"Checking Var_input_1 item: {blockwidget.Var_input_1.itemText(i)} against value_1: {value_1}")
+                if blockwidget.Var_input_1.itemText(i) == value_1:
+                    print(f"Setting Var_input_1 index to {i}")
+                    blockwidget.Var_input_1.setCurrentIndex(i)
+                    break
+            
+            blockwidget.Switch.set_checked(state=switch, emit_signal=False)
+
+                
+            blockwidget.Switch.blockSignals(False)
+            blockwidget.Var_input_1.blockSignals(False)
+            
+        return blockwidget
+    
 #MARK: Block Widget
 class BlockWidget(QWidget):
     """Custom widget for visual programming blocks"""
@@ -970,7 +1123,7 @@ class BlockWidget(QWidget):
             return self.create_switch_image()
         else:
             return self.create_start_end_image(self.block_type, "#FFD700")
-    #MAEK: Start/End Image
+    #MARK: Start/End Image
     def create_start_end_image(self, text, color, width=100, height=36, scale=3):
         """Create rounded rectangle with semicircular caps"""
         radius = height / 6
@@ -1716,7 +1869,8 @@ class Element_spawn:
         click_pos = event.pos()
         x, y = parent.snap_to_grid(click_pos.x(), click_pos.y(), block, during_drag=False)
         block.move(x, y)
-        
+        Utils.top_infos[block_id]['x'] = x
+        Utils.top_infos[block_id]['y'] = y
         
         # Add to canvas
         parent.add_draggable_widget(block)
