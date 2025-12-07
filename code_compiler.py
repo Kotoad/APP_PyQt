@@ -5,11 +5,20 @@ class CodeCompiler:
         self.file = None
         self.indent_level = 0
         self.indent_str = "    "  # 4 spaces
+        self.MC_compile = False  # Microcontroller mode flag
+        self.GPIO_compile = False  # GPIO mode flag
     
     def compile(self):
         """Main entry point"""
         self.file = open("File.py", "w")
         print("Compiling code to File.py...")
+        if Utils.config['rpi_model_index'] in (0,1,2,3):
+            print(f"RPI Model selected: {Utils.config['rpi_model']} (Index: {Utils.config['rpi_model_index']})")
+            self.MC_compile = True
+        elif Utils.config['rpi_model_index'] in (4,5,6,7):
+            print(f"RPI Model selected: {Utils.config['rpi_model']} (Index: {Utils.config['rpi_model_index']})")
+            self.GPIO_compile = True
+
         self.write_imports()
         self.write_setup()
         
@@ -18,9 +27,11 @@ class CodeCompiler:
         if start_block:
             next_id = self.get_next_block(start_block['id'])
             self.process_block(next_id)
-        
-        self.write_cleanup()
+            
+        if self.GPIO_compile:
+            self.write_cleanup()
         self.file.close()
+        
     
     def process_block(self, block_id):
         """Process single block - dispatch to handler"""
@@ -30,7 +41,6 @@ class CodeCompiler:
         block = Utils.top_infos[block_id]
         
         print(f"Processing block {block_id} of type {block['type']}")
-        
         if block['type'] == 'If':
             self.handle_if_block(block)
         elif block['type'] == 'While':
@@ -46,23 +56,39 @@ class CodeCompiler:
             pass
         
     def write_imports(self):
-        self.file.write("import RPi.GPIO as GPIO\n")
-        for block_id, top_info in Utils.top_infos.items():
-            if top_info['type'] == 'Timer':
-                self.file.write("import time\n")
-                break
+        if self.GPIO_compile:
+            self.file.write("import RPi.GPIO as GPIO\n")
+            for block_id, top_info in Utils.top_infos.items():
+                if top_info['type'] == 'Timer':
+                    self.file.write("import time\n")
+                    break
+        elif self.MC_compile:
+            self.file.write("from machine import Pin\n")
+            for block_id, top_info in Utils.top_infos.items():
+                if top_info['type'] == 'Timer':
+                    self.file.write("import time\n")
+                    break
     
+        
     def write_setup(self):
-        for dev_name, dev_info in Utils.devices.items():
-            self.file.write(f"{dev_info['name']} = {dev_info['value']}\n")
-        self.file.write("GPIO.setmode(GPIO.BCM)\n")
-        for dev_name, dev_info in Utils.devices.items():
-            if dev_info['type'] == 'Output':
-                self.file.write(f"GPIO.setup({dev_info['name']}, GPIO.OUT)\n")
-            elif dev_info['type'] == 'Input':
-                self.file.write(f"GPIO.setup({dev_info['name']}, GPIO.IN)\n")
-            else:
-                print(f"Unknown device type: {dev_info['type']}")
+        if self.GPIO_compile:
+            for dev_name, dev_info in Utils.devices.items():
+                self.file.write(f"{dev_info['name']} = {dev_info['value']}\n")
+            self.file.write("GPIO.setmode(GPIO.BCM)\n")
+            for dev_name, dev_info in Utils.devices.items():
+                if dev_info['type'] == 'Output':
+                    self.file.write(f"GPIO.setup({dev_info['name']}, GPIO.OUT)\n")
+                elif dev_info['type'] == 'Input':
+                    self.file.write(f"GPIO.setup({dev_info['name']}, GPIO.IN)\n")
+                else:
+                    print(f"Unknown device type: {dev_info['type']}")
+        elif self.MC_compile:
+            for dev_name, dev_info in Utils.devices.items():
+                if dev_info['type'] == 'Output':
+                    self.file.write(f"{dev_info['name']} = Pin({dev_info['value']}, Pin.OUT)\n")
+                elif dev_info['type'] == 'Input':
+                    self.file.write(f"{dev_info['name']} = Pin({dev_info['value']}, Pin.IN)\n")
+    
     def write_cleanup(self):
         self.file.write("GPIO.cleanup()\n")
     
@@ -210,17 +236,26 @@ class CodeCompiler:
         Var_1 = self.resolve_value(block['value_1'])
         
         print(f"Resolved Switch block value: {Switch_value} (type: {type(Switch_value).__name__})")
-        
-        if Switch_value is True:
-            print(f"Writing GPIO HIGH for Switch block")
-            self.writeline(f"GPIO.output({Var_1}, GPIO.HIGH)")
-        elif Switch_value is False:
-            print(f"Writing GPIO LOW for Switch block")
-            self.writeline(f"GPIO.output({Var_1}, GPIO.LOW)")
-        else:
-            print(f"Unknown Switch value {Switch_value}, defaulting to LOW")
-            self.writeline(f"GPIO.output({Var_1}, GPIO.LOW)")
-        
+        if self.GPIO_compile:
+            if Switch_value is True:
+                print(f"Writing GPIO HIGH for Switch block")
+                self.writeline(f"GPIO.output({Var_1}, GPIO.HIGH)")
+            elif Switch_value is False:
+                print(f"Writing GPIO LOW for Switch block")
+                self.writeline(f"GPIO.output({Var_1}, GPIO.LOW)")
+            else:
+                print(f"Unknown Switch value {Switch_value}, defaulting to LOW")
+                self.writeline(f"GPIO.output({Var_1}, GPIO.LOW)")
+        elif self.MC_compile:
+            if Switch_value is True:
+                print(f"Writing PIN HIGH for Switch block")
+                self.writeline(f"{Var_1}.value(1)")
+            elif Switch_value is False:
+                print(f"Writing PIN LOW for Switch block")
+                self.writeline(f"{Var_1}.value(0)")
+            else:
+                print(f"Unknown Switch value {Switch_value}, defaulting to LOW")
+                self.writeline(f"{Var_1}.value(0)")
         next_id = self.get_next_block(block['id'])
         if next_id:
             print(f"Processing next block after Switch: {next_id}")

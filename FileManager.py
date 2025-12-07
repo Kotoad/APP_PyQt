@@ -103,9 +103,8 @@ class FileManager:
         for var_id, var_info in Utils.variables.items():
             variables_data[var_id] = {
                 'name': var_info.get('name', ''),
-                'type': var_info.get('type', 'int'),
+                'type': var_info.get('type', ''),
                 'value': var_info.get('value', ''),
-                'pin': var_info.get('PIN', None),
             }
         
         # Build devices data (pure data, no widget references)

@@ -4,11 +4,11 @@ from Imports import (
     QLineEdit, QComboBox, QDialog, QPainter, QPen, QColor, QBrush,
     QPalette, QMouseEvent, QRegularExpression, QRegularExpressionValidator,
     QTimer, QMessageBox, QInputDialog, QFileDialog, QFont, Qt, QPoint,
-    QRect, QSize, pyqtSignal,  get_utils, AppSettings, ProjectData,
+    QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication
 )
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
-    get_file_manager, get_path_manager, get_Elements_Window
+    get_file_manager, get_path_manager, get_Elements_Window, get_utils,
 )
 Utils = get_utils()
 Code_Compiler = get_code_compiler()
@@ -518,6 +518,23 @@ class MainWindow(QMainWindow):
         self.variable_row_count += 1
         
         #print(f"Added variable: {self.var_id}")
+    
+    def Clear_All_Variables(self):
+        print("Clearing all variables")
+        
+        # Get a SNAPSHOT of variable IDs BEFORE modifying anything
+        var_ids_to_remove = list(Utils.variables.keys())
+        print(f"Variable IDs to remove: {var_ids_to_remove}")
+        
+        # Now remove them
+        for varid in var_ids_to_remove:
+            if varid in Utils.variables:
+                print(f"Removing varid: {varid}")
+                rowwidget = Utils.variables[varid]['widget']
+                self.remove_row(rowwidget, varid, 'Variable')
+            else:
+                print(f"WARNING: varid {varid} not found in Utils.variables")
+
     #MARK: - Devices Panel Methods
     def toggle_devices_frame(self):
         """Toggle the devices panel visibility"""
@@ -642,7 +659,6 @@ class MainWindow(QMainWindow):
         Utils.devices[device_id] = {
             'name': '',
             'type': 'Output',
-            'value': '',
             'PIN': None,
             'widget': row_widget,
             'name_imput': name_imput,
@@ -654,6 +670,23 @@ class MainWindow(QMainWindow):
         self.dev_content_layout.insertWidget(self.dev_content_layout.count() - 1, row_widget)
         
         self.devices_row_count += 1
+
+    def Clear_All_Devices(self):
+        print("Clearing all devices")
+        
+        # Get a SNAPSHOT of device IDs BEFORE modifying anything
+        device_ids_to_remove = list(Utils.devices.keys())
+        print(f"Device IDs to remove: {device_ids_to_remove}")
+        
+        # Now remove them
+        for device_id in device_ids_to_remove:
+            if device_id in Utils.devices:
+                print(f"Removing device_id: {device_id}")
+                rowwidget = Utils.devices[device_id]['widget']
+                self.remove_row(rowwidget, device_id, 'Device')
+            else:
+                print(f"WARNING: device_id {device_id} not found in Utils.devices")
+    
     #MARK: - Common Methods
     def remove_row(self, row_widget, var_id, type):
         """Remove a variable row"""
@@ -736,7 +769,7 @@ class MainWindow(QMainWindow):
                 border_col = "border-color: #ff0000;" if len(id_list) > 1 else "border-color: #3F3F3F;"
                 for v_id in id_list:
                     Utils.variables[v_id]['name_imput'].setStyleSheet(border_col)
-            
+            print("Utils.variables:", Utils.variables)
             self.refresh_all_blocks()
         
         elif type == "Device":
@@ -762,6 +795,7 @@ class MainWindow(QMainWindow):
                 for d_id in id_list:
                     Utils.devices[d_id]['name_imput'].setStyleSheet(border_col)
             print("Calling refresh_all_blocks from name_changed")
+            print(f"Utils.devices: {Utils.devices}")
             self.refresh_all_blocks()
         
     
@@ -835,8 +869,8 @@ class MainWindow(QMainWindow):
                     # Text is empty or can't convert (shouldn't happen with regex)
                     pass
             if self.device_id in Utils.devices:
-                Utils.devices[self.device_id]['value'] = imput
-                print(f"Value {self.device_id} value changed to: {imput}")   
+                Utils.devices[self.device_id]['PIN'] = imput
+                print(f"device {self.device_id} PIN changed to: {imput}")   
     #MARK: - Other Methods
     def open_elements_window(self):
         """Open the elements window"""
@@ -890,19 +924,22 @@ class MainWindow(QMainWindow):
 
     def on_new_file(self):
         """Create new project"""
+        self.Clear_All_Variables()
+        self.Clear_All_Devices()
+        self.canvas.path_manager.clear_all_paths()
+        widget_ids_to_remove = list(Utils.top_infos.keys())
+        
+        for block_id in widget_ids_to_remove:
+            if block_id in Utils.top_infos:
+                widget = Utils.top_infos[block_id]['widget']
+                widget.setParent(None)  # Remove from parent
+                widget.deleteLater()     # Schedule for deletion
         
         FileManager.new_project()
         
-        # Clear canvas
-        for block_id in list(Utils.top_infos.keys()):
-            widget = Utils.top_infos[block_id]['widget']
-            widget.setParent(None)
-            widget.deleteLater()
+        QCoreApplication.processEvents()
         
-        Utils.top_infos.clear()
-        Utils.paths.clear()
         self.canvas.update()
-        print("✓ New project created")
 
     #MARK: - Rebuild UI from Saved Data
     def rebuild_from_data(self):

@@ -12,15 +12,6 @@ runtime_widgets = {
     'lines': {},       # connection_id -> QLine
 }
 
-# ============================================================================
-# GLOBAL DICTIONARIES - Data Storage for the Visual Programming System
-# ============================================================================
-
-runtime_widgets = {
-    'blocks': {},  # block_id -> QWidget
-    'lines': {},   # connection_id -> QLine
-}
-
 # TOP-LEVEL BLOCKS DATA STRUCTURE
 # Purpose: Stores metadata for every visual block placed on the canvas
 # (rest of file unchanged - all the comments and dict definitions)
@@ -36,6 +27,8 @@ dev_items = {}
 
 config = {
     'grid_size': 25,  # Snap-to-grid pixel size
+    'rpi_model': app_settings.rpi_model,
+    'rpi_model_index': app_settings.rpi_model_index,
 }
 
 # ============================================================================

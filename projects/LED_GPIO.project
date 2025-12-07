@@ -1,0 +1,292 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "created": "2025-12-07T15:08:04.688028",
+    "modified": "2025-12-07T15:09:49.611046",
+    "rpi_model": "RPI 3 model B/B+",
+    "rpi_model_index": 5
+  },
+  "blocks": {
+    "31939": {
+      "type": "Start",
+      "x": 75,
+      "y": 232,
+      "width": 112,
+      "height": 36,
+      "value_1": "--",
+      "value_2": "",
+      "combo_value": "=",
+      "switch_value": "True",
+      "in_connections": [],
+      "out_connections": [
+        "31939_73471"
+      ]
+    },
+    "73471": {
+      "type": "While",
+      "x": 275,
+      "y": 260,
+      "width": 110,
+      "height": 54,
+      "value_1": "d",
+      "value_2": "2",
+      "combo_value": ">=",
+      "switch_value": "True",
+      "in_connections": [
+        "31939_73471"
+      ],
+      "out_connections": [
+        "73471_71726",
+        "73471_54761"
+      ]
+    },
+    "71726": {
+      "type": "Switch",
+      "x": 500,
+      "y": 260,
+      "width": 110,
+      "height": 54,
+      "value_1": "LED",
+      "value_2": "",
+      "combo_value": "=",
+      "switch_value": false,
+      "in_connections": [
+        "73471_71726"
+      ],
+      "out_connections": [
+        "71726_25429"
+      ]
+    },
+    "79651": {
+      "type": "Switch",
+      "x": 825,
+      "y": 385,
+      "width": 110,
+      "height": 54,
+      "value_1": "LED",
+      "value_2": "",
+      "combo_value": "=",
+      "switch_value": true,
+      "in_connections": [
+        "25429_79651"
+      ],
+      "out_connections": [
+        "79651_65467"
+      ]
+    },
+    "25429": {
+      "type": "Timer",
+      "x": 725,
+      "y": 282,
+      "width": 152,
+      "height": 36,
+      "value_1": "3",
+      "value_2": "",
+      "combo_value": "=",
+      "switch_value": "True",
+      "in_connections": [
+        "71726_25429"
+      ],
+      "out_connections": [
+        "25429_79651"
+      ]
+    },
+    "65467": {
+      "type": "Timer",
+      "x": 1000,
+      "y": 332,
+      "width": 152,
+      "height": 36,
+      "value_1": "20",
+      "value_2": "",
+      "combo_value": "=",
+      "switch_value": "True",
+      "in_connections": [
+        "79651_65467"
+      ],
+      "out_connections": []
+    },
+    "54761": {
+      "type": "Timer",
+      "x": 425,
+      "y": 457,
+      "width": 152,
+      "height": 36,
+      "value_1": "3",
+      "value_2": "",
+      "combo_value": "=",
+      "switch_value": "True",
+      "in_connections": [
+        "73471_54761"
+      ],
+      "out_connections": []
+    }
+  },
+  "connections": {
+    "31939_73471": {
+      "from_block": 31939,
+      "from_circle": "out",
+      "to_block": 73471,
+      "to_circle": "in1",
+      "waypoints": [
+        [
+          177,
+          250
+        ],
+        [
+          231,
+          250
+        ],
+        [
+          231,
+          299
+        ],
+        [
+          285,
+          299
+        ]
+      ],
+      "color": "blue"
+    },
+    "73471_71726": {
+      "from_block": 73471,
+      "from_circle": "out1",
+      "to_block": 71726,
+      "to_circle": "in1",
+      "waypoints": [
+        [
+          375,
+          275
+        ],
+        [
+          442,
+          275
+        ],
+        [
+          442,
+          299
+        ],
+        [
+          510,
+          299
+        ]
+      ],
+      "color": "blue"
+    },
+    "71726_25429": {
+      "from_block": 71726,
+      "from_circle": "out2",
+      "to_block": 25429,
+      "to_circle": "in",
+      "waypoints": [
+        [
+          599.2,
+          300.5
+        ],
+        [
+          665.2,
+          300.5
+        ],
+        [
+          665.2,
+          300.0
+        ],
+        [
+          732.2,
+          300.0
+        ]
+      ],
+      "color": "blue"
+    },
+    "25429_79651": {
+      "from_block": 25429,
+      "from_circle": "out",
+      "to_block": 79651,
+      "to_circle": "in1",
+      "waypoints": [
+        [
+          869.8,
+          300.0
+        ],
+        [
+          869.8,
+          362.0
+        ],
+        [
+          835.8,
+          362.0
+        ],
+        [
+          835.8,
+          425.5
+        ]
+      ],
+      "color": "blue"
+    },
+    "79651_65467": {
+      "from_block": 79651,
+      "from_circle": "out2",
+      "to_block": 65467,
+      "to_circle": "in",
+      "waypoints": [
+        [
+          925,
+          424
+        ],
+        [
+          967,
+          424
+        ],
+        [
+          967,
+          350
+        ],
+        [
+          1010,
+          350
+        ]
+      ],
+      "color": "blue"
+    },
+    "73471_54761": {
+      "from_block": 73471,
+      "from_circle": "out2",
+      "to_block": 54761,
+      "to_circle": "in",
+      "waypoints": [
+        [
+          375,
+          299
+        ],
+        [
+          375,
+          387
+        ],
+        [
+          435,
+          387
+        ],
+        [
+          435,
+          475
+        ]
+      ],
+      "color": "blue"
+    }
+  },
+  "variables": {
+    "var_1": {
+      "name": "d",
+      "type": "Out",
+      "value": "4",
+      "pin": null
+    }
+  },
+  "devices": {
+    "device_1": {
+      "name": "LED",
+      "type": "Output",
+      "pin": null
+    }
+  }
+}

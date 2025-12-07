@@ -419,26 +419,29 @@ class spawning_elements:
                     break
             
             for i in range(blockwidget.While_combobox.count()):
+                print(f"Checking While_combobox item: {blockwidget.While_combobox.itemText(i)} against combo_value: {combo_value}")
                 if blockwidget.While_combobox.itemText(i) == combo_value:
                     blockwidget.While_combobox.setCurrentIndex(i)
                     break
-            
+            print(f"Setting While_input_2 to {value_2}")
             blockwidget.While_input_2.setText(value_2)
-            
-            blockwidget.If_input_1.blockSignals(False)
-            blockwidget.If_combobox.blockSignals(False)
-            blockwidget.If_input_2.blockSignals(False)
-        
+            print("Signals blocked")
+            blockwidget.While_input_1.blockSignals(False)
+            blockwidget.While_combobox.blockSignals(False)
+            blockwidget.While_input_2.blockSignals(False)
+        print("While block created")
         return blockwidget
 
     def create_timer_block_loaded(self, x, y, value_1, block_id):
         """Create a Timer block from saved data"""
         blockwidget = BlockWidget(self.parent, "Timer", block_id=block_id)
         
-        if hasattr(blockwidget, 'value_1'):
+        if hasattr(blockwidget, 'timer_input'):
             print("setting timer value")
             print(f"Timer value: {value_1}")
+            blockwidget.timer_input.blockSignals(True)
             blockwidget.timer_input.setText(value_1)
+            blockwidget.timer_input.blockSignals(False)
         
         return blockwidget
 
@@ -680,7 +683,7 @@ class BlockWidget(QWidget):
         self.If_combobox.currentIndexChanged.connect(self.on_combo_changed)
     #MARK: WHILE Inputs      
     def create_While_inputs(self):
-        print("creating if input")
+        print("creating While input")
         self.While_input_1 = MaxWidthComboBox(self, max_popup_width=300)
         self.While_input_1.setEditable(False)
         self.While_input_1.setFixedHeight(20)

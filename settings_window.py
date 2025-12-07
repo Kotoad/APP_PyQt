@@ -137,6 +137,10 @@ class DeviceSettingsWindow(QDialog):
         """Handle model change"""
         Utils.app_settings.rpi_model = self.rpi_model_combo.itemText(index)
         Utils.app_settings.rpi_model_index = index
+        Utils.config.update({
+            'rpi_model': Utils.app_settings.rpi_model,
+            'rpi_model_index': Utils.app_settings.rpi_model_index,
+        })
         print(f"Model changed to: {Utils.app_settings.rpi_model}")
     
     def open(self):

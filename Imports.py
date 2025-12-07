@@ -28,7 +28,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import (
     Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression, QTimer, QEvent,
-    pyqtProperty, QEasingCurve, QRectF, QPropertyAnimation, QObject, QLine
+    pyqtProperty, QEasingCurve, QRectF, QPropertyAnimation, QObject, QLine, QCoreApplication
 )
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent,
