@@ -115,17 +115,22 @@ class FileManager:
                 'type': dev_info.get('type', 'Output'),
                 'pin': dev_info.get('PIN', None),
             }
+        metadata = {
+            'version': '1.0',
+            'created': Utils.project_data.metadata.get('created', 
+                      datetime.now().isoformat()),
+            'modified': datetime.now().isoformat(),
+        }
+        
+        settings = {
+            'rpi_model': Utils.app_settings.rpi_model,
+            'rpi_model_index': Utils.app_settings.rpi_model_index,
+        }
         
         # Complete project structure
         project_dict = {
-            'metadata': {
-                'version': '1.0',
-                'created': Utils.project_data.metadata.get('created', 
-                          datetime.now().isoformat()),
-                'modified': datetime.now().isoformat(),
-                'rpi_model': Utils.app_settings.rpi_model,
-                'rpi_model_index': Utils.app_settings.rpi_model_index,
-            },
+            'metadata': metadata,
+            'settings': settings,
             'blocks': blocks_data,
             'connections': connections_data,
             'variables': variables_data,
@@ -206,9 +211,7 @@ class FileManager:
         Utils.project_data.metadata = metadata
         
         # Load RPI settings
-        if 'rpi_model' in metadata:
-            Utils.app_settings.rpi_model = metadata['rpi_model']
-            Utils.app_settings.rpi_model_index = metadata.get('rpi_model_index', 6)
+        Utils.project_data.settings = project_dict.get('settings', {})
         
         # Load blocks (pure data only)
         Utils.project_data.blocks = project_dict.get('blocks', {})
@@ -225,7 +228,9 @@ class FileManager:
         print(f"✓ Data loaded: {len(Utils.project_data.blocks)} blocks, "
               f"{len(Utils.project_data.connections)} connections, "
               f"{len(Utils.project_data.variables)} variables, "
-              f"{len(Utils.project_data.devices)} devices")
+              f"{len(Utils.project_data.devices)} devices, "
+              f"Settings: {len(Utils.project_data.settings)})"
+              )
     
     # ========================================================================
     # UTILITY OPERATIONS

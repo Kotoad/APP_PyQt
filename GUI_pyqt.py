@@ -9,6 +9,7 @@ from Imports import (
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
     get_file_manager, get_path_manager, get_Elements_Window, get_utils,
+    get_Help_Window
 )
 Utils = get_utils()
 Code_Compiler = get_code_compiler()
@@ -298,7 +299,7 @@ class MainWindow(QMainWindow):
                 background-color: #E05555;
             }
         """)
-        
+        self.help_window_instance = None
         self.variable_frame = None
         self.variable_frame_visible = False
         self.variable_row_count = 1
@@ -355,6 +356,17 @@ class MainWindow(QMainWindow):
         settings_menu = menubar.addMenu("Settings")
         settings_menu_action = settings_menu.addAction("Settings")
         settings_menu_action.triggered.connect(self.open_settings_window)
+        
+        Help_menu = menubar.addMenu("Help")
+        
+        Get_stared = Help_menu.addAction("Get Started")
+        Get_stared.triggered.connect(lambda: self.open_help(0))
+        
+        examples = Help_menu.addAction("Examples")
+        examples.triggered.connect(lambda: self.open_help(1))
+        
+        FAQ = Help_menu.addAction("FAQ")
+        FAQ.triggered.connect(lambda: self.open_help(2))
         
         # Compile menu
         compile_menu = menubar.addMenu("Compile")
@@ -882,6 +894,13 @@ class MainWindow(QMainWindow):
         device_settings_window = DeviceSettingsWindow.get_instance(self.canvas)
         device_settings_window.open()
     
+    def open_help(self, which):
+        """Open the help window"""
+        HelpWindow = get_Help_Window()
+        self.help_window_instance = HelpWindow.get_instance(self.canvas, which)
+        self.help_window_instance.open()
+    
+    
     def block_management(self, block_id, window):
         """Track block windows"""
         self.blockIDs[block_id] = window
@@ -940,6 +959,31 @@ class MainWindow(QMainWindow):
         QCoreApplication.processEvents()
         
         self.canvas.update()
+    
+    def closeEvent(self, event):
+        """Close all child windows before closing main window"""
+        # Close Help window if it exists
+        if self.help_window_instance is not None and self.help_window_instance.isVisible():
+            self.help_window_instance.close()
+        
+        # Close Elements window if it exists
+        try:
+            elements_window = ElementsWindow.get_instance(self.canvas)
+            if elements_window.isVisible():
+                elements_window.close()
+        except:
+            pass
+        
+        # Close Device Settings window if it exists
+        try:
+            device_settings_window = DeviceSettingsWindow.get_instance(self.canvas)
+            if device_settings_window.isVisible():
+                device_settings_window.close()
+        except:
+            pass
+        
+        # Accept the close event
+        event.accept()
 
     #MARK: - Rebuild UI from Saved Data
     def rebuild_from_data(self):
@@ -955,6 +999,8 @@ class MainWindow(QMainWindow):
         4. Devices in the side panel
         """
         print("Starting rebuild from saved data...")
+        
+        self._rebuild_settings()
         
         # Rebuild variable panel
         self._rebuild_variables_panel()
@@ -972,6 +1018,15 @@ class MainWindow(QMainWindow):
         
         print("✓ Project rebuild complete")
 
+    def _rebuild_settings(self):
+        """Rebuild settings from project_data"""
+        print(f"Rebuilding {len(Utils.project_data.settings)} settings...")
+        print(f" RPi Model: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
+        Utils.app_settings.rpi_model = Utils.project_data.settings.get('rpi_model', "RPI 4 model B")
+        Utils.app_settings.rpi_model_index = Utils.project_data.settings.get('rpi_model_index', 6)
+        print(f" RPi Model: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
+        self.canvas.update()
+        print(" Settings rebuilt")
 
     def _rebuild_blocks(self):
         """Recreate all block widgets on canvas from project_data"""

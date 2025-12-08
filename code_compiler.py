@@ -10,13 +10,18 @@ class CodeCompiler:
     
     def compile(self):
         """Main entry point"""
+        self.MC_compile = False
+        self.GPIO_compile = False
+        self.indent_level = 0
         self.file = open("File.py", "w")
         print("Compiling code to File.py...")
-        if Utils.config['rpi_model_index'] in (0,1,2,3):
-            print(f"RPI Model selected: {Utils.config['rpi_model']} (Index: {Utils.config['rpi_model_index']})")
+        print(f"RPI Model: {Utils.app_settings.rpi_model}")
+        print(f"RPI Model Index: {Utils.app_settings.rpi_model_index}")
+        if Utils.app_settings.rpi_model_index in (0,1,2,3):
+            print(f"RPI Model selected: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
             self.MC_compile = True
-        elif Utils.config['rpi_model_index'] in (4,5,6,7):
-            print(f"RPI Model selected: {Utils.config['rpi_model']} (Index: {Utils.config['rpi_model_index']})")
+        elif Utils.app_settings.rpi_model_index in (4,5,6,7):
+            print(f"RPI Model selected: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
             self.GPIO_compile = True
 
         self.write_imports()
@@ -71,9 +76,10 @@ class CodeCompiler:
     
         
     def write_setup(self):
+        print("Writing setup code...")
         if self.GPIO_compile:
             for dev_name, dev_info in Utils.devices.items():
-                self.file.write(f"{dev_info['name']} = {dev_info['value']}\n")
+                self.file.write(f"{dev_info['name']} = {dev_info['PIN']}\n")
             self.file.write("GPIO.setmode(GPIO.BCM)\n")
             for dev_name, dev_info in Utils.devices.items():
                 if dev_info['type'] == 'Output':
@@ -83,11 +89,13 @@ class CodeCompiler:
                 else:
                     print(f"Unknown device type: {dev_info['type']}")
         elif self.MC_compile:
+            print("Writing Microcontroller pin setup...")
             for dev_name, dev_info in Utils.devices.items():
+                print(dev_info)
                 if dev_info['type'] == 'Output':
-                    self.file.write(f"{dev_info['name']} = Pin({dev_info['value']}, Pin.OUT)\n")
+                    self.file.write(f"{dev_info['name']} = Pin({dev_info['PIN']}, Pin.OUT)\n")
                 elif dev_info['type'] == 'Input':
-                    self.file.write(f"{dev_info['name']} = Pin({dev_info['value']}, Pin.IN)\n")
+                    self.file.write(f"{dev_info['name']} = Pin({dev_info['PIN']}, Pin.IN)\n")
     
     def write_cleanup(self):
         self.file.write("GPIO.cleanup()\n")

@@ -5,6 +5,7 @@ class ProjectData:
         self.blocks = {}        # Pure block data (no QWidget refs)
         self.connections = {}   # Pure connection data
         self.variables = {}     # Pure variable data
+        self.devices = {}       # Pure device data
         self.settings = {}      # App settings (RPI model, etc)
         self.metadata = {}     # Additional metadata (version, crafred, modified)
 
@@ -14,6 +15,7 @@ class ProjectData:
             'blocks': self.blocks,
             'connections': self.connections,
             'variables': self.variables,
+            'devices': self.devices,
             'settings': self.settings,
             'metadata': self.metadata,
         }
@@ -25,6 +27,7 @@ class ProjectData:
         project.blocks = data.get('blocks', {})
         project.connections = data.get('connections', {})
         project.variables = data.get('variables', {})
+        project.devices = data.get('devices', {})
         project.settings = data.get('settings', {})
         project.metadata = data.get('metadata', {})
         return project

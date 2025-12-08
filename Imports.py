@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea,
     QLineEdit, QComboBox, QDialog, QTabWidget, QFileDialog, QMessageBox,
-    QInputDialog, QStyleOptionComboBox, QStyledItemDelegate
+    QInputDialog, QStyleOptionComboBox, QStyledItemDelegate, QTextEdit,
 )
 from PyQt6.QtCore import (
     Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression, QTimer, QEvent,
@@ -78,6 +78,11 @@ def get_Elements_Window():
     """Lazy import ElementsWindow - avoid circular import"""
     from Elements_window_pyqt import ElementsWindow
     return ElementsWindow
+
+def get_Help_Window():
+    """Lazy import HelpWindow - avoid circular import"""
+    from Help_window import HelpWindow
+    return HelpWindow()
 # ============================================================================
 # LAZY IMPORTS (Imported only when needed to avoid circular deps)
 # ============================================================================

@@ -1,6 +1,6 @@
 import RPi.GPIO as GPIO
 import time
-LED = 2
+LED = None
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(LED, GPIO.OUT)
 while 4 >= 2:

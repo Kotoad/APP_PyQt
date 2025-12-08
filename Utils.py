@@ -1,7 +1,6 @@
 from ctypes import windll, wintypes, byref
 from Imports import AppSettings, ProjectData
 app_settings = AppSettings()
-app_settings = AppSettings.load_from_file()
 project_data = ProjectData()
 # ============================================================================
 # GLOBAL DICTIONARIES - Data Storage for the Visual Programming System
@@ -27,8 +26,6 @@ dev_items = {}
 
 config = {
     'grid_size': 25,  # Snap-to-grid pixel size
-    'rpi_model': app_settings.rpi_model,
-    'rpi_model_index': app_settings.rpi_model_index,
 }
 
 # ============================================================================
