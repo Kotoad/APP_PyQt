@@ -250,6 +250,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Visual Programming Interface")
         self.resize(1200, 800)
         self.code_compiler = Code_Compiler()
+        self.create_save_shortcut()
+        self.setup_auto_save_timer()
         # Style
         self.setStyleSheet("""
             QMainWindow {
@@ -331,6 +333,9 @@ class MainWindow(QMainWindow):
         
         save_action = file_menu.addAction("Save")
         save_action.triggered.connect(self.on_save_file)
+        
+        save_as_action = file_menu.addAction("Save As")
+        save_as_action.triggered.connect(self.on_save_file_as)
         
         file_menu.addSeparator()
         
@@ -916,14 +921,66 @@ class MainWindow(QMainWindow):
             pass
     
     # Menu actions
+    
+    def create_save_shortcut(self):
+        """Create Ctrl+S keyboard shortcut for saving"""
+        from PyQt6.QtGui import QKeySequence, QShortcut
+        print("Creating save shortcut (Ctrl+S)")
+        save_shortcut = QShortcut(QKeySequence.StandardKey.Save, self)
+        save_shortcut.activated.connect(self.on_save_file)
+    
+    def setup_auto_save_timer(self):
+        """Setup auto-save timer for every 5 minutes"""
+        self.auto_save_timer = QTimer()
+        self.auto_save_timer.timeout.connect(self.auto_save_project)
+        
+        # 5 minutes = 300,000 milliseconds
+        self.auto_save_timer.start(300000)  # 300000 ms = 5 minutes
+        
+        print("✓ Auto-save timer started (every 5 minutes)")
+    
+    def get_current_time(self):
+        """Get current time for logging"""
+        from datetime import datetime
+        return datetime.now().strftime("%H:%M:%S")
+    
+    def auto_save_project(self):
+        """Auto-save current project"""
+        name = Utils.project_data.metadata.get('name', 'Untitled')
+        print(f"Auto-saving project '{name}'")
+        try:
+            if FileManager.save_project(name, is_autosave=True):
+                print(f"✓ Auto-saved '{name}' at {self.get_current_time()}")
+            else:
+                print(f"✗ Auto-save failed for '{name}'")
+        except Exception as e:
+            print(f"✗ Auto-save error: {e}")
+
+    
     def on_save_file(self):
         """Save current project"""
         
-        name, ok = QInputDialog.getText(self, "Save Project", "Project name:")
-        if ok and name:
-            if FileManager.save_project(name):
-                print(f"✓ Project '{name}' saved")
+        name = Utils.project_data.metadata.get('name', 'Untitled')
+        if name == 'Untitled':
+            self.on_save_file_as()
+            return
+        print(f"Metadata: {Utils.project_data.metadata}")
+        print(f"Saving project as '{name}'")
+        if FileManager.save_project(name):
+            print(f"✓ Project '{name}' saved")
 
+    def on_save_file_as(self):
+        """Save current project with new name"""
+        
+        text, ok = QInputDialog.getText(self, "Save Project As", 
+            "Enter project name:", QLineEdit.EchoMode.Normal, 
+            Utils.project_data.metadata.get('name', ''))
+        
+        if ok and text:
+            Utils.project_data.metadata['name'] = text
+            if FileManager.save_project(text):
+                print(f"✓ Project saved as '{text}'")
+    
     def on_open_file(self):
         """Open saved project"""
         

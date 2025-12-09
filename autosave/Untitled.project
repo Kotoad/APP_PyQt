@@ -1,0 +1,16 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "name": "Untitled",
+    "created": "2025-12-09T11:36:29.602003",
+    "modified": "2025-12-09T11:36:29.602068"
+  },
+  "settings": {
+    "rpi_model": "RPI 2 zero W",
+    "rpi_model_index": 2
+  },
+  "blocks": {},
+  "connections": {},
+  "variables": {},
+  "devices": {}
+}

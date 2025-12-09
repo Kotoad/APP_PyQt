@@ -44,12 +44,12 @@ class FileManager:
             
             # Determine save location
             if is_autosave:
-                filename = os.path.join(cls.AUTOSAVE_DIR, "autosave" + cls.PROJECT_EXTENSION)
+                filename = os.path.join(cls.AUTOSAVE_DIR, project_name + cls.PROJECT_EXTENSION)
             else:
                 filename = os.path.join(cls.PROJECTS_DIR, project_name + cls.PROJECT_EXTENSION)
             
             # Build project data
-            project_dict = cls._build_save_data()
+            project_dict = cls._build_save_data(project_name)
             
             # Write to file
             with open(filename, 'w') as f:
@@ -63,7 +63,7 @@ class FileManager:
             return False
     
     @classmethod
-    def _build_save_data(cls) -> dict:
+    def _build_save_data(cls, project_name: str) -> dict:
         """
         Build complete project data for serialization
         
@@ -117,6 +117,7 @@ class FileManager:
             }
         metadata = {
             'version': '1.0',
+            'name': project_name,
             'created': Utils.project_data.metadata.get('created', 
                       datetime.now().isoformat()),
             'modified': datetime.now().isoformat(),
@@ -207,8 +208,7 @@ class FileManager:
         Utils.project_data = ProjectData()
         
         # Load metadata
-        metadata = project_dict.get('metadata', {})
-        Utils.project_data.metadata = metadata
+        Utils.project_data.metadata = project_dict.get('metadata', {})
         
         # Load RPI settings
         Utils.project_data.settings = project_dict.get('settings', {})
@@ -298,6 +298,7 @@ class FileManager:
         Utils.project_data = ProjectData()
         Utils.project_data.metadata = {
             'version': '1.0',
+            'name': 'Untitled',
             'created': datetime.now().isoformat(),
             'modified': datetime.now().isoformat(),
         }

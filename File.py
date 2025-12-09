@@ -1,12 +1,1 @@
-import RPi.GPIO as GPIO
-import time
-LED = None
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(LED, GPIO.OUT)
-while 4 >= 2:
-    GPIO.output(LED, GPIO.LOW)
-    time.sleep(3)
-    GPIO.output(LED, GPIO.HIGH)
-    time.sleep(20)
-time.sleep(3)
-GPIO.cleanup()
+from machine import Pin

@@ -1,5 +1,74 @@
-from Imports import get_utils
+from Imports import get_utils, os, sys, subprocess
 Utils = get_utils()
+
+class PicoWAutoTransfer:
+    """Automatic transfer with dependency checking"""
+    
+    @staticmethod
+    def ensure_dependencies():
+        """Install required packages if missing"""
+        required = ['pyserial', 'mpremote']
+        missing = []
+        
+        for package in required:
+            try:
+                __import__(package.replace('-', '_'))
+            except ImportError:
+                missing.append(package)
+        
+        if missing:
+            print(f"\n⚠ Installing missing dependencies: {', '.join(missing)}")
+            for package in missing:
+                try:
+                    subprocess.check_call(
+                        [sys.executable, "-m", "pip", "install", package],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    )
+                    print(f"✓ Installed {package}")
+                except:
+                    print(f"✗ Failed to install {package}")
+    
+    @staticmethod
+    def transfer_file(source="File.py", target="main.py"):
+        """Transfer with mpremote (preferred method)"""
+        PicoWAutoTransfer.ensure_dependencies()
+        
+        try:
+            # Try mpremote first (more reliable)
+            cmd = ["mpremote", "cp", source, f":{target}"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+            
+            if result.returncode == 0:
+                print(f"✓ Transfer successful: {source} → {target}")
+                return True
+            else:
+                # If mpremote fails, try pyboard
+                if "No module named 'serial'" in result.stderr:
+                    print("Installing pyserial...")
+                    subprocess.check_call([sys.executable, "-m", "pip", "install", "pyserial"])
+                    # Retry
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0:
+                        print(f"✓ Transfer successful (retry): {source} → {target}")
+                        return True
+                
+                print(f"✗ Transfer failed: {result.stderr}")
+                return False
+                
+        except subprocess.TimeoutExpired:
+            print("✗ Transfer timeout - Is Pico W connected and in bootloader mode?")
+            return False
+        except FileNotFoundError:
+            print("✗ mpremote not found - installing...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "mpremote"])
+            # Retry recursively
+            return PicoWAutoTransfer.transfer_file(source, target)
+        except Exception as e:
+            print(f"✗ Unexpected error: {e}")
+            return False
+
+
 class CodeCompiler:
     def __init__(self):
         self.file = None
@@ -36,7 +105,10 @@ class CodeCompiler:
         if self.GPIO_compile:
             self.write_cleanup()
         self.file.close()
-        
+
+        if self.MC_compile:
+            print("\n--- Transferring to Pico W ---")
+            PicoWAutoTransfer.transfer_file("File.py", "main.py")
     
     def process_block(self, block_id):
         """Process single block - dispatch to handler"""
