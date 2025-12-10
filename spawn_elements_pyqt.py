@@ -610,7 +610,12 @@ class spawning_elements:
                     blockwidget.If_combobox.setCurrentIndex(i)
                     break
             
-            blockwidget.If_input_2.setText(value_2)
+            for i in range(blockwidget.If_input_2.all_items.__len__()):
+                print(f"Checking If_input_2 item: {blockwidget.If_input_2.all_items[i]} against value_2: {value_2}")
+                if blockwidget.If_input_2.all_items[i] == value_2:
+                    print(f"Setting If_input_2 index to {i}")
+                    blockwidget.If_input_2.setText(value_2)
+                    break
             
             blockwidget.If_input_1.blockSignals(False)
             blockwidget.If_combobox.blockSignals(False)
@@ -631,11 +636,11 @@ class spawning_elements:
             blockwidget.While_combobox.blockSignals(True)
             blockwidget.While_input_2.blockSignals(True)
             
-            for i in range(blockwidget.While_input_1.count()):
-                print(f"Checking While_input_1 item: {blockwidget.While_input_1.itemText(i)} against value_1: {value_1}")
-                if blockwidget.While_input_1.itemText(i) == value_1:
+            for i in range(blockwidget.While_input_1.all_items.__len__()):
+                print(f"Checking While_input_1 item: {blockwidget.While_input_1.all_items[i]} against value_1: {value_1}")
+                if blockwidget.While_input_1.all_items[i] == value_1:
                     print(f"Setting While_input_1 index to {i}")
-                    blockwidget.While_input_1.setCurrentIndex(i)
+                    blockwidget.While_input_1.setText(value_1)
                     break
             
             for i in range(blockwidget.While_combobox.count()):
@@ -643,9 +648,13 @@ class spawning_elements:
                 if blockwidget.While_combobox.itemText(i) == combo_value:
                     blockwidget.While_combobox.setCurrentIndex(i)
                     break
-            print(f"Setting While_input_2 to {value_2}")
-            blockwidget.While_input_2.setText(value_2)
-            print("Signals blocked")
+            for i in range(blockwidget.While_input_2.all_items.__len__()):
+                print(f"Checking While_input_2 item: {blockwidget.While_input_2.all_items[i]} against value_2: {value_2}")
+                if blockwidget.While_input_2.all_items[i] == value_2:
+                    print(f"Setting While_input_2 index to {i}")
+                    blockwidget.While_input_2.setText(value_2)
+                    break
+            
             blockwidget.While_input_1.blockSignals(False)
             blockwidget.While_combobox.blockSignals(False)
             blockwidget.While_input_2.blockSignals(False)
@@ -690,11 +699,11 @@ class spawning_elements:
             blockwidget.Switch.blockSignals(True)
             
             
-            for i in range(blockwidget.Var_input_1.count()):
-                print(f"Checking Var_input_1 item: {blockwidget.Var_input_1.itemText(i)} against value_1: {value_1}")
-                if blockwidget.Var_input_1.itemText(i) == value_1:
+            for i in range(blockwidget.Var_input_1.all_items.__len__()):
+                print(f"Checking Var_input_1 item: {blockwidget.Var_input_1.all_items[i]} against value_1: {value_1}")
+                if blockwidget.Var_input_1.all_items[i] == value_1:
                     print(f"Setting Var_input_1 index to {i}")
-                    blockwidget.Var_input_1.setCurrentIndex(i)
+                    blockwidget.Var_input_1.setText(value_1)
                     break
             
             blockwidget.Switch.set_checked(state=switch, emit_signal=False)
@@ -772,25 +781,7 @@ class BlockWidget(QWidget):
         print("creating if input")
         self.If_input_1 = SearchableLineEdit(self)
         self.If_input_1.setFixedHeight(20)
-        self.If_input_1.setMinimumWidth(30) 
         
-        self.insert_items(self.If_input_1)  
-        
-        #delegate = NoTruncateDelegate()
-        #self.If_input_1.setItemDelegate(delegate)
-        #self.If_input_1.view().setItemDelegate(delegate)
-        
-        #self.If_input_1.view().setMaximumWidth(300)
-        #self.If_input_1.view().horizontalScrollBar().setStyleSheet("""
-        #    QScrollBar:horizontal {
-        #        height: 0px;
-        #    }
-        #""")
-
-        # ALSO set the view minimum height to match item size
-        #self.If_input_1.view().setSpacing(0) 
-        #self.If_input_1.setCurrentIndex(0)
-
         input_x = self.width() - 95
         input_y =3* ((self.height() - 20) // 4)
         self.If_input_1.move(input_x, input_y)
@@ -826,16 +817,13 @@ class BlockWidget(QWidget):
         self.If_input_1.raise_()
         self.If_input_1.show()
 
-        self.If_input_2 = QLineEdit(self)
-        self.If_input_2.setFixedSize(30, 20)
-        regex = QRegularExpression(r"^-?\d*$")  # Allow optional minus sign, then digits
-        validator = QRegularExpressionValidator(regex, self)
-        self.If_input_2.setValidator(validator)
-        input_x = self.width()
+        self.If_input_2 = SearchableLineEdit(self)
+        self.If_input_2.setFixedHeight(20)
+        input_x = self.width() - 40
         input_y =3* ((self.height() - 20) // 4)
         self.If_input_2.move(input_x, input_y)
         self.If_input_2.setStyleSheet("""
-        QLineEdit {
+        QComboBox {
             background-color: white;
             border: 1px solid #333;
             border-radius: 3px;
@@ -843,12 +831,26 @@ class BlockWidget(QWidget):
             font-size: 12px;
             color: #333;
         }
-        QLineEdit:focus {
+        QComboBox::drop-down { 
+            width: 0px; 
+            border: none; 
+        }
+        QComboBox::down-arrow { 
+            width: 0px; 
+            image: none; 
+        }
+        QComboBox:focus {
             border: 2px solid #4CAF50;
         }
-        """)
-        self.If_input_2.setPlaceholderText("0")
-        self.If_input_2.setAlignment(Qt.AlignmentFlag.AlignCenter)  
+        QComboBox QAbstractItemView {
+            background-color: #eeeeee;
+            color: #333333;
+            border: 1px solid #555555;
+            selection-background-color: #1F538D;
+            max-width: 300px;
+            outline: none;  
+        }
+        """) 
         self.If_input_2.raise_()
         self.If_input_2.show()
         
@@ -902,36 +904,18 @@ class BlockWidget(QWidget):
         self.If_combobox.raise_()
         self.If_combobox.show()
         
+        self.insert_items(self.If_input_1)  
+        self.insert_items(self.If_input_2)
+        
         self.If_input_1.textChanged.connect(self.on_value_1_changed)
         self.If_input_2.textChanged.connect(self.on_value_2_changed)
         self.If_combobox.currentIndexChanged.connect(self.on_combo_changed)
     #MARK: WHILE Inputs      
     def create_While_inputs(self):
         print("creating While input")
-        self.While_input_1 = MaxWidthComboBox(self, max_popup_width=300)
-        self.While_input_1.setEditable(False)
-        self.While_input_1.setFixedHeight(20)
-        self.While_input_1.setMinimumWidth(30) 
-        model = self.While_input_1.model()
+        self.While_input_1 = SearchableLineEdit(self)
+        self.While_input_1.setFixedHeight(20) 
         
-        self.insert_items(self.While_input_1)
-
-        delegate = NoTruncateDelegate()
-        self.While_input_1.setItemDelegate(delegate)
-        self.While_input_1.view().setItemDelegate(delegate)
-        
-        self.While_input_1.view().setMaximumWidth(300)
-        self.While_input_1.view().horizontalScrollBar().setStyleSheet("""
-            QScrollBar:horizontal {
-                height: 0px;
-            }
-        """)
-
-        # ALSO set the view minimum height to match item size
-        self.While_input_1.view().setSpacing(0) 
-        
-        self.While_input_1.setCurrentIndex(0)
-
         input_x = self.width() - 95
         input_y =3* ((self.height() - 20) // 4)
         self.While_input_1.move(input_x, input_y)
@@ -967,16 +951,13 @@ class BlockWidget(QWidget):
         self.While_input_1.raise_()
         self.While_input_1.show()
 
-        self.While_input_2 = QLineEdit(self)
-        self.While_input_2.setFixedSize(30, 20)
-        regex = QRegularExpression(r"^-?\d*$")  # Allow optional minus sign, then digits
-        validator = QRegularExpressionValidator(regex, self)
-        self.While_input_2.setValidator(validator)
+        self.While_input_2 = SearchableLineEdit(self)
+        self.While_input_2.setFixedHeight(20)
         input_x = self.width() - 40
         input_y =3* ((self.height() - 20) // 4)
         self.While_input_2.move(input_x, input_y)
         self.While_input_2.setStyleSheet("""
-        QLineEdit {
+        QComboBox {
             background-color: white;
             border: 1px solid #333;
             border-radius: 3px;
@@ -984,12 +965,26 @@ class BlockWidget(QWidget):
             font-size: 12px;
             color: #333;
         }
-        QLineEdit:focus {
+        QComboBox::drop-down { 
+            width: 0px; 
+            border: none; 
+        }
+        QComboBox::down-arrow { 
+            width: 0px; 
+            image: none; 
+        }
+        QComboBox:focus {
             border: 2px solid #4CAF50;
         }
-        """)
-        self.While_input_2.setPlaceholderText("0")
-        self.While_input_2.setAlignment(Qt.AlignmentFlag.AlignCenter)  
+        QComboBox QAbstractItemView {
+            background-color: #eeeeee;
+            color: #333333;
+            border: 1px solid #555555;
+            selection-background-color: #1F538D;
+            max-width: 300px;
+            outline: none;  
+        }
+        """) 
         self.While_input_2.raise_()
         self.While_input_2.show()
         
@@ -1041,7 +1036,10 @@ class BlockWidget(QWidget):
         self.While_combobox.raise_()
         self.While_combobox.show()
         
-        self.While_input_1.currentIndexChanged.connect(self.on_value_1_changed)
+        self.insert_items(self.While_input_1)
+        self.insert_items(self.While_input_2)
+        
+        self.While_input_1.textChanged.connect(self.on_value_1_changed)
         self.While_input_2.textChanged.connect(self.on_value_2_changed)
         self.While_combobox.currentIndexChanged.connect(self.on_combo_changed)
             
@@ -1088,34 +1086,14 @@ class BlockWidget(QWidget):
         input_x = (self.Switch_width/2 - self.Switch.width()/2)+3
         input_y = 6*((self.Switch_height - self.Switch.height()) // 6)
         self.Switch.move(int(input_x), int(input_y))
-        self.Switch.toggled.connect(self.on_switch_changed)
         
         self.Switch.raise_()
         self.Switch.show()
         
-        self.Var_input_1 = MaxWidthComboBox(self, max_popup_width=300)
-        self.Var_input_1.setEditable(False)
+        self.Var_input_1 = SearchableLineEdit(self)
         self.Var_input_1.setFixedHeight(20)
-        self.Var_input_1.setMinimumWidth(30) 
-        model = self.Var_input_1.model()
-        
+                
         self.insert_items(self.Var_input_1)
-        
-        delegate = NoTruncateDelegate()
-        self.Var_input_1.setItemDelegate(delegate)
-        self.Var_input_1.view().setItemDelegate(delegate)
-        
-        self.Var_input_1.view().setMaximumWidth(300)
-        self.Var_input_1.view().horizontalScrollBar().setStyleSheet("""
-            QScrollBar:horizontal {
-                height: 0px;
-            }
-        """)
-
-        # ALSO set the view minimum height to match item size
-        self.Var_input_1.view().setSpacing(0) 
-        
-        self.Var_input_1.setCurrentIndex(0)
 
         input_x = self.Switch_width - 30
         input_y =(self.height() - 20) // 4
@@ -1152,7 +1130,10 @@ class BlockWidget(QWidget):
         self.Var_input_1.raise_()
         self.Var_input_1.show()
         
-        self.Var_input_1.currentIndexChanged.connect(self.on_value_1_changed)
+        self.insert_items(self.Var_input_1)
+        
+        self.Switch.toggled.connect(self.on_switch_changed)
+        self.Var_input_1.textChanged.connect(self.on_value_1_changed)
     #MARK: Change Handlers
     def on_switch_changed(self, state):
         """Called automatically when switch toggles"""
@@ -1177,11 +1158,9 @@ class BlockWidget(QWidget):
         if type == "If":
             Utils.top_infos[self.block_id]['value_1'] = text
         elif type == "While":
-            value_1 = self.While_input_1.currentText()
-            Utils.top_infos[self.block_id]['value_1'] = value_1
+            Utils.top_infos[self.block_id]['value_1'] = text
         elif type == "Switch":
-            value_1 = self.Var_input_1.currentText()
-            Utils.top_infos[self.block_id]['value_1'] = value_1
+            Utils.top_infos[self.block_id]['value_1'] = text
         elif type == "Timer":
             try:
                 value = len(text)
@@ -1211,72 +1190,17 @@ class BlockWidget(QWidget):
         # Store in Utils for later use
         if not text:  # User cleared the field
             return
-        if self.block_type == "Timer":
-            try:
-                value = len(text)
-                
-                if value > 4:
-                    self.timer_input.blockSignals(True)
-                    text = text[:4]
-                    self.timer_input.setText(text)
-                    self.timer_input.blockSignals(False)
-            
-                elif value < 0:
-                    self.timer_input.blockSignals(True)
-                    self.timer_input.setText("0")
-                    self.timer_input.blockSignals(False)
-                
-                # Store the valid value
-                if self.block_id in Utils.top_infos:
-                    Utils.top_infos[self.block_id]['value_2'] = text
-                    print(f"Timer {self.block_id} value: {text}")
-            except ValueError:
-                        # Text is empty or can't convert (shouldn't happen with regex)
-                        pass 
-        elif self.block_type == "If":
-            try:
-                value = len(text)
-                
-                if value > 4:
-                    self.If_input_2.blockSignals(True)
-                    text = text[:4]
-                    self.If_input_2.setText(text)
-                    self.If_input_2.blockSignals(False)
-
-                elif value < 0:
-                    self.If_input_2.blockSignals(True)
-                    self.If_input_2.setText("0")
-                    self.If_input_2.blockSignals(False)
-                
-                # Store the valid value
-                if self.block_id in Utils.top_infos:
-                    Utils.top_infos[self.block_id]['value_2'] = text
-                    print(f"If {self.block_id} value: {text}")
-            except ValueError:
-                        # Text is empty or can't convert (shouldn't happen with regex)
-                        pass
-        elif self.block_type == "While":
-            try:
-                value = len(text)
-                
-                if value > 4:
-                    self.While_input_2.blockSignals(True)
-                    text = text[:4]
-                    self.While_input_2.setText(text)
-                    self.While_input_2.blockSignals(False)
-                
-                elif value < 0:
-                    self.While_input_2.blockSignals(True)
-                    self.While_input_2.setText("0")
-                    self.While_input_2.blockSignals(False)
-                
-                # Store the valid value
-                if self.block_id in Utils.top_infos:
-                    Utils.top_infos[self.block_id]['value_2'] = text
-                    print(f"While {self.block_id} value: {text}")
-            except ValueError:
-                        # Text is empty or can't convert (shouldn't happen with regex)
-                        pass 
+        
+        for block_id, top_info in Utils.top_infos.items():
+            if top_info['id'] is self.block_id:
+                type = top_info['type']
+        
+        if type == "If":
+            Utils.top_infos[self.block_id]['value_2'] = text
+        elif type == "While":
+            Utils.top_infos[self.block_id]['value_2'] = text
+        elif type == "Switch":
+            Utils.top_infos[self.block_id]['value_2'] = text
         
     def on_combo_changed(self, index):
         """Handle combo box selection changes (if needed)"""

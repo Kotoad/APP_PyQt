@@ -1,1 +1,28 @@
+# Ignore all .project files
 *.project
+
+# Ignore project directories
+projects/
+autosave/
+compare/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific files
+.DS_Store
+Thumbs.db
