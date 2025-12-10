@@ -1022,13 +1022,19 @@ class MainWindow(QMainWindow):
         
         name = Utils.project_data.metadata.get('name', 'Untitled')
         
+        if name == 'Untitled':
+            print("Closing project 'Untitled'")
+            self.on_save_file_as()
+            event.accept()
+            return
+        
         # Save current state to compare file
         FileManager.save_project(name, is_compare=True)
         
         # Compare with last saved version
         comparison = FileManager.compare_projects(name)
         
-        if name == 'Untitled' or comparison['has_changes']:
+        if comparison['has_changes']:
             # Show detailed change summary
             change_summary = self._build_change_summary(comparison)
             
