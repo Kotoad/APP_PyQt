@@ -14,6 +14,7 @@ import sys
 import os
 import json
 import subprocess
+import ctypes
 from datetime import datetime
 from ctypes import windll, wintypes, byref
 from pathlib import Path
@@ -26,15 +27,17 @@ from PyQt6.QtWidgets import (
     QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea,
     QLineEdit, QComboBox, QDialog, QTabWidget, QFileDialog, QMessageBox,
     QInputDialog, QStyleOptionComboBox, QStyledItemDelegate, QTextEdit,
+    QSplitter, QTreeWidget, QTreeWidgetItem, QListWidget,
 )
 from PyQt6.QtCore import (
     Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression, QTimer, QEvent,
-    pyqtProperty, QEasingCurve, QRectF, QPropertyAnimation, QObject, QLine, QCoreApplication
+    pyqtProperty, QEasingCurve, QRectF, QPropertyAnimation, QObject, QLine, QCoreApplication,
+    QSortFilterProxyModel, QAbstractAnimation,
 )
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent,
     QRegularExpressionValidator, QFont, QPixmap, QImage, QStandardItem,
-    QIntValidator, QPainterPath, QIcon, 
+    QIntValidator, QPainterPath, QIcon, QStandardItemModel
 )
 # ============================================================================
 # PROJECT-SPECIFIC IMPORTS (Internal)

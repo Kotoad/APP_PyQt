@@ -1,0 +1,85 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "name": "tset",
+    "created": "2025-12-10T19:34:26.395828",
+    "modified": "2025-12-10T20:13:34.867065"
+  },
+  "settings": {
+    "rpi_model": "RPI zero/zero W",
+    "rpi_model_index": 1
+  },
+  "blocks": {
+    "48548": {
+      "type": "Start",
+      "x": 225,
+      "y": 282,
+      "width": 112,
+      "height": 36,
+      "value_1": "--",
+      "value_2": "",
+      "combo_value": "=",
+      "switch_value": "True",
+      "in_connections": [],
+      "out_connections": [
+        "48548_94793"
+      ]
+    },
+    "94793": {
+      "type": "While",
+      "x": 600,
+      "y": 460,
+      "width": 110,
+      "height": 54,
+      "value_1": "da",
+      "value_2": "2",
+      "combo_value": "=",
+      "switch_value": "True",
+      "in_connections": [
+        "48548_94793"
+      ],
+      "out_connections": []
+    }
+  },
+  "connections": {
+    "48548_94793": {
+      "from_block": "48548",
+      "from_circle": "out",
+      "to_block": "94793",
+      "to_circle": "in1",
+      "waypoints": [
+        [
+          327,
+          300
+        ],
+        [
+          468,
+          300
+        ],
+        [
+          468,
+          499
+        ],
+        [
+          610,
+          499
+        ]
+      ],
+      "color": "blue"
+    }
+  },
+  "variables": {
+    "var_1": {
+      "name": "d",
+      "type": "Out",
+      "value": ""
+    }
+  },
+  "devices": {
+    "device_0": {
+      "name": "da",
+      "type": "Output",
+      "pin": null
+    }
+  }
+}

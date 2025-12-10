@@ -9,12 +9,14 @@ from Imports import (json, os, datetime, Path, get_utils, ProjectData)
 Utils = get_utils()
 
 
+
 class FileManager:
     """Manages project file operations with auto-save capabilities"""
     
     # Directory structure
     PROJECTS_DIR = "projects"
     AUTOSAVE_DIR = "autosave"
+    COMPARE_DIR = "compare"
     PROJECT_EXTENSION = ".project"
     
     @classmethod
@@ -22,13 +24,14 @@ class FileManager:
         """Create necessary directories if they don't exist"""
         os.makedirs(cls.PROJECTS_DIR, exist_ok=True)
         os.makedirs(cls.AUTOSAVE_DIR, exist_ok=True)
+        os.makedirs(cls.COMPARE_DIR, exist_ok=True)
     
     # ========================================================================
     # SAVE OPERATIONS
     # ========================================================================
     
     @classmethod
-    def save_project(cls, project_name: str, is_autosave: bool = False) -> bool:
+    def save_project(cls, project_name: str, is_autosave: bool = False, is_compare=False) -> bool:
         """
         Save current project to file
         
@@ -45,6 +48,8 @@ class FileManager:
             # Determine save location
             if is_autosave:
                 filename = os.path.join(cls.AUTOSAVE_DIR, project_name + cls.PROJECT_EXTENSION)
+            elif is_compare:
+                filename = os.path.join(cls.COMPARE_DIR, project_name + "_TEMP" + cls.PROJECT_EXTENSION)
             else:
                 filename = os.path.join(cls.PROJECTS_DIR, project_name + cls.PROJECT_EXTENSION)
             
@@ -305,6 +310,298 @@ class FileManager:
         
         print("✓ New project created")
 
+    @classmethod
+    def compare_projects(cls, project_name: str) -> dict:
+        """
+        Compare current project with saved compare file.
+        Returns a dict with detailed change information.
+        
+        Returns:
+            {
+                'has_changes': bool,
+                'blocks_changed': bool,
+                'connections_changed': bool,
+                'variables_changed': bool,
+                'devices_changed': bool,
+                'settings_changed': bool,
+                'details': {
+                    'blocks': {...},
+                    'connections': {...},
+                    'variables': {...},
+                    'devices': {...},
+                    'settings': {...}
+                }
+            }
+        """
+        try:
+            # Load the compare file
+            compare_path = os.path.join(cls.COMPARE_DIR, project_name + "_TEMP" + cls.PROJECT_EXTENSION)
+            current_path = os.path.join(cls.PROJECTS_DIR, project_name + cls.PROJECT_EXTENSION)
+            if not os.path.exists(compare_path):
+                print(f"⚠ Compare file not found: {compare_path}")
+                print("  Treating all current data as changes")
+                return {
+                    'has_changes': True,
+                    'blocks_changed': len(Utils.top_infos) > 0,
+                    'connections_changed': len(Utils.paths) > 0,
+                    'variables_changed': len(Utils.variables) > 0,
+                    'devices_changed': len(Utils.devices) > 0,
+                    'settings_changed': False,
+                    'details': {}
+                }
+            
+            # Load compare file
+            with open(compare_path, 'r') as f:
+                compare_data = json.load(f)
+            
+            # Build current project data
+            with open(current_path, 'r') as f:
+                current_data = json.load(f)
+            
+            # Compare each section
+            result = {
+                'has_changes': False,
+                'blocks_changed': False,
+                'connections_changed': False,
+                'variables_changed': False,
+                'devices_changed': False,
+                'settings_changed': False,
+                'details': {
+                    'blocks': [],
+                    'connections': [],
+                    'variables': [],
+                    'devices': [],
+                    'settings': []
+                }
+            }
+            
+            # Compare blocks
+            blocks_changed = cls._compare_blocks(
+                current_data.get('blocks', {}),
+                compare_data.get('blocks', {})
+            )
+            if blocks_changed:
+                print("Blocks changes detected.")
+                result['blocks_changed'] = True
+                result['details']['blocks'] = blocks_changed
+            
+            # Compare connections
+            connections_changed = cls._compare_connections(
+                current_data.get('connections', {}),
+                compare_data.get('connections', {})
+            )
+            if connections_changed:
+                print("Connections changes detected.")
+                result['connections_changed'] = True
+                result['details']['connections'] = connections_changed
+            
+            # Compare variables
+            variables_changed = cls._compare_variables(
+                current_data.get('variables', {}),
+                compare_data.get('variables', {})
+            )
+            if variables_changed:
+                print("Variables changes detected.")
+                result['variables_changed'] = True
+                result['details']['variables'] = variables_changed
+            
+            # Compare devices
+            devices_changed = cls._compare_devices(
+                current_data.get('devices', {}),
+                compare_data.get('devices', {})
+            )
+            if devices_changed:
+                print("Devices changes detected.")
+                result['devices_changed'] = True
+                result['details']['devices'] = devices_changed
+            
+            # Compare settings
+            settings_changed = cls._compare_settings(
+                current_data.get('settings', {}),
+                compare_data.get('settings', {})
+            )
+            if settings_changed:
+                print("Settings changes detected.")
+                result['settings_changed'] = True
+                result['details']['settings'] = settings_changed
+            
+            # Overall has_changes
+            result['has_changes'] = (
+                result['blocks_changed'] or 
+                result['connections_changed'] or 
+                result['variables_changed'] or 
+                result['devices_changed'] or 
+                result['settings_changed']
+            )
+            
+            return result
+            
+        except json.JSONDecodeError as e:
+            print(f"✗ Error reading compare file: {e}")
+            return {'has_changes': True, 'error': str(e)}
+        except Exception as e:
+            print(f"✗ Error comparing projects: {e}")
+            return {'has_changes': True, 'error': str(e)}
+
+    @classmethod
+    def _compare_blocks(cls, current: dict, saved: dict) -> list:
+        """Compare block data - returns list of changes"""
+        changes = []
+        print("Comparing blocks...")
+        # Check for new blocks
+        for block_id in current:
+            print(f"Checking block: {block_id}")
+            if block_id not in saved:
+                print(f"New block detected: {block_id}")
+                changes.append(f"✓ New block: {block_id}")
+        
+        # Check for deleted blocks
+        for block_id in saved:
+            print(f"Checking saved block: {block_id}")
+            if block_id not in current:
+                print(f"Deleted block detected: {block_id}")
+                changes.append(f"✗ Deleted block: {block_id}")
+        
+        # Check for modified blocks
+        for block_id in current:
+            print(f"Checking for modifications in block: {block_id}")
+            if block_id in saved:
+                print(f"Comparing current {current[block_id]} and saved {saved[block_id]} for block: {block_id}")
+                if current[block_id] != saved[block_id]:
+                    print(f"Modifications detected in block: {block_id}")
+                    changes.append(f"⊕ Modified block: {block_id}")
+                    # Detail the changes
+                    for key in current[block_id]:
+                        if current[block_id].get(key) != saved[block_id].get(key):
+                            changes.append(f"    {key}: {saved[block_id].get(key)} → {current[block_id].get(key)}")
+        
+        return changes
+
+    @classmethod
+    def _compare_connections(cls, current: dict, saved: dict) -> list:
+        """Compare connection data - returns list of changes"""
+        changes = []
+        print("Comparing connections...")
+        # Check for new connections
+        for conn_id in current:
+            print(f"Checking connection: {conn_id}")
+            if conn_id not in saved:
+                print(f"New connection detected: {conn_id}")
+                changes.append(f"✓ New connection: {conn_id}")
+        
+        # Check for deleted connections
+        for conn_id in saved:
+            print(f"Checking saved connection: {conn_id}")
+            if conn_id not in current:
+                print(f"Deleted connection detected: {conn_id}")
+                changes.append(f"✗ Deleted connection: {conn_id}")
+        
+        # Check for modified connections
+        for conn_id in current:
+            print(f"Checking for modifications in connection: {conn_id}")
+            if conn_id in saved:
+                print(f"Comparing current and saved data for connection: {conn_id}")
+                if current[conn_id] != saved[conn_id]:
+                    print(f"Modifications detected in connection: {conn_id}")
+                    changes.append(f"⊕ Modified connection: {conn_id}")
+        
+        return changes
+
+    @classmethod
+    def _compare_variables(cls, current: dict, saved: dict) -> list:
+        """Compare variables data - returns list of changes"""
+        changes = []
+        
+        # Check for new variables
+        for var_id in current:
+            print(f"Checking variable: {var_id}")
+            if var_id not in saved:
+                var_name = current[var_id].get('name', 'Unknown')
+                print(f"New variable detected: {var_name}")
+                changes.append(f"✓ New variable: {var_name}")
+        
+        # Check for deleted variables
+        for var_id in saved:
+            print(f"Checking saved variable: {var_id}")
+            if var_id not in current:
+                var_name = saved[var_id].get('name', 'Unknown')
+                print(f"Deleted variable detected: {var_name}")
+                changes.append(f"✗ Deleted variable: {var_name}")
+        
+        # Check for modified variables
+        for var_id in current:
+            print(f"Checking for modifications in variable: {var_id}")
+            if var_id in saved:
+                print(f"Comparing current and saved data for variable: {var_id}")
+                if current[var_id] != saved[var_id]:
+                    print(f"Modifications detected in variable: {var_id}")
+                    var_name = current[var_id].get('name', var_id)
+                    changes.append(f"⊕ Modified variable: {var_name}")
+                    for key in ['value', 'type']:
+                        if current[var_id].get(key) != saved[var_id].get(key):
+                            changes.append(f"    {key}: {saved[var_id].get(key)} → {current[var_id].get(key)}")
+        
+        return changes
+
+    @classmethod
+    def _compare_devices(cls, current: dict, saved: dict) -> list:
+        """Compare devices data - returns list of changes"""
+        changes = []
+        print("Comparing devices...")
+        # Check for new devices
+        for dev_id in current:
+            print(f"Checking device: {dev_id}")
+            if dev_id not in saved:
+                print(f"New device detected: {dev_id}")
+                dev_name = current[dev_id].get('name', 'Unknown')
+                changes.append(f"✓ New device: {dev_name}")
+        
+        # Check for deleted devices
+        for dev_id in saved:
+            print(f"Checking saved device: {dev_id}")
+            if dev_id not in current:
+                print(f"Deleted device detected: {dev_id}")
+                dev_name = saved[dev_id].get('name', 'Unknown')
+                changes.append(f"✗ Deleted device: {dev_name}")
+        
+        # Check for modified devices
+        for dev_id in current:
+            print(f"Checking for modifications in device: {dev_id}")
+            if dev_id in saved:
+                print(f"Comparing current and saved data for device: {dev_id}")
+                if current[dev_id] != saved[dev_id]:
+                    print(f"Modifications detected in device: {dev_id}")
+                    dev_name = current[dev_id].get('name', dev_id)
+                    changes.append(f"⊕ Modified device: {dev_name}")
+                    for key in ['pin', 'type']:
+                        if current[dev_id].get(key) != saved[dev_id].get(key):
+                            changes.append(f"    {key}: {saved[dev_id].get(key)} → {current[dev_id].get(key)}")
+        
+        return changes
+
+    @classmethod
+    def _compare_settings(cls, current: dict, saved: dict) -> list:
+        """Compare settings data - returns list of changes"""
+        changes = []
+        print("Comparing settings...")
+        for key in current:
+            print(f"Checking setting: {key}")
+            if key not in saved:
+                print(f"New setting detected: {key}")
+                changes.append(f"✓ New setting: {key}")
+            elif current[key] != saved[key]:
+                print(f"Modification detected in setting: {key}")
+                changes.append(f"⊕ {key}: {saved[key]} → {current[key]}")
+        
+        for key in saved:
+            print(f"Checking saved setting: {key}")
+            if key not in current:
+                print(f"Removed setting detected: {key}")
+                changes.append(f"✗ Removed setting: {key}")
+        
+        return changes
+
+    
 
 # ============================================================================
 # EXAMPLE USAGE

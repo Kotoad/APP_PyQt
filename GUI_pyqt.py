@@ -1018,8 +1018,86 @@ class MainWindow(QMainWindow):
         self.canvas.update()
     
     def closeEvent(self, event):
-        """Close all child windows before closing main window"""
-        # Close Help window if it exists
+        """Handle window close event - prompt to save if there are unsaved changes"""
+        
+        name = Utils.project_data.metadata.get('name', 'Untitled')
+        
+        # Save current state to compare file
+        FileManager.save_project(name, is_compare=True)
+        
+        # Compare with last saved version
+        comparison = FileManager.compare_projects(name)
+        
+        if name == 'Untitled' or comparison['has_changes']:
+            # Show detailed change summary
+            change_summary = self._build_change_summary(comparison)
+            
+            # Show dialog asking if user wants to save
+            reply = QMessageBox.question(
+                self,
+                'Save Project?',
+                f'Do you want to save changes before closing?\n\n{change_summary}',
+                QMessageBox.StandardButton.Save | 
+                QMessageBox.StandardButton.Discard | 
+                QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Save
+            )
+            
+            if reply == QMessageBox.StandardButton.Save:
+                if name == 'Untitled':
+                    self.on_save_file_as()
+                else:
+                    self.on_save_file()
+                self.close_child_windows()
+                event.accept()
+                
+            elif reply == QMessageBox.StandardButton.Discard:
+                self.close_child_windows()
+                event.accept()
+                
+            else:  # Cancel
+                event.ignore()
+                return
+        else:
+            # No unsaved changes
+            self.close_child_windows()
+            event.accept()
+
+    def _build_change_summary(self, comparison: dict) -> str:
+        """Build human-readable summary of changes"""
+        summary = []
+        
+        if comparison['blocks_changed']:
+            summary.append(f"📦 Blocks modified")
+        if comparison['connections_changed']:
+            summary.append(f"🔗 Connections modified")
+        if comparison['variables_changed']:
+            summary.append(f"📋 Variables modified")
+        if comparison['devices_changed']:
+            summary.append(f"⚙️ Devices modified")
+        if comparison['settings_changed']:
+            summary.append(f"⚙️ Settings modified")
+        
+        if not summary:
+            return "No changes detected."
+        
+        return "Changes detected:\n• " + "\n• ".join(summary)
+
+    def has_unsaved_changes(self) -> bool:
+        """Check if there are unsaved changes in the project"""
+        name = Utils.project_data.metadata.get('name', 'Untitled')
+        
+        # Save current state to compare file for checking
+        FileManager.save_project(name, is_compare=True)
+        
+        # Compare with last saved version
+        comparison = FileManager.compare_projects(name)
+        
+        return comparison.get('has_changes', True)
+        
+    
+    def close_child_windows(self):
+        
         if self.help_window_instance is not None and self.help_window_instance.isVisible():
             self.help_window_instance.close()
         
@@ -1038,10 +1116,7 @@ class MainWindow(QMainWindow):
                 device_settings_window.close()
         except:
             pass
-        
-        # Accept the close event
-        event.accept()
-
+    
     #MARK: - Rebuild UI from Saved Data
     def rebuild_from_data(self):
         """

@@ -1,0 +1,27 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "name": "test",
+    "created": "2025-12-10T11:51:11.192183",
+    "modified": "2025-12-10T12:03:03.978248"
+  },
+  "settings": {
+    "rpi_model": "RPI 4 model B",
+    "rpi_model_index": 6
+  },
+  "blocks": {},
+  "connections": {},
+  "variables": {
+    "var_1": {
+      "name": "fd",
+      "type": "Out",
+      "value": ""
+    },
+    "var_2": {
+      "name": "fr",
+      "type": "Out",
+      "value": ""
+    }
+  },
+  "devices": {}
+}

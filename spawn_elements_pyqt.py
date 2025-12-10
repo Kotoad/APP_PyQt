@@ -6,13 +6,231 @@ from Imports import (QWidget, QLabel, QLineEdit,
                 QPainter, QPen, QBrush, QColor,
                 QPixmap, QImage, QMouseEvent, QStandardItem,
                 QIntValidator, QRegularExpressionValidator,
-                QPainterPath, QFont, QStyledItemDelegate)
+                QPainterPath, QFont, QStyledItemDelegate, QSortFilterProxyModel,
+                QStandardItemModel, QListWidget, QEvent, ctypes, sys)
 from PIL import Image, ImageDraw, ImageFont
 import random
 from Imports import get_utils
 Utils = get_utils()
 
 items = ["=", "!=", "<=", ">=", "<", ">"]
+
+class PassiveListPopup(QListWidget):
+    """
+    A list widget designed to float as a tool window without stealing focus.
+    """
+    selected = pyqtSignal(str)
+    
+    def __init__(self):
+        super().__init__()
+        # 1. Window Flags: Tool (no taskbar) + Frameless + Always on Top
+        self.setWindowFlags(
+            Qt.WindowType.Tool | 
+            Qt.WindowType.FramelessWindowHint | 
+            Qt.WindowType.WindowStaysOnTopHint
+        )
+        
+        # 2. Attribute: Tell Qt NOT to activate this window when showing it
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        
+        # 3. Focus Policy: logical focus should never be here
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        
+        # Styling
+        self.setStyleSheet("""
+            QListWidget { 
+                border: 1px solid gray; 
+                background: white; 
+                font-size: 10px;
+                color: #000000;
+            }
+            QListWidget::item:selected { 
+                background: #0078d7; 
+                color: white; 
+            }
+            QScrollBar:horizontal {
+                height: 0px;
+                border: none;
+                background: transparent;
+            }
+            QScrollBar:vertical {
+                width: 0px;
+                border: none;
+                background: transparent;
+            }
+        """)
+        
+        # Handle item clicks
+        self.itemClicked.connect(self._on_item_clicked)
+        
+        # Install global filter to handle clicking outside
+        QApplication.instance().installEventFilter(self)
+
+    def showEvent(self, event):
+        # Windows-specific fix to prevent activation on click
+        if sys.platform == "win32":
+            self._apply_windows_no_activate()
+        super().showEvent(event)
+
+    def _apply_windows_no_activate(self):
+        # Set WS_EX_NOACTIVATE (0x08000000)
+        GWL_EXSTYLE = -20
+        WS_EX_NOACTIVATE = 0x08000000
+        try:
+            hwnd = int(self.winId())
+            user32 = ctypes.windll.user32
+            # Handle 64-bit vs 32-bit API naming
+            set_window_long = user32.SetWindowLongPtrW if hasattr(user32, "SetWindowLongPtrW") else user32.SetWindowLongW
+            get_window_long = user32.GetWindowLongPtrW if hasattr(user32, "GetWindowLongPtrW") else user32.GetWindowLongW
+            
+            ex_style = get_window_long(hwnd, GWL_EXSTYLE)
+            set_window_long(hwnd, GWL_EXSTYLE, ex_style | WS_EX_NOACTIVATE)
+        except Exception:
+            pass
+
+    def eventFilter(self, source, event):
+        # Close popup if user clicks anywhere else
+        if self.isVisible() and event.type() == QEvent.Type.MouseButtonPress:
+            global_pos = event.globalPosition().toPoint()
+            # If click is NOT inside the popup, close it.
+            # Note: We don't check the LineEdit here because the LineEdit will 
+            # likely have its own logic or just keep focus naturally.
+            if not self.geometry().contains(global_pos):
+                self.hide()
+        return super().eventFilter(source, event)
+
+    def _on_item_clicked(self, item):
+        self.selected.emit(item.text())
+        self.hide()
+
+
+class SearchableLineEdit(QLineEdit):
+    """
+    A QLineEdit that mimics a ComboBox. 
+    It manages a passive popup list that filters based on input.
+    """
+    
+    selected = pyqtSignal(str)
+    MAX_WIDTH = 150
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.popup = PassiveListPopup()
+        self.popup.selected.connect(self.set_text_and_hide)
+        
+        self.setStyleSheet("""
+        QLineEdit {
+            background-color: white;
+            border: 1px solid #333;
+            border-radius: 3px;
+            font-size: 10px;
+            color: #333;
+        }
+        """)
+        self.all_items = []
+        
+        # Connect typing events
+        self.textEdited.connect(self.update_popup)
+        
+        self.setFixedWidth(30)
+
+    def addItem(self, text):
+        self.all_items.append(str(text))
+
+    def addItems(self, texts):
+        self.all_items.clear()
+        self.all_items.extend([str(t) for t in texts])
+        print(f"All items added: {self.all_items}")
+
+    def set_text_and_hide(self, text):
+        self.setText(text)
+        self.popup.hide()
+
+    def update_popup(self, text):
+        """Filter items and show popup."""
+        self.popup.clear()
+        
+        if not text:
+            self.popup.hide()
+            return
+
+        # Simple case-insensitive filter
+        filtered = [item for item in self.all_items if text.lower() in item.lower()]
+        
+        if not filtered:
+            self.popup.hide()
+            return
+
+        self.popup.addItems(filtered)
+        
+        # Select the first item by default for easy navigation
+        self.popup.setCurrentRow(0)
+        
+        # Position the popup
+        self._move_popup()
+        self.popup.show()
+
+    def _move_popup(self):
+        """Align popup geometry to the bottom of the line edit."""
+        rect = self.rect()
+        bottomleft = self.mapToGlobal(rect.bottomLeft())
+        
+        # Calculate popup width based on content (max 150px)
+        fm = self.fontMetrics()
+        max_text_width = 0
+        for item_text in range(self.popup.count()):
+            item = self.popup.item(item_text)
+            if item:
+                w = fm.horizontalAdvance(item.text())
+                max_text_width = max(max_text_width, w)
+        
+        # Add padding and cap at max width
+        popup_width = min(max_text_width + 20, self.MAX_WIDTH)
+        popup_width = max(popup_width, 30)  # Minimum 30px
+        
+        self.popup.setFixedWidth(popup_width)  # ← Now dynamic!
+        
+        itemheight = self.popup.sizeHintForRow(0)
+        print(f"Item height: {itemheight}")
+        count = self.popup.count()
+        print(f"Item count: {count}")
+        h = min(count * itemheight, itemheight * 5)  # Max 5 items visible
+        print(f"Popup height: {h}")
+        self.popup.setFixedHeight(h)
+        self.popup.updateGeometry()
+        self.popup.move(bottomleft)
+        
+    def keyPressEvent(self, event):
+        """Forward navigation keys to the popup."""
+        if not self.popup.isVisible():
+            super().keyPressEvent(event)
+            return
+
+        if event.key() in (Qt.Key.Key_Down, Qt.Key.Key_Up):
+            # Forward arrow keys to list
+            current_row = self.popup.currentRow()
+            count = self.popup.count()
+            
+            if event.key() == Qt.Key.Key_Down:
+                new_row = (current_row + 1) % count
+            else:
+                new_row = (current_row - 1 + count) % count
+                
+            self.popup.setCurrentRow(new_row)
+            return
+        
+        elif event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
+            # Select current item on Enter
+            if self.popup.currentItem():
+                self.set_text_and_hide(self.popup.currentItem().text())
+            return
+        
+        elif event.key() == Qt.Key.Key_Escape:
+            self.popup.hide()
+            return
+
+        super().keyPressEvent(event)
+
 
 class CustomSwitch(QWidget):
     """
@@ -380,11 +598,11 @@ class spawning_elements:
             blockwidget.If_combobox.blockSignals(True)
             blockwidget.If_input_2.blockSignals(True)
             
-            for i in range(blockwidget.If_input_1.count()):
-                print(f"Checking If_input_1 item: {blockwidget.If_input_1.itemText(i)} against value_1: {value_1}")
-                if blockwidget.If_input_1.itemText(i) == value_1:
+            for i in range(blockwidget.If_input_1.all_items.__len__()):
+                print(f"Checking If_input_1 item: {blockwidget.If_input_1.all_items[i]} against value_1: {value_1}")
+                if blockwidget.If_input_1.all_items[i] == value_1:
                     print(f"Setting If_input_1 index to {i}")
-                    blockwidget.If_input_1.setCurrentIndex(i)
+                    blockwidget.If_input_1.setText(value_1)
                     break
             
             for i in range(blockwidget.If_combobox.count()):
@@ -397,6 +615,8 @@ class spawning_elements:
             blockwidget.If_input_1.blockSignals(False)
             blockwidget.If_combobox.blockSignals(False)
             blockwidget.If_input_2.blockSignals(False)
+            
+            blockwidget.events_handler = self.parent.elements_events
             
         return blockwidget
 
@@ -429,6 +649,7 @@ class spawning_elements:
             blockwidget.While_input_1.blockSignals(False)
             blockwidget.While_combobox.blockSignals(False)
             blockwidget.While_input_2.blockSignals(False)
+            blockwidget.events_handler = self.parent.elements_events
         print("While block created")
         return blockwidget
 
@@ -442,17 +663,20 @@ class spawning_elements:
             blockwidget.timer_input.blockSignals(True)
             blockwidget.timer_input.setText(value_1)
             blockwidget.timer_input.blockSignals(False)
+            blockwidget.events_handler = self.parent.elements_events
         
         return blockwidget
 
     def create_start_block_loaded(self, x, y, block_id):
         """Create a Start block from saved data"""
         blockwidget = BlockWidget(self.parent, "Start", block_id=block_id)
+        blockwidget.events_handler = self.parent.elements_events
         return blockwidget
 
     def create_end_block_loaded(self, x, y, block_id):
         """Create an End block from saved data"""
         blockwidget = BlockWidget(self.parent, "End", block_id=block_id)
+        blockwidget.events_handler = self.parent.elements_events
         return blockwidget
 
     def create_switch_block_loaded(self, x, y, value_1, switch, block_id):
@@ -478,6 +702,7 @@ class spawning_elements:
                 
             blockwidget.Switch.blockSignals(False)
             blockwidget.Var_input_1.blockSignals(False)
+            blockwidget.events_handler = self.parent.elements_events
             
         return blockwidget
     
@@ -519,53 +744,52 @@ class BlockWidget(QWidget):
             self.create_Switch_inputs()
         
     def insert_items(self, combo_box):
-        model = combo_box.model()
-        item = QStandardItem("--")
-        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        model.appendRow(item)
-        if self.block_type == "Switch":
-            for id, text in Utils.dev_items.items():
-                item = QStandardItem(text)
-                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                item.setBackground(QColor(255, 240, 200))
-                model.appendRow(item)
-        else:
-            for id, text in Utils.var_items.items():
-                item = QStandardItem(text)
-                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                item.setBackground(QColor(220, 240, 255))
-                model.appendRow(item)
-            for id, text in Utils.dev_items.items():
-                item = QStandardItem(text)
-                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                item.setBackground(QColor(255, 240, 200))
-                model.appendRow(item)
+        """Insert variables and devices into combo box"""
+        
+        # For SearchableComboBox, use addItems method (which handles source_model)
+        if hasattr(combo_box, 'addItems'):
+            # Collect all items
+            all_items = []
+            print(f"All items before insertion: {all_items}")
+            if self.block_type == "Switch":
+                for id, text in Utils.dev_items.items():
+                    all_items.append(text)
+            else:
+                for id, text in Utils.var_items.items():
+                    all_items.append(text)
+                    print(f"Added variable item: {text}")
+                for id, text in Utils.dev_items.items():
+                    print(f"Added device item: {text}")
+                    all_items.append(text)
+            
+            # Add all items at once
+            print(f"Inserting items into combo box: {all_items}")
+            combo_box.addItems(all_items)
+            print(f"Added {len(all_items)} items to combo box")
             
     #MARK: IF Inputs      
     def create_If_inputs(self):
         print("creating if input")
-        self.If_input_1 = MaxWidthComboBox(self, max_popup_width=300)
-        self.If_input_1.setEditable(False)
+        self.If_input_1 = SearchableLineEdit(self)
         self.If_input_1.setFixedHeight(20)
         self.If_input_1.setMinimumWidth(30) 
-        model = self.If_input_1.model()
         
-        self.insert_items(self.If_input_1)
+        self.insert_items(self.If_input_1)  
         
-        delegate = NoTruncateDelegate()
-        self.If_input_1.setItemDelegate(delegate)
-        self.If_input_1.view().setItemDelegate(delegate)
+        #delegate = NoTruncateDelegate()
+        #self.If_input_1.setItemDelegate(delegate)
+        #self.If_input_1.view().setItemDelegate(delegate)
         
-        self.If_input_1.view().setMaximumWidth(300)
-        self.If_input_1.view().horizontalScrollBar().setStyleSheet("""
-            QScrollBar:horizontal {
-                height: 0px;
-            }
-        """)
+        #self.If_input_1.view().setMaximumWidth(300)
+        #self.If_input_1.view().horizontalScrollBar().setStyleSheet("""
+        #    QScrollBar:horizontal {
+        #        height: 0px;
+        #    }
+        #""")
 
         # ALSO set the view minimum height to match item size
-        self.If_input_1.view().setSpacing(0) 
-        self.If_input_1.setCurrentIndex(0)
+        #self.If_input_1.view().setSpacing(0) 
+        #self.If_input_1.setCurrentIndex(0)
 
         input_x = self.width() - 95
         input_y =3* ((self.height() - 20) // 4)
@@ -607,7 +831,7 @@ class BlockWidget(QWidget):
         regex = QRegularExpression(r"^-?\d*$")  # Allow optional minus sign, then digits
         validator = QRegularExpressionValidator(regex, self)
         self.If_input_2.setValidator(validator)
-        input_x = self.width() - 40
+        input_x = self.width()
         input_y =3* ((self.height() - 20) // 4)
         self.If_input_2.move(input_x, input_y)
         self.If_input_2.setStyleSheet("""
@@ -641,7 +865,7 @@ class BlockWidget(QWidget):
             
         #self.If_combobox.view().setMinimumWidth(60)
         
-        input_x = self.width() - 65
+        input_x = self.width()
         input_y =3* ((self.height() - 20) // 4)
         self.If_combobox.move(input_x, input_y)
         
@@ -678,7 +902,7 @@ class BlockWidget(QWidget):
         self.If_combobox.raise_()
         self.If_combobox.show()
         
-        self.If_input_1.currentIndexChanged.connect(self.on_value_1_changed)
+        self.If_input_1.textChanged.connect(self.on_value_1_changed)
         self.If_input_2.textChanged.connect(self.on_value_2_changed)
         self.If_combobox.currentIndexChanged.connect(self.on_combo_changed)
     #MARK: WHILE Inputs      
@@ -951,8 +1175,7 @@ class BlockWidget(QWidget):
                 type = top_info['type']
         
         if type == "If":
-            value_1 = self.If_input_1.currentText()
-            Utils.top_infos[self.block_id]['value_1'] = value_1
+            Utils.top_infos[self.block_id]['value_1'] = text
         elif type == "While":
             value_1 = self.While_input_1.currentText()
             Utils.top_infos[self.block_id]['value_1'] = value_1
@@ -1075,40 +1298,46 @@ class BlockWidget(QWidget):
         print("REFRESH for block", self.block_id, "type", self.block_type)
         print("VARS:", Utils.var_items)
         print("DEVS:", Utils.dev_items)
+        
         if self.block_type not in ('If', 'While', 'Switch'):
             return
         
         if self.block_type == "If":
             self.If_input_1.blockSignals(True)
-            self.If_input_1.clear()
-            model = self.If_input_1.model()  # ← Get model reference
             
-            
-            self.insert_items(self.If_input_1)  # ← Add to model, not addItem()
-            
+            # Get source model for SearchableComboBox
+            if hasattr(self.If_input_1, 'popup'):
+                self.If_input_1.popup.clear()
+            else:
+                self.If_input_1.clear()
+            self.If_input_1.popup.blockSignals(True)
+            self.insert_items(self.If_input_1)
+            self.If_input_1.popup.blockSignals(False)
             self.If_input_1.blockSignals(False)
         
-        if self.block_type == "While":
+        elif self.block_type == "While":
             self.While_input_1.blockSignals(True)
-            self.While_input_1.clear()
-            model = self.While_input_1.model()  # ← Get model reference
             
-            # Add variables
-            self.insert_items(self.While_input_1)  # ← Use model, not addItem()
+            if hasattr(self.While_input_1, 'popup'):
+                self.While_input_1.popup.clear()
+            else:
+                self.While_input_1.clear()
             
+            self.insert_items(self.While_input_1)
             self.While_input_1.blockSignals(False)
         
-        if self.block_type == "Switch":
+        elif self.block_type == "Switch":
             self.Var_input_1.blockSignals(True)
-            self.Var_input_1.clear()
-            model = self.Var_input_1.model()  # ← Get model reference
             
-            # Add variables
-            self.insert_items(self.Var_input_1)  # ← Use model, not addItem()
+            if hasattr(self.Var_input_1, 'model_data'):
+                self.Var_input_1.model_data.clear()
+            else:
+                self.Var_input_1.clear()
             
+            self.insert_items(self.Var_input_1)
             self.Var_input_1.blockSignals(False)
         
-        print(f"Refreshed If block {self.block_id} dropdown")
+        print(f"Refreshed {self.block_type} block {self.block_id} dropdown")
     
     def create_block_image(self):
         """Create the block image using PIL"""
@@ -1865,9 +2094,9 @@ class Element_spawn:
         
         
         block.events_handler = parent.elements_events
-        #print(f"✓ Assigned events_handler to block {block_id}")
-        #print(f"  events_handler is: {block.events_handler}")
-        #print(f"  parent.elements_events is: {parent.elements_events}")
+        print(f"✓ Assigned events_handler to block {block_id}")
+        print(f"  events_handler is: {block.events_handler}")
+        print(f"  parent.elements_events is: {parent.elements_events}")
         # Position at click location
         click_pos = event.pos()
         x, y = parent.snap_to_grid(click_pos.x(), click_pos.y(), block, during_drag=False)
