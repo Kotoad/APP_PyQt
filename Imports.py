@@ -15,6 +15,7 @@ import os
 import json
 import subprocess
 import ctypes
+import math
 from datetime import datetime
 from ctypes import windll, wintypes, byref
 from pathlib import Path
@@ -32,12 +33,12 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import (
     Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression, QTimer, QEvent,
     pyqtProperty, QEasingCurve, QRectF, QPropertyAnimation, QObject, QLine, QCoreApplication,
-    QSortFilterProxyModel, QAbstractAnimation,
+    QSortFilterProxyModel, QAbstractAnimation
 )
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent,
     QRegularExpressionValidator, QFont, QPixmap, QImage, QStandardItem,
-    QIntValidator, QPainterPath, QIcon, QStandardItemModel
+    QIntValidator, QPainterPath, QIcon, QStandardItemModel, QAction
 )
 # ============================================================================
 # PROJECT-SPECIFIC IMPORTS (Internal)

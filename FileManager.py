@@ -84,7 +84,9 @@ class FileManager:
                 'width': block_info['width'],
                 'height': block_info['height'],
                 'value_1': block_info.get('value_1', ''),
+                'value_1_type': block_info.get('value_1_type', ''),
                 'value_2': block_info.get('value_2', ''),
+                'value_2_type': block_info.get('value_2_type', ''),
                 'combo_value': block_info.get('combo_value', ''),
                 'switch_value': block_info.get('switch_value', ''),
                 'in_connections': block_info.get('in_connections', []),
@@ -234,7 +236,8 @@ class FileManager:
               f"{len(Utils.project_data.connections)} connections, "
               f"{len(Utils.project_data.variables)} variables, "
               f"{len(Utils.project_data.devices)} devices, "
-              f"Settings: {len(Utils.project_data.settings)})"
+              f"Settings: {len(Utils.project_data.settings)}"
+              f"Metadata: {len(Utils.project_data.metadata)}"
               )
     
     # ========================================================================

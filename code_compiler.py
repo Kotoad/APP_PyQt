@@ -86,10 +86,10 @@ class CodeCompiler:
         print("Compiling code to File.py...")
         print(f"RPI Model: {Utils.app_settings.rpi_model}")
         print(f"RPI Model Index: {Utils.app_settings.rpi_model_index}")
-        if Utils.app_settings.rpi_model_index in (0,1,2,3):
+        if Utils.app_settings.rpi_model_index == 0:
             print(f"RPI Model selected: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
             self.MC_compile = True
-        elif Utils.app_settings.rpi_model_index in (4,5,6,7):
+        elif Utils.app_settings.rpi_model_index in (1,2,3,4,5,6,7):
             print(f"RPI Model selected: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
             self.GPIO_compile = True
 
@@ -150,25 +150,62 @@ class CodeCompiler:
     def write_setup(self):
         print("Writing setup code...")
         if self.GPIO_compile:
-            for dev_name, dev_info in Utils.devices.items():
-                self.file.write(f"{dev_info['name']} = {dev_info['PIN']}\n")
             self.file.write("GPIO.setmode(GPIO.BCM)\n")
+            self.file.write("Devices = {\n")
+            self.indent_level+=1
             for dev_name, dev_info in Utils.devices.items():
-                if dev_info['type'] == 'Output':
-                    self.file.write(f"GPIO.setup({dev_info['name']}, GPIO.OUT)\n")
-                elif dev_info['type'] == 'Input':
-                    self.file.write(f"GPIO.setup({dev_info['name']}, GPIO.IN)\n")
-                else:
-                    print(f"Unknown device type: {dev_info['type']}")
+                text = f"\"{dev_info['name']}\":{{"f"\"PIN\": {dev_info['PIN']}, \"type\":\"{dev_info['type']}\"}},"
+                self.writeline(text)
+            self.indent_level-=1
+            self.file.write("}\n")
+            self.writeline("for dev_name, dev_config in Devices.items():")
+            self.indent_level+=1
+            self.writeline("if dev_config['type'] == 'Output':")
+            self.indent_level+=1
+            self.writeline(f"GPIO.setup({{dev_config['PIN']}}, GPIO.OUT)")
+            self.indent_level-=1
+            self.writeline("elif dev_config['type'] == 'Input':")
+            self.indent_level+=1
+            self.writeline(f"GPIO.setup({{dev_config['PIN']}}, GPIO.IN)")
+            self.indent_level-=1
+            self.indent_level-=1
+            
+            self.file.write("Variables = {\n")
+            self.indent_level+=1
+            for var_name, var_info in Utils.variables.items():
+                text = f"\"{var_info['name']}\":{{"f"\"value\": {var_info['value']}}},"
+                self.writeline(text)
+            self.indent_level-=1
+            self.file.write("}\n")
+            
         elif self.MC_compile:
             print("Writing Microcontroller pin setup...")
+            self.writeline("Devices = {")
+            self.indent_level+=1
             for dev_name, dev_info in Utils.devices.items():
-                print(dev_info)
-                if dev_info['type'] == 'Output':
-                    self.file.write(f"{dev_info['name']} = Pin({dev_info['PIN']}, Pin.OUT)\n")
-                elif dev_info['type'] == 'Input':
-                    self.file.write(f"{dev_info['name']} = Pin({dev_info['PIN']}, Pin.IN)\n")
-    
+                text = f"\"{dev_info['name']}\":{{"f"\"PIN\": {dev_info['PIN']}, \"type\":\"{dev_info['type']}\"}},"
+                self.writeline(text)
+            self.indent_level-=1
+            self.writeline("}")
+            self.file.write("Variables = {\n")
+            self.indent_level+=1
+            for var_name, var_info in Utils.variables.items():
+                text = f"\"{var_info['name']}\":{{"f"\"value\": {var_info['value']}}},"
+                self.writeline(text)
+            self.indent_level-=1
+            self.file.write("}\n")
+            self.writeline("for dev_name, dev_config in Devices.items():")
+            self.indent_level+=1
+            self.writeline("if dev_config['type'] == 'Output':")
+            self.indent_level+=1
+            self.writeline(f"dev_name = Pin(dev_config['PIN'], Pin.OUT)")
+            self.indent_level-=1
+            self.writeline("elif dev_config['type'] == 'Input':")
+            self.indent_level+=1
+            self.writeline(f"dev_name = Pin(dev_config['PIN'], Pin.IN)")
+            self.indent_level-=1
+            self.indent_level-=1
+                
     def write_cleanup(self):
         self.file.write("GPIO.cleanup()\n")
     
@@ -193,15 +230,31 @@ class CodeCompiler:
                     return block_id
         return None 
     
-    def resolve_value(self, value_str):
+    def resolve_value(self, value_str, value_type):
         """Convert value to actual value - handle variable or literal"""
+        if value_type in ('switch', 'N/A'):
+            print(f"Resolving value: {value_str}")
+            return value_str  # Return as is for switch
+        
         if self.is_variable_reference(value_str):
             print(f"Resolving variable reference: {value_str}")
             # Look up variable's current runtime value
-            for var_id, var_info in Utils.variables.items():
-                if var_info['name'] == value_str:
-                    print(f"Found variable {value_str} with value {var_info['value']}")
-                    return var_info['value']  # Or actual value storage
+            if value_type == 'device':
+                print(f"Looking up device: {value_str}")
+                for dev_id, dev_info in Utils.devices.items():
+                    print(dev_info)
+                    if dev_info['name'] == value_str:
+                        print(f"Found device {value_str} with PIN {dev_info['PIN']}")
+                        return f"Devices['{value_str}']['PIN']"
+            elif value_type == 'variable':
+                print(f"Looking up variable: {value_str}")
+                for var_id, var_info in Utils.variables.items():
+                    print(var_info)
+                    if var_info['name'] == value_str:
+                        print(f"Found variable {value_str} with value {var_info['value']}")
+                        return f"Variables['{value_str}']['value']"
+        else:
+            print(f"Using literal value: {value_str}")
         return value_str  # It's a literal
     
     def is_variable_reference(self, value_str):
@@ -254,8 +307,9 @@ class CodeCompiler:
         return None
     
     def handle_if_block(self, block):
-        value_1 = self.resolve_value(block['value_1'])
-        value_2 = self.resolve_value(block['value_2'])
+        print(f"Handling If block {block}")
+        value_1 = self.resolve_value(block['value_1'], block['value_1_type'])
+        value_2 = self.resolve_value(block['value_2'], block['value_2_type'])
         print(f"Resolved If block values: {value_1}, {value_2}")
         operator = self.get_comparison_operator(block['combo_value'])
         print(f"Using operator: {operator}")
@@ -277,8 +331,8 @@ class CodeCompiler:
         self.indent_level -= 1
     
     def handle_while_block(self, block):
-        value_1 = self.resolve_value(block['value_1'])
-        value_2 = self.resolve_value(block['value_2'])
+        value_1 = self.resolve_value(block['value_1'], block['value_1_type'])
+        value_2 = self.resolve_value(block['value_2'], block['value_2_type'])
         print(f"Resolved While block values: {value_1}, {value_2}")
         operator = self.get_comparison_operator(block['combo_value'])
         print(f"Using operator: {operator}")
@@ -311,9 +365,9 @@ class CodeCompiler:
             Switch_value = switch_value
         else:
             # Only resolve if it's a string (variable reference or literal)
-            Switch_value = self.resolve_value(switch_value)
+            Switch_value = self.resolve_value(switch_value, 'switch')
         
-        Var_1 = self.resolve_value(block['value_1'])
+        Var_1 = self.resolve_value(block['value_1'], block['value_1_type'])
         
         print(f"Resolved Switch block value: {Switch_value} (type: {type(Switch_value).__name__})")
         if self.GPIO_compile:

@@ -725,7 +725,8 @@ class BlockWidget(QWidget):
         self.block_id = block_id
         self.canvas = parent
         self.events_handler = None
-        
+        self.is_variable = False
+        self.is_device = False
         # Generate image
         self.image = self.create_block_image()
         
@@ -785,35 +786,7 @@ class BlockWidget(QWidget):
         input_x = self.width() - 95
         input_y =3* ((self.height() - 20) // 4)
         self.If_input_1.move(input_x, input_y)
-        self.If_input_1.setStyleSheet("""
-        QComboBox {
-            background-color: white;
-            border: 1px solid #333;
-            border-radius: 3px;
-            padding: 2px 2px;
-            font-size: 12px;
-            color: #333;
-        }
-        QComboBox::drop-down { 
-            width: 0px; 
-            border: none; 
-        }
-        QComboBox::down-arrow { 
-            width: 0px; 
-            image: none; 
-        }
-        QComboBox:focus {
-            border: 2px solid #4CAF50;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #eeeeee;
-            color: #333333;
-            border: 1px solid #555555;
-            selection-background-color: #1F538D;
-            max-width: 300px;
-            outline: none;  
-        }
-        """) 
+
         self.If_input_1.raise_()
         self.If_input_1.show()
 
@@ -822,35 +795,7 @@ class BlockWidget(QWidget):
         input_x = self.width() - 40
         input_y =3* ((self.height() - 20) // 4)
         self.If_input_2.move(input_x, input_y)
-        self.If_input_2.setStyleSheet("""
-        QComboBox {
-            background-color: white;
-            border: 1px solid #333;
-            border-radius: 3px;
-            padding: 2px 2px;
-            font-size: 12px;
-            color: #333;
-        }
-        QComboBox::drop-down { 
-            width: 0px; 
-            border: none; 
-        }
-        QComboBox::down-arrow { 
-            width: 0px; 
-            image: none; 
-        }
-        QComboBox:focus {
-            border: 2px solid #4CAF50;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #eeeeee;
-            color: #333333;
-            border: 1px solid #555555;
-            selection-background-color: #1F538D;
-            max-width: 300px;
-            outline: none;  
-        }
-        """) 
+
         self.If_input_2.raise_()
         self.If_input_2.show()
         
@@ -919,35 +864,7 @@ class BlockWidget(QWidget):
         input_x = self.width() - 95
         input_y =3* ((self.height() - 20) // 4)
         self.While_input_1.move(input_x, input_y)
-        self.While_input_1.setStyleSheet("""
-        QComboBox {
-            background-color: white;
-            border: 1px solid #333;
-            border-radius: 3px;
-            padding: 2px 2px;
-            font-size: 12px;
-            color: #333;
-        }
-        QComboBox::drop-down { 
-            width: 0px; 
-            border: none; 
-        }
-        QComboBox::down-arrow { 
-            width: 0px; 
-            image: none; 
-        }
-        QComboBox:focus {
-            border: 2px solid #4CAF50;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #eeeeee;
-            color: #333333;
-            border: 1px solid #555555;
-            selection-background-color: #1F538D;
-            max-width: 300px;
-            outline: none;  
-        }
-        """) 
+
         self.While_input_1.raise_()
         self.While_input_1.show()
 
@@ -956,35 +873,7 @@ class BlockWidget(QWidget):
         input_x = self.width() - 40
         input_y =3* ((self.height() - 20) // 4)
         self.While_input_2.move(input_x, input_y)
-        self.While_input_2.setStyleSheet("""
-        QComboBox {
-            background-color: white;
-            border: 1px solid #333;
-            border-radius: 3px;
-            padding: 2px 2px;
-            font-size: 12px;
-            color: #333;
-        }
-        QComboBox::drop-down { 
-            width: 0px; 
-            border: none; 
-        }
-        QComboBox::down-arrow { 
-            width: 0px; 
-            image: none; 
-        }
-        QComboBox:focus {
-            border: 2px solid #4CAF50;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #eeeeee;
-            color: #333333;
-            border: 1px solid #555555;
-            selection-background-color: #1F538D;
-            max-width: 300px;
-            outline: none;  
-        }
-        """) 
+
         self.While_input_2.raise_()
         self.While_input_2.show()
         
@@ -1098,35 +987,6 @@ class BlockWidget(QWidget):
         input_x = self.Switch_width - 30
         input_y =(self.height() - 20) // 4
         self.Var_input_1.move(input_x, input_y)
-        self.Var_input_1.setStyleSheet("""
-        QComboBox {
-            background-color: white;
-            border: 1px solid #333;
-            border-radius: 3px;
-            padding: 2px 2px;
-            font-size: 12px;
-            color: #333;
-        }
-        QComboBox::drop-down { 
-            width: 0px; 
-            border: none; 
-        }
-        QComboBox::down-arrow { 
-            width: 0px; 
-            image: none; 
-        }
-        QComboBox:focus {
-            border: 2px solid #4CAF50;
-        }
-        QComboBox QAbstractItemView {
-            background-color: #eeeeee;
-            color: #333333;
-            border: 1px solid #555555;
-            selection-background-color: #1F538D;
-            max-width: 300px;
-            outline: none;  
-        }
-        """) 
         self.Var_input_1.raise_()
         self.Var_input_1.show()
         
@@ -1151,16 +1011,23 @@ class BlockWidget(QWidget):
         if not text:  # User cleared the field
             return
         
+        if text in Utils.var_items.values():
+            print(f"Value '{text}' is a valid variable.")
+            Utils.top_infos[self.block_id]['value_1_type'] = 'variable'
+        elif text in Utils.dev_items.values():
+            print(f"Value '{text}' is a valid device.")
+            Utils.top_infos[self.block_id]['value_1_type'] = 'device'
+        else:
+            print(f"Value '{text}' is not a recognized variable or device.")
+            Utils.top_infos[self.block_id]['value_1_type'] = 'N/A'
+        
         for block_id, top_info in Utils.top_infos.items():
             if top_info['id'] is self.block_id:
                 type = top_info['type']
         
-        if type == "If":
+        if type in ("If", "While", "Switch"):
             Utils.top_infos[self.block_id]['value_1'] = text
-        elif type == "While":
-            Utils.top_infos[self.block_id]['value_1'] = text
-        elif type == "Switch":
-            Utils.top_infos[self.block_id]['value_1'] = text
+            print(f"Block {self.block_id} value_1: {text}, type: {Utils.top_infos[self.block_id]['value_1_type']}")
         elif type == "Timer":
             try:
                 value = len(text)
@@ -1191,16 +1058,23 @@ class BlockWidget(QWidget):
         if not text:  # User cleared the field
             return
         
+        if text in Utils.var_items.values():
+            print(f"Value '{text}' is a valid variable.")
+            Utils.top_infos[self.block_id]['value_2_type'] = 'variable'
+        elif text in Utils.dev_items.values():
+            print(f"Value '{text}' is a valid device.")
+            Utils.top_infos[self.block_id]['value_2_type'] = 'device'
+        else:
+            print(f"Value '{text}' is not a recognized variable or device.")
+            Utils.top_infos[self.block_id]['value_2_type'] = 'N/A'
+        
         for block_id, top_info in Utils.top_infos.items():
             if top_info['id'] is self.block_id:
                 type = top_info['type']
         
-        if type == "If":
+        if type in ("If", "While", "Switch"):
             Utils.top_infos[self.block_id]['value_2'] = text
-        elif type == "While":
-            Utils.top_infos[self.block_id]['value_2'] = text
-        elif type == "Switch":
-            Utils.top_infos[self.block_id]['value_2'] = text
+            print(f"Block {self.block_id} value_2: {text}, type: {Utils.top_infos[self.block_id]['value_2_type']}")
         
     def on_combo_changed(self, index):
         """Handle combo box selection changes (if needed)"""
@@ -2004,7 +1878,9 @@ class Element_spawn:
             'in_connections': [],
             'out_connections': [],
             'value_1': '--',  # Default values
+            'value_1_type': '',
             'value_2': '',
+            'value_2_type': '',
             'combo_value': '=',
             'switch_value': 'True',
         }

@@ -11,10 +11,6 @@ runtime_widgets = {
     'lines': {},       # connection_id -> QLine
 }
 
-# TOP-LEVEL BLOCKS DATA STRUCTURE
-# Purpose: Stores metadata for every visual block placed on the canvas
-# (rest of file unchanged - all the comments and dict definitions)
-
 top_infos = {}
 paths = {}
 variables = {}

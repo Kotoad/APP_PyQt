@@ -49,6 +49,127 @@ class PathManager:
         self.canvas.update()
         print(f"✓ Cleanup complete. start_node={self.start_node}, preview_points={self.preview_points}")
     
+    def removePathsForBlock(self, block_id):
+        
+        print(f"\n=== REMOVING PATHS FOR BLOCK {block_id} (type: {type(block_id)}) ===")
+        print(f"All blocks in Utils.top_infos:")
+        for key, info in Utils.top_infos.items():
+            print(f"  Key: {key} (type: {type(key).__name__}) → {info.get('type')} block")
+        print(f"Looking for block_id: {block_id} (type: {type(block_id).__name__})")
+        
+        if block_id not in Utils.top_infos:
+            return
+        
+        # Get the block widget being deleted
+        block_widget = Utils.top_infos[block_id].get('widget')
+        if not block_widget:
+            return
+        
+        # Collect all paths connected to this block
+        paths_to_remove = []
+        for path_id, path_data in Utils.paths.items():
+            from_widget = path_data.get('from')
+            to_widget = path_data.get('to')
+            
+            if from_widget is block_widget or to_widget is block_widget:
+                paths_to_remove.append(path_id)
+        
+        for path_id in paths_to_remove:
+            try:
+                block_1, block_2 = path_id.split('_')
+                print(f"Removing path {path_id} between blocks {block_1} and {block_2}")
+                
+                # CONVERT TO STRING - match how you store in Utils.top_infos
+                block_1 = str(block_1)
+                block_2 = str(block_2)
+                block_id = str(block_id)
+                
+                # Debug: Check what keys actually exist
+                print(f"Available blocks in Utils.top_infos: {list(Utils.top_infos.keys())}")
+                print(f"Looking for block_1={block_1}, type={type(block_1)}")
+                
+                # PASS 2: Clean up block_1
+                block1_data = Utils.top_infos.get(int(block_1))
+                if block1_data is None:
+                    print(f"⚠️ WARNING: block_1 {block_1} not found in Utils.top_infos!")
+                    print(f"Available keys: {Utils.top_infos.keys()}")
+                elif block_1 != block_id:
+                    print(f"Cleaning up block_{block_1} connections")
+                    block1_out = block1_data.get('out_connections')
+                    block1_in = block1_data.get('in_connections')
+                    
+                    print(f"block1_out: {block1_out}, block1_in: {block1_in}")
+                    
+                    if block1_out and path_id in block1_out:
+                        block1_out.remove(path_id)
+                        print(f"✓ Removed {path_id} from block_{block_1} out_connections")
+                    
+                    if block1_in and path_id in block1_in:
+                        block1_in.remove(path_id)
+                        print(f"✓ Removed {path_id} from block_{block_1} in_connections")
+                
+                # Same for block_2
+                block2_data = Utils.top_infos.get(int(block_2))
+                if block2_data and block_2 != block_id:
+                    print(f"Cleaning up block_{block_2} connections")
+                    block2_out = block2_data.get('out_connections')
+                    block2_in = block2_data.get('in_connections')
+                    
+                    if block2_in and path_id in block2_in:
+                        block2_in.remove(path_id)
+                    if block2_out and path_id in block2_out:
+                        block2_out.remove(path_id)
+                
+                # PASS 3: Clean up main block
+                main_block = Utils.top_infos.get(int(block_id))
+                if main_block:
+                    print(f"Cleaning up main block_{block_id}")
+                    main_out = main_block.get('out_connections')
+                    main_in = main_block.get('in_connections')
+                    
+                    if main_out and path_id in main_out:
+                        main_out.remove(path_id)
+                    if main_in and path_id in main_in:
+                        main_in.remove(path_id)
+                
+            except Exception as e:  # Catch ALL exceptions, not just ValueError
+                print(f"❌ EXCEPTION in cleanup: {type(e).__name__}: {e}")
+                import traceback
+                traceback.print_exc()  # Print full stack trace
+                continue
+        
+        # PASS 4: Remove paths from Utils.paths (with safety check)
+        for path_id in paths_to_remove:
+            if path_id in Utils.paths:
+                print(f"Deleting path {path_id} from Utils.paths")
+                del Utils.paths[path_id]
+            else:
+                print(f"⚠ Warning: Path {path_id} not found in Utils.paths (may have been deleted already)")
+
+    def remove_path(self, path_id):
+        print(f"Removing path {path_id}...")
+        if path_id in Utils.paths:
+            block_1, block_2 = path_id.split('_')
+            print(f"Path connects block {block_1} and block {block_2}")
+                # Clean up connections in both blocks
+            for block_id in (block_1, block_2):
+                block_data = Utils.top_infos.get(int(block_id))
+                if block_data:
+                    out_conns = block_data.get('out_connections', [])
+                    in_conns = block_data.get('in_connections', [])
+                    
+                    if path_id in out_conns:
+                        out_conns.remove(path_id)
+                        print(f"Removed {path_id} from block {block_id} out_connections")
+                    if path_id in in_conns:
+                        in_conns.remove(path_id)
+                        print(f"Removed {path_id} from block {block_id} in_connections")
+            del Utils.paths[path_id]
+            self.canvas.update()
+            print(f"Path {path_id} removed.")
+        else:
+            print(f"Path {path_id} not found.")
+    
     def update_preview_path(self, mouse_pos):
         """Update temporary path preview as mouse moves"""
         if not self.start_node:

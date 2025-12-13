@@ -4,7 +4,7 @@ from Imports import (
     QLineEdit, QComboBox, QDialog, QPainter, QPen, QColor, QBrush,
     QPalette, QMouseEvent, QRegularExpression, QRegularExpressionValidator,
     QTimer, QMessageBox, QInputDialog, QFileDialog, QFont, Qt, QPoint,
-    QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication
+    QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication, QAction, math
 )
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
@@ -32,6 +32,8 @@ class GridCanvas(QWidget):
         self.is_dragging = False
         self.offset_x = 0
         self.offset_y = 0
+        self.rightClickMenu = None
+        self.rightClickPos = None
         self.spawner = spawning_elements(self)
         self.path_manager = PathManager(self)
         self.elements_events = element_events(self)
@@ -93,6 +95,12 @@ class GridCanvas(QWidget):
         """Debug: Track if canvas gets mouse press"""
         print("✓ GridCanvas.mousePressEvent fired!")
         print(f"  Position: {event.pos()}")
+        if event.button() == Qt.MouseButton.RightButton:
+            # RIGHT CLICK - Show context menu
+            self.rightClickPos = event.pos()
+            self.handleRightClick(event)
+            event.accept()
+            return
         # Call the existing one if you had it, or let it propagate
         super().mousePressEvent(event)
         
@@ -241,6 +249,271 @@ class GridCanvas(QWidget):
             self.path_manager.update_paths_for_widget(widget)
             print(f"Release {self.mousePressEvent}")
 
+    def handleRightClick(self, event):
+        """Determine what was clicked and show appropriate menu"""
+        pos = event.pos()
+        
+        # 1. Check if clicked on a block
+        clickedBlock = self.getBlockAtPosition(pos)
+        if clickedBlock:
+            self.showBlockContextMenu(clickedBlock, pos)
+            return
+        
+        # 2. Check if clicked on a path
+        clickedPath = self.getPathAtPosition(pos)
+        if clickedPath:
+            self.showPathContextMenu(clickedPath, pos)
+            return
+        
+        # 3. Empty canvas area
+        self.showCanvasContextMenu(pos)
+    
+    def getBlockAtPosition(self, pos):
+        """
+        Check if click position is on any block widget.
+        Returns the block widget or None.
+        """
+        
+        for block_id, block_info in Utils.top_infos.items():
+            widget = block_info.get('widget')
+            if not widget:
+                continue
+            
+            # Get block's geometry
+            block_Rect = widget.geometry()
+            
+            # Check if click is within block bounds
+            if block_Rect.contains(pos):
+                return widget  # Return the block widget
+        
+        return None
+    
+    def getPathAtPosition(self, pos, tolerance=5):
+        """
+        Check if click position is near any path.
+        tolerance: how many pixels away from the path to still register as a click
+        Returns the path data or None.
+        """
+        # Check against all paths in the path manager
+        if not Utils.paths:
+            return None
+        
+        clickPoint = pos
+        
+        # Iterate through all paths stored in path_manager
+        for path_id, path_Info in Utils.paths.items():
+            # pathInfo contains: {
+            #   'startBlock': block,
+            #   'startCircle': 'out',
+            #   'endBlock': block,
+            #   'endCircle': 'in',
+            #   'points': [(x1,y1), (x2,y2), ...]
+            # }
+            
+            points = path_Info['waypoints']
+            if len(points) < 2:
+                continue
+            
+            # Check each line segment in the path
+            for i in range(len(points) - 1):
+                p1 = points[i]
+                p2 = points[i + 1]
+                
+                # Calculate distance from point to line segment
+                dist = self.distancePointToLineSegment(clickPoint, p1, p2)
+                
+                if dist <= tolerance:
+                    return path_Info  # Found a click on this path
+        
+        return None
+    
+    def distancePointToLineSegment(self, point, lineStart, lineEnd):
+        """Calculate shortest distance from point to line segment"""
+        
+        x0, y0 = point.x(), point.y()
+        x1, y1 = lineStart[0], lineStart[1]
+        x2, y2 = lineEnd[0], lineEnd[1]
+        
+        # Calculate the distance
+        numerator = abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1)
+        denominator = math.sqrt((y2 - y1)**2 + (x2 - x1)**2)
+        
+        if denominator == 0:
+            return math.sqrt((x0 - x1)**2 + (y0 - y1)**2)
+        
+        return numerator / denominator
+    
+    def showBlockContextMenu(self, block, pos):
+        """Show context menu for blocks"""
+        menu = QMenu(self)
+        
+        # Get block info
+        blockid = None
+        for bid, info in Utils.top_infos.items():
+            if info.get('widget') is block:
+                blockid = bid
+                break
+        
+        # Menu actions
+        edit_Action = QAction("Edit Block", self)
+        edit_Action.triggered.connect(lambda: self.editBlock(block, blockid))
+        menu.addAction(edit_Action)
+        
+        duplicate_Action = QAction("Duplicate", self)
+        duplicate_Action.triggered.connect(lambda: self.duplicateBlock(block, blockid))
+        menu.addAction(duplicate_Action)
+        
+        menu.addSeparator()
+        
+        delete_Action = QAction("Delete Block", self)
+        delete_Action.triggered.connect(lambda: self.deleteBlock(block, blockid))
+        menu.addAction(delete_Action)
+        
+        # Show menu at cursor position
+        menu.exec(self.mapToGlobal(pos))
+    
+    def showPathContextMenu(self, pathInfo, pos):
+        """Show context menu for paths/connections"""
+        menu = QMenu(self)
+        
+        # Get connection info
+        startBlock = pathInfo.get('startBlock')
+        endBlock = pathInfo.get('endBlock')
+        
+        # Display connection info
+        info_Action = QAction(f"Connection", self)
+        info_Action.setEnabled(False)  # Disabled - just for display
+        menu.addAction(info_Action)
+        
+        menu.addSeparator()
+        
+        delete_Path_Action = QAction("Delete Connection", self)
+        delete_Path_Action.triggered.connect(lambda: self.deletePath(pathInfo))
+        menu.addAction(delete_Path_Action)
+        
+        # Show menu at cursor position
+        menu.exec(self.mapToGlobal(pos))
+    
+    def showCanvasContextMenu(self, pos):
+        """Show context menu for empty canvas area"""
+        menu = QMenu(self)
+        
+        addBlockAction = QAction("Add Block", self)
+        addBlockAction.triggered.connect(lambda: MainWindow.open_elements_window(self.main_window))
+        menu.addAction(addBlockAction)
+        
+        menu.addSeparator()
+        
+        clearAllAction = QAction("Clear Canvas", self)
+        clearAllAction.triggered.connect(self.clearCanvas)
+        menu.addAction(clearAllAction)
+        
+        # Show menu at cursor position
+        menu.exec(self.mapToGlobal(pos))
+    
+    # ============ ACTION HANDLERS ============
+    
+    def editBlock(self, block, blockid):
+        """Edit block properties"""
+        print(f"Editing block: {blockid} of type {block.blocktype}")
+        # Implement your edit logic here
+        # Could open a dialog or panel to edit the block
+    
+    def duplicateBlock(self, block, blockid):
+        """Create a copy of the block"""
+        print(f"Duplicating block: {blockid}")
+        
+        if blockid not in Utils.top_infos:
+            return
+        
+        block_data = Utils.top_infos[blockid]
+        blocktype = block_data.get('type')
+        
+        # Calculate offset for duplicate
+        x = block_data.get('x', 0) + 50
+        y = block_data.get('y', 0) + 50
+        
+        # Create new block with same properties
+        value1 = block_data.get('value1', '')
+        value2 = block_data.get('value2', '')
+        combovalue = block_data.get('combovalue', '')
+        
+        # Use the spawner to create new block
+        if hasattr(self, 'spawner') and self.spawner:
+            from PyQt6.QtGui import QMouseEvent
+            
+            # Create fake mouse event at new position
+            fakeEvent = type('obj', (object,), {'pos': lambda: type('obj', (object,), {
+                'x': lambda: x,
+                'y': lambda: y
+            })()})()
+            
+            # Spawn new block (simplified - you may need to adjust)
+            print(f"Creating duplicate of {blocktype} at ({x}, {y})")
+            # This depends on your specific spawner implementation
+    
+    def deleteBlock(self, block, blockid):
+        """Delete a block and its connections"""
+        print(f"Deleting block: {blockid}")
+        
+        if blockid not in Utils.top_infos:
+            return
+        
+        # 1. Remove all connections to/from this block
+        if hasattr(self, 'path_manager'):
+            self.path_manager.removePathsForBlock(blockid)
+        
+        # 2. Remove block from canvas
+        block.setParent(None)
+        block.deleteLater()
+        
+        # 3. Remove from tracking dictionary
+        del Utils.top_infos[blockid]
+        
+        # 4. Update display
+        self.update()
+        print(f"Block {blockid} deleted")
+    
+    def deletePath(self, pathInfo):
+        """Delete a connection path"""
+        print("Deleting path connection")
+        print(f"Path info: {pathInfo}")
+        if hasattr(self, 'path_manager'):
+            for path_id, pInfo in Utils.paths.items():
+                if pInfo == pathInfo:
+                    self.path_manager.remove_path(path_id)
+                    return
+        
+    def openElementsWindow(self):
+        """Open the elements window to add a block"""
+        if hasattr(self, 'main_window') and self.main_window:
+            self.main_window.openelementswindow()
+    
+    def clearCanvas(self):
+        """Clear all blocks and connections"""
+        
+        reply = QMessageBox.question(
+            self,
+            "Clear Canvas",
+            "Are you sure you want to delete all blocks and connections?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            # Remove all blocks
+            for blockid in list(Utils.top_infos.keys()):
+                widget = Utils.top_infos[blockid].get('widget')
+                if widget:
+                    widget.setParent(None)
+                    widget.deleteLater()
+                del Utils.top_infos[blockid]
+            
+            # Clear paths
+            if hasattr(self, 'path_manager'):
+                self.path_manager.clear_all_paths()
+            
+            self.update()
+            print("Canvas cleared")
 #MARK: - MainWindow
 class MainWindow(QMainWindow):
     """Main application window"""
@@ -500,14 +773,14 @@ class MainWindow(QMainWindow):
         type_input = QComboBox()
         type_input.addItems(["Int", "Float", "String", "Bool"])
         
-        type_input.currentTextChanged.connect(lambda  text, t="Variable": self.type_changed(text, t))
+        type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable": self.type_changed(text, v_id , t))
         
         self.value_var_input = QLineEdit()
         self.value_var_input.setPlaceholderText("Initial Value")
         regex = QRegularExpression(r"^\d*$")
         validator = QRegularExpressionValidator(regex, self)
         self.value_var_input.setValidator(validator)
-        self.value_var_input.textChanged.connect(lambda text, t="Variable": self.value_changed(text, t))
+        self.value_var_input.textChanged.connect(lambda text, v_id=var_id, t="Variable": self.value_changed(text, v_id, t))
         
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
@@ -654,14 +927,14 @@ class MainWindow(QMainWindow):
         type_input = QComboBox()
         type_input.addItems(["Output", "Input", "PWM"])
         
-        type_input.currentTextChanged.connect(lambda text, t="Device": self.type_changed(text, t))
+        type_input.currentTextChanged.connect(lambda text, d_id=device_id, t="Device": self.type_changed(text, d_id, t))
         
         self.value_dev_input = QLineEdit()
         self.value_dev_input.setPlaceholderText("PIN")
         regex = QRegularExpression(r"^\d*$")
         validator = QRegularExpressionValidator(regex, self)
         self.value_dev_input.setValidator(validator)
-        self.value_dev_input.textChanged.connect(lambda text, t="Device": self.value_changed(text, t))
+        self.value_dev_input.textChanged.connect(lambda text, d_id=device_id, t="Device": self.value_changed(text, d_id, t))
         
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
@@ -834,18 +1107,18 @@ class MainWindow(QMainWindow):
                 widget.refresh_dropdown()
                 #print(f"Refreshed If block dropdown for {block_id}")
     
-    def type_changed(self, imput, type):
+    def type_changed(self, imput, id, type):
         #print(f"Updating variable {imput}")
         if type == "Variable":
-            if self.var_id in Utils.variables:
-                Utils.variables[self.var_id]['type'] = imput
-                print(f"Type {self.var_id} value changed to: {imput}")
+            if id in Utils.variables:
+                Utils.variables[id]['type'] = imput
+                print(f"Type {id} value changed to: {imput}")
         elif type == "Device":
-            if self.device_id in Utils.devices:
-                Utils.devices[self.device_id]['type'] = imput
-                print(f"Type {self.device_id} value changed to: {imput}")
+            if id in Utils.devices:
+                Utils.devices[id]['type'] = imput
+                print(f"Type {id} value changed to: {imput}")
     
-    def value_changed(self, imput, type):
+    def value_changed(self, imput, id, type):
         #print(f"Updating variable {imput}")
         
         if type == "Variable":
@@ -865,9 +1138,9 @@ class MainWindow(QMainWindow):
             except ValueError:
                     # Text is empty or can't convert (shouldn't happen with regex)
                     pass
-            if self.var_id in Utils.variables:
-                Utils.variables[self.var_id]['value'] = imput
-                print(f"Value {self.var_id} value changed to: {imput}")
+            if id in Utils.variables:
+                Utils.variables[id]['value'] = imput
+                print(f"Value {id} value changed to: {imput}")
         elif type == "Device":
             try:
                 value = len(imput)
@@ -885,9 +1158,9 @@ class MainWindow(QMainWindow):
             except ValueError:
                     # Text is empty or can't convert (shouldn't happen with regex)
                     pass
-            if self.device_id in Utils.devices:
-                Utils.devices[self.device_id]['PIN'] = imput
-                print(f"device {self.device_id} PIN changed to: {imput}")   
+            if id in Utils.devices:
+                Utils.devices[id]['PIN'] = imput
+                print(f"device {id} PIN changed to: {imput}")   
     #MARK: - Other Methods
     def open_elements_window(self):
         """Open the elements window"""
@@ -1209,7 +1482,9 @@ class MainWindow(QMainWindow):
                     'width': block_data['width'],
                     'height': block_data['height'],
                     'value_1': block_data.get('value_1', ''),
+                    'value_1_type': block_data.get('value_1_type', ''),
                     'value_2': block_data.get('value_2', ''),
+                    'value_2_type': block_data.get('value_2_type', ''),
                     'combo_value': block_data.get('combo_value', ''),
                     'switch_value': block_data.get('switch_value', False),
                     'in_connections': block_data.get('in_connections', []),
@@ -1335,16 +1610,16 @@ class MainWindow(QMainWindow):
         type_input = QComboBox()
         type_input.addItems(["int", "float", "bool", "string"])
         type_input.setCurrentText(var_data['type'])
-        type_input.currentTextChanged.connect(lambda text, t="Variable": self.type_changed(text, t))
+        type_input.currentTextChanged.connect(lambda text, v_id=var_id, t="Variable": self.type_changed(text, v_id, t))
         
         # Value input
         value_input = QLineEdit()
         value_input.setText(str(var_data['value']))
         value_input.setPlaceholderText("Value")
-        regex = QRegularExpression(r"^[0-9.\-]*$")
+        regex = QRegularExpression(r"^\d*$")
         validator = QRegularExpressionValidator(regex, self)
         value_input.setValidator(validator)
-        value_input.textChanged.connect(lambda text, t="Variable": self.value_changed(text, t))
+        value_input.textChanged.connect(lambda text, v_id=var_id, t="Variable": self.value_changed(text, v_id, t))
         
         # Delete button
         delete_btn = QPushButton("×")
@@ -1432,17 +1707,17 @@ class MainWindow(QMainWindow):
         type_input = QComboBox()
         type_input.addItems(["Output", "Input", "PWM"])
         type_input.setCurrentText(dev_data['type'])
-        type_input.currentTextChanged.connect(lambda text, t="Device": self.type_changed(text, t))
+        type_input.currentTextChanged.connect(lambda text, d_id=dev_id, t="Device": self.type_changed(text, d_id, t))
         
         # PIN input
         pin_input = QLineEdit()
         if dev_data['pin']:
             pin_input.setText(str(dev_data['pin']))
         pin_input.setPlaceholderText("PIN")
-        regex = QRegularExpression(r"^\\d*$")
+        regex = QRegularExpression(r"^\d*$")
         validator = QRegularExpressionValidator(regex, self)
         pin_input.setValidator(validator)
-        pin_input.textChanged.connect(lambda text, t="Device": self.value_changed(text, t))
+        pin_input.textChanged.connect(lambda text, d_id=dev_id, t="Device": self.value_changed(text, d_id, t))
         
         # Delete button
         delete_btn = QPushButton("×")
