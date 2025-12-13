@@ -150,8 +150,8 @@ class HelpWindow(QDialog):
         # Add examples
         examples = [
             ("Example 1: Blinking LED", "Create basic blinking LED.", "1"),
-            ("Example 2: If Statement", "Learn how to use conditional logic in your diagrams.", "2"),
-            ("Example 3: Loops", "Understand how to create repeating processes.", "3"),
+            ("Example 2: Button controlled LED", "Learn how to use conditional logic in your diagrams.", "2"),
+            ("Example 3: LED lighthouse", "Working with different LED patterns and timings.", "3"),
             ("Example 4: Complex Logic", "Combine multiple elements for advanced workflows.", "4"),
             ("Example 5: Data Processing", "Process input/output in your flowcharts.", "5"),
         ]
@@ -219,7 +219,6 @@ class HelpWindow(QDialog):
         title_label.setStyleSheet("color: #1F538D;")
         detail_layout.addWidget(title_label)
         
-        # Content area (replace with your actual content)
         content = QTextEdit()
         content.setReadOnly(True)
         self.fill_content_area(content, example_id)
@@ -229,9 +228,11 @@ class HelpWindow(QDialog):
         self.examples_layout.addWidget(detail_widget)
 
     def fill_content_area(self, content, example_id):
+        css = self.get_content_stylesheet()
+        print(f"Filling content area for example ID: {example_id}")
         match example_id:
             case "1":
-                css = self.get_content_stylesheet()
+                print("Filling content for Example 1")
                 current_dir = os.path.dirname(os.path.abspath(__file__))
                 Blinking_LED_Diagram = os.path.join(current_dir, "resources", "images", "Blinking_LED", "blinking_led_diagram.png")
                 Blinking_LED_Diagram = os.path.abspath(Blinking_LED_Diagram)  # Convert to absolute path
@@ -278,11 +279,11 @@ class HelpWindow(QDialog):
                             </ol>
                             <h3>Creating the Flowchart:</h3>
                             <ol>
-                                <li>Create new varible by clicking the "Variables" button in the main window toolbar.</br>Name it <span class="highlight">however u want</span> and set its type to <span class="highlight">Boolean</span>.</li>
-                                <li>Create new device by clicking the "Devices" button in the main window toolbar.</br>Name it <span class="highlight">LED</span> for convenience and set its type to <span class="highlight">Output</span>.</li>
+                                <li>Create new varible by clicking the "Variables" button in the main window toolbar.<br>Name it <span class="highlight">however u want</span> and set its type to <span class="highlight">Boolean</span>.</li>
+                                <li>Create new device by clicking the "Devices" button in the main window toolbar.<br>Name it <span class="highlight">LED</span> for convenience and set its type to <span class="highlight">Output</span>.</li>
                                 <li>To add new elements to the canvas, click the "Elements" button in the main window toolbar, then click "add Element".</li>
                                 <li>Select the required elements from the list and place them on the canvas.</li>
-                                <li>Connect the elements in the following order:</br>
+                                <li>Connect the elements in the following order:<br>
                                     <ul>
                                         <li>"<span class="code">Start → While</span>", make sure to set the condition to <span class="code">True</span> to create an infinite loop.</li>
                                         <li>"<span class="code">While</span> (Connect to top connection point) <span class="code">→ Switch</span> (LED ON)"</li>
@@ -300,12 +301,99 @@ class HelpWindow(QDialog):
                         </p>  
                     """)
             case "2":
-                css = self.get_content_stylesheet()
+                print("Filling content for Example 2")
                 content.setHtml(
                     f"""
                         {css}
-                        <h2>If Statement Example</h2>
-                        <p>This is an example of how to use an If statement in your flowchart.</p>
+                        <p>Goal is to teach you how to use conditional logic in your diagrams.</p>
+                        <h2>You will need:</h2>
+                        <ul>
+                            <li>Any Raspberry Pi board</li>
+                            <li>USB cable to connect the board to your computer</li>
+                            <li>Any LED</li>
+                            <li>220 Ohm resistor</li>
+                            <li>Push button</li>
+                            <li>Breadboard and jumper wires</li>
+                        </ul>
+                        <h2>Wiring Diagram:</h2>
+                        <p>(Wiring diagram image would go here)</p>
+                        <h2>How to make it work:</h2>
+                        <p>
+                            <h3>The flowchart will consists of the following elements:</h3>
+                            <ol>
+                                <li><span class="highlight">1x Start</span>: Initializes the program.</li>
+                                <li><span class="highlight">2x Switch</span>: Controls the LED state (ON/OFF).</li>
+                                <li><span class="highlight">1x If</span>: Checks the button state.</li>
+                                <li><span class="highlight">1x While</span>: Creates an infinite loop.</li>
+                                <li><span class="highlight">1x End</span>: Terminates the program.</li>
+                            </ol>
+                            <h3>Flowchart Logic:</h3>
+                            <ol>
+                                <li>The program starts with the <span class="code">Start</span> element.</li>
+                                <li>It then enters a loop where it checks the state of the button using the <span class="code">If</span> element.</li>
+                                <li>If the button is pressed, it turns the LED ON using the first <span class="code">Switch</span> element.</li>
+                                <li>If the button is not pressed, it turns the LED OFF using the second <span class="code">Switch</span> element.</li>
+                                <li>This loop continues indefinitely until the program is manually stopped or terminated using the <span class="code">End</span> element.</li>
+                            </ol>
+                            <h3>Creating the Flowchart:</h3>
+                            <ol>
+                                <li>Create new varible by clicking the "Variables" button in the main window toolbar.<br>Name it <span class="highlight">however u want</span> and set its type to <span class="highlight">Boolean</span>.</li>
+                                <li>Create new device by clicking the "Devices" button in the main window toolbar.<br>Name it <span class="highlight">LED</span> for convenience and set its type to <span class="highlight">Output</span>.<li>
+                                <li>Create another device named <span class="highlight">Button</span> and set its type to <span class="highlight">Input</span>.<li>
+                                <li>Then add the required elements to the canvas as described in the previous example.</li>
+                                <li>Connect the elements in the following order:<br>
+                                <ul>
+                                    <li>"<span class="code">Start → While</span>", make sure to set the condition to <span class="code">True</span> to create an infinite loop.</li>
+                                    <li>"<span class="code">While</span> (Connect to top connection point) <span class="code">→ If</span>"</li>
+                                    <li>"<span class="code">While</span> (Connect to bottom connection point) <span class="code">→ End</span>"</li>
+                                    <li>"<span class="code">If</span> (True) <span class="code">→ Switch</span> (LED ON)"</li>
+                                    <li>"<span class="code">If</span> (False) <span class="code">→ Switch</span> (LED OFF)"</li>
+                                    <li>"<span class="code">Switch</span> (LED ON) <span class="code">→ End</span>"</li>
+                                    <li>"<span class="code">Switch</span> (LED OFF) <span class="code">→ End</span>"</li>
+                                </ul>
+                                </li>
+                            </ol>
+                        </p>
+                    """)
+            case "3":
+                print("Filling content for Example 3")
+                content.setHtml(
+                    f"""
+                        {css}
+                        <p>Goal is to demonstrate different LED patterns and timings.</p>
+                        <h2>You will need:</h2>
+                        <ul>
+                            <li>Any Raspberry Pi board</li>
+                            <li>USB cable to connect the board to your computer</li>
+                            <li>3x Any LED (different colors recommended)</li>
+                            <li>3x 220 Ohm resistor</li>
+                            <li>Breadboard and jumper wires</li>
+                        </ul>
+                        <h2>Wiring Diagram:</h2>
+                        <p>(Wiring diagram image would go here)</p>
+                        <h2>How to make it work:</h2>
+                        <p>
+                        <ol>
+                            <li>Create new varibles by clicking the "Variables" button in the main window toolbar.<br>Name them <span class="highlight">however u want</span> and set their type to <span class="highlight">Boolean</span>.</li>
+                            <li>Create new devices by clicking the "Devices" button in the main window toolbar.<br>Name them <span class="highlight">LED1</span>, <span class="highlight">LED2</span>, and <span class="highlight">LED3</span> for convenience and set their type to <span class="highlight">Output</span>.<li>
+                            <li>Add the required elements to the canvas as described in the previous examples.</li>
+                            <li>Connect the elements to create different LED patterns with varying timings.</li>
+                        </ol>
+                        </p>
+                    """)
+            case "4":
+                print("Filling content for Example 4")
+                content.setHtml(
+                    f"""
+                        {css}
+                        <h2>Example 4 content goes here.</h2>
+                    """)
+            case "5":
+                print("Filling content for Example 5")
+                content.setHtml(
+                    f"""
+                        {css}
+                        <h2>Example 5 content goes here.</h2>
                     """)
         
     def create_faq_tab(self):
