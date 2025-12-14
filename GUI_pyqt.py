@@ -4,7 +4,8 @@ from Imports import (
     QLineEdit, QComboBox, QDialog, QPainter, QPen, QColor, QBrush,
     QPalette, QMouseEvent, QRegularExpression, QRegularExpressionValidator,
     QTimer, QMessageBox, QInputDialog, QFileDialog, QFont, Qt, QPoint,
-    QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication, QAction, math
+    QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication,
+    QAction, math, QGraphicsView, QGraphicsScene
 )
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
@@ -20,7 +21,7 @@ FileManager = get_file_manager()
 PathManager = get_path_manager()
 ElementsWindow = get_Elements_Window()
 #MARK: - GridCanvas
-class GridCanvas(QWidget):
+class GridCanvas(QGraphicsView):
     """Canvas widget with grid and draggable widgets"""
     
     def __init__(self, parent=None, grid_size=25):
@@ -39,9 +40,10 @@ class GridCanvas(QWidget):
         self.elements_events = element_events(self)
         self.file_manager = FileManager()
         # Setup widget
-        self.setMinimumSize(800, 600)
-        self.setMouseTracking(True)
-        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+        self.scene = QGraphicsScene()
+        self.scene.setSceneRect(-5000, -5000, 10000, 10000)
+        self.setScene(self.scene)
         
         # Style
         self.setStyleSheet("""
@@ -58,6 +60,9 @@ class GridCanvas(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
+        painter.translate(self.pan_x, self.pan_y)
+        painter.scale(self.zoom_level, self.zoom_level)
+        
         # Draw grid
         pen = QPen(QColor("#3A3A3A"))
         pen.setWidth(1)
@@ -66,16 +71,24 @@ class GridCanvas(QWidget):
         width = self.width()
         height = self.height()
         
+        start_x = -self.pan_x / self.zoom_level
+        start_y = -self.pan_y / self.zoom_level
+        end_x = start_x + width / self.zoom_level
+        end_y = start_y + height / self.zoom_level
+        
+        
         # Vertical lines
-        x = 0
-        while x < width:
-            painter.drawLine(x, 0, x, height)
+        x = (int(start_x) / self.grid_size) * self.grid_size
+        #print(f"Type of start_x: {type(start_x)}, type of x: {type(x)}, type of end_x: {type(end_x)}")
+        while x < end_x:
+            painter.drawLine(int(x), int(start_y), int(x), int(end_y))
             x += self.grid_size
         
         # Horizontal lines
-        y = 0
-        while y < height:
-            painter.drawLine(0, y, width, y)
+        y = (int(start_y) / self.grid_size) * self.grid_size
+        #print(f"Type of start_y: {type(start_y)}, type of y: {type(y)}, type of end_y: {type(end_y)}")
+        while y < end_y:
+            painter.drawLine(int(start_x), int(y), int(end_x), int(y))
             y += self.grid_size
         
         # **Draw all connection paths**
@@ -91,6 +104,21 @@ class GridCanvas(QWidget):
                 dashed=True
             )
     
+    def wheelEvent(self, event):
+        delta = event.angleDelta().y()
+        
+        if delta > 0:
+            new_zoom = self.zoom_level + self.zoom_speed
+        else:
+            new_zoom = self.zoom_level - self.zoom_speed
+        
+        self.zoom_level = max(self.min_zoom, min(self.max_zoom, new_zoom))
+        
+        self.update_widgets_for_zoom_pan()
+        
+        self.update()
+        event.accept()
+            
     def mousePressEvent(self, event):
         """Debug: Track if canvas gets mouse press"""
         print("✓ GridCanvas.mousePressEvent fired!")
@@ -101,22 +129,65 @@ class GridCanvas(QWidget):
             self.handleRightClick(event)
             event.accept()
             return
+
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self.is_panning = True
+            self.pan_start_x = event.pos().x()
+            self.pan_start_y = event.pos().y()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.accept()
+            return
+            
         # Call the existing one if you had it, or let it propagate
         super().mousePressEvent(event)
         
     def mouseMoveEvent(self, event):
         #print(f"Canvas.mouseMoveEvent fired at {event.pos()}")
         #print(f"start_node is: {self.path_manager.start_node}")
+        if self.is_panning:
+            delta_x = event.pos().x() - self.pan_start_x
+            delta_y = event.pos().y() - self.pan_start_y
+            self.pan_x += delta_x
+            self.pan_y += delta_y
+            self.pan_start_x = event.pos().x()
+            self.pan_start_y = event.pos().y()
+            
+            self.update_widgets_for_zoom_pan()
+            
+            self.update()
+            event.accept()
+            return
+        
         
         if self.path_manager.start_node:
             #print("Updating preview from CANVAS mouseMoveEvent")
             self.path_manager.update_preview_path(event.pos())
             self.update()
     
+    def mouseReleaseEvent(self, event):
+        """Handle mouse release - stop panning"""
+        if event.button() == Qt.MouseButton.MiddleButton:
+            if self.is_panning:
+                self.is_panning = False
+                self.setCursor(Qt.CursorShape.ArrowCursor)  # Reset cursor
+                event.accept()
+                return
+
+        super().mouseReleaseEvent(event)
+    
     def keyPressEvent(self, event):
         #print(f"Spawner ID in Canvas: {id(self.spawner)}")
         #print(f"Spawner in Canvas has placing_active: {self.spawner.placing_active if self.spawner else 'None'}")
         #print(f"Element placed: {self.spawner.element_placed if self.spawner else 'None'}")
+
+        if event.key() == Qt.Key.Key_Home:
+            self.pan_x = 0
+            self.pan_y = 0
+            self.zoom_level = 1.0
+            self.update_widgets_for_zoom_pan()
+            self.update()
+            event.accept()
+            return 
 
         if self.spawner and self.spawner.element_placed:
             #print(f"Key pressed: {event.key()}")
@@ -159,8 +230,33 @@ class GridCanvas(QWidget):
             
         snapped_x = int(round(x / self.grid_size) * self.grid_size)
         snapped_y = int(round(y / self.grid_size) * self.grid_size + height_offset)
-        
         return snapped_x, snapped_y
+    
+    def update_widgets_for_zoom_pan(self):
+        """Update all widget positions and sizes based on current zoom level and pan offset."""
+        for block_id, block_info in Utils.top_infos.items():
+            widget = block_info.get('widget')
+            if not widget or not isinstance(widget, QWidget):
+                continue
+            
+            # Get the ORIGINAL position (unscaled, unscaleed)
+            original_x = block_info.get('x', 0)
+            original_y = block_info.get('y', 0)
+            original_width = block_info.get('width', 100)
+            original_height = block_info.get('height', 36)
+            
+            # Apply zoom and pan to SCREEN coordinates
+            # Pan is applied FIRST, then zoom
+            scaled_x = (original_x + self.pan_x / self.zoom_level) * self.zoom_level
+            scaled_y = (original_y + self.pan_y / self.zoom_level) * self.zoom_level
+            scaled_width = original_width * self.zoom_level
+            scaled_height = original_height * self.zoom_level
+            
+            try:
+                print(f"Widget {block_id}: ({scaled_x}, {scaled_y}) size ({scaled_width}, {scaled_height})")
+                widget.setGeometry(int(scaled_x), int(scaled_y), int(scaled_width), int(scaled_height))
+            except Exception as e:
+                print(f"Error updating widget geometry: {e}")
     
     def add_draggable_widget(self, widget):
         """Make a widget draggable on the canvas"""
@@ -224,6 +320,8 @@ class GridCanvas(QWidget):
             widget.move(new_x, new_y)
             self.dragged_widget['x'] = new_x
             self.dragged_widget['y'] = new_y
+            self.dragged_widget['width'] = widget.width()
+            self.dragged_widget['height'] = widget.height()
             
             # Update paths
             self.path_manager.update_paths_for_widget(widget)

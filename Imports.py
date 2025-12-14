@@ -28,7 +28,8 @@ from PyQt6.QtWidgets import (
     QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea,
     QLineEdit, QComboBox, QDialog, QTabWidget, QFileDialog, QMessageBox,
     QInputDialog, QStyleOptionComboBox, QStyledItemDelegate, QTextEdit,
-    QSplitter, QTreeWidget, QTreeWidgetItem, QListWidget,
+    QSplitter, QTreeWidget, QTreeWidgetItem, QListWidget, QGraphicsView, QGraphicsScene,
+    QGraphicsRectItem
 )
 from PyQt6.QtCore import (
     Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression, QTimer, QEvent,
