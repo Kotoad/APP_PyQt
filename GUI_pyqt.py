@@ -1,13 +1,16 @@
 from Imports import (
     sys, QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea, QListWidget,
-    QLineEdit, QComboBox, QDialog, QPainter, QPen, QColor, QBrush,
+    QLineEdit, QComboBox, QDialog, QPainter, QPen, QColor, QBrush, pyqtProperty,
+    QPropertyAnimation, QEasingCurve, QStyledItemDelegate,
     QPalette, QMouseEvent, QRegularExpression, QRegularExpressionValidator,
     QTimer, QMessageBox, QInputDialog, QFileDialog, QFont, Qt, QPoint, ctypes,
-    QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication,
+    QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication, QSizePolicy,
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
     QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent
 )
+import typing
+from PyQt6 import QtGui
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
     get_file_manager, get_path_manager, get_Elements_Window, get_utils,
@@ -23,6 +26,179 @@ FileManager = get_file_manager()
 PathManager = get_path_manager()[0]
 PathGraphicsItem = get_path_manager()[1]
 ElementsWindow = get_Elements_Window()
+
+class CustomSwitch(QWidget):
+    """
+    YOUR CustomSwitch - Has FULL control over circle size!
+    """
+    
+    toggled = pyqtSignal(bool)
+    clicked = pyqtSignal(bool)
+    
+    def __init__(self, parent=None, 
+                 width=80, height=40,
+                 bg_off_color="#e0e0e0",
+                 bg_on_color="#4CAF50",
+                 circle_color="#ffffff",
+                 border_color="#999999",
+                 animation_speed=300):
+        super().__init__(parent)
+        
+        # State management
+        self._is_checked = False
+        self._circle_x = 0.0
+        self._is_enabled = True
+        
+        # Size configuration - YOU CONTROL CIRCLE SIZE HERE!
+        self.base_width = width
+        self.base_height = height
+        self.circle_diameter = height - 8  # <-- CIRCLE SIZE DEPENDS ON HEIGHT!
+        self.padding = 4
+        self.border_width = 2
+        
+        # Color configuration
+        self.bg_off_color = bg_off_color
+        self.bg_on_color = bg_on_color
+        self.circle_color = circle_color
+        self.border_color = border_color
+        self.disabled_alpha = 0.5
+        
+        # Animation setup
+        self.animation = QPropertyAnimation(self, b"circle_x")
+        self.animation.setDuration(animation_speed)
+        self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        
+        self._is_animating = False
+        self.animation.stateChanged.connect(self.animation_state_changed)
+        
+        # Widget configuration
+        self.setFixedSize(self.base_width, self.base_height)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        
+        # Initialize circle position
+        self._update_circle_position(animate=False)
+    
+    @pyqtProperty(float)
+    def circle_x(self):
+        return self._circle_x
+    
+    @circle_x.setter
+    def circle_x(self, value):
+        self._circle_x = value
+        self.update()
+    
+    def animation_state_changed(self, state):
+        from PyQt6.QtCore import QAbstractAnimation
+    
+        if state == QAbstractAnimation.State.Running:
+            self._is_animating = True
+        else:  # Stopped
+            self._is_animating = False
+
+    
+    def on_switch_changed(self):
+        return self._is_checked
+    
+    def set_checked(self, state, emit_signal=True):
+        if self._is_checked != state:
+            self._is_checked = state
+            self._update_circle_position(animate=True)
+            if emit_signal:
+                self.toggled.emit(self._is_checked)
+            self.clicked.emit(self._is_checked)
+    
+    def toggle(self):
+        self.set_checked(not self._is_checked)
+    
+    def set_enabled_custom(self, enabled):
+        self._is_enabled = enabled
+        self.setCursor(
+            Qt.CursorShape.PointingHandCursor if enabled 
+            else Qt.CursorShape.ForbiddenCursor
+        )
+        self.update()
+    
+    def _update_circle_position(self, animate=True):
+        if self._is_checked:
+            end_pos = self.base_width - self.circle_diameter - self.padding
+        else:
+            end_pos = self.padding
+        
+        if animate:
+            self.animation.setStartValue(self._circle_x)
+            self.animation.setEndValue(end_pos)
+            self.animation.start()
+        else:
+            self._circle_x = end_pos
+    
+    def mousePressEvent(self, event):
+        if self._is_animating:
+            event.ignore()
+            return
+        
+        if event.button() == Qt.MouseButton.LeftButton and self._is_enabled:
+            self.toggle()
+    
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self.update()
+    
+    def focusOutEvent(self, event):
+        super().focusOutEvent(event)
+        self.update()
+    
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        if not self._is_enabled:
+            painter.setOpacity(self.disabled_alpha)
+        
+        radius = self.base_height / 2
+        path = QPainterPath()
+        path.addRoundedRect(0, 0, self.base_width, self.base_height, radius, radius)
+        painter.setClipPath(path)
+
+        # 2) BACKGROUND: USE SAME OUTER RECT (NO INSET)
+        bg_rect = QRectF(0, 0, self.base_width, self.base_height)
+        bg_color = QColor(self.bg_on_color if self._is_checked else self.bg_off_color)
+        painter.fillRect(bg_rect, bg_color)
+
+        # 3) BORDER: DRAW ON SAME RECT & RADIUS
+        border_pen = QPen(QColor(self.border_color), self.border_width)
+        painter.setPen(border_pen)
+        painter.drawRoundedRect(bg_rect, radius, radius)
+
+        # 4) FOCUS RECT: SLIGHTLY INSET, SAME SHAPE
+        if self.hasFocus():
+            focus_pen = QPen(QColor("#2196f3"), 2, Qt.PenStyle.SolidLine)
+            painter.setPen(focus_pen)
+            focus_margin = 2
+            focus_rect = QRectF(
+                focus_margin,
+                focus_margin,
+                self.base_width - 2 * focus_margin,
+                self.base_height - 2 * focus_margin,
+            )
+            painter.drawRoundedRect(focus_rect, radius - focus_margin, radius - focus_margin)
+
+        # 5) CIRCLE
+        circle_rect = QRectF(
+            self._circle_x,
+            self.padding,
+            self.circle_diameter,
+            self.circle_diameter,
+        )
+        painter.setBrush(QBrush(QColor(self.circle_color)))
+        painter.setPen(QPen(QColor("#cccccc"), 1))
+        painter.drawEllipse(circle_rect)
+
+        shadow_pen = QPen(QColor("#000000"), 1)
+        shadow_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(shadow_pen)
+        painter.setOpacity(0.15)
+        painter.drawEllipse(circle_rect.adjusted(1, 1, 1, 1))
 
 class PassiveListPopup(QListWidget):
     """
@@ -120,6 +296,7 @@ class SearchableLineEdit(QLineEdit):
     """
     
     selected = pyqtSignal(str)
+    MAX_WIDTH = 245  # Max width for popup
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -140,7 +317,7 @@ class SearchableLineEdit(QLineEdit):
         # Connect typing events
         self.textEdited.connect(self.update_popup)
         
-        self.setFixedWidth(245)
+        self.setFixedWidth(self.MAX_WIDTH)  # Optional: set a fixed width for the line edit
 
     def addItem(self, text):
         self.all_items.append(str(text))
@@ -254,13 +431,13 @@ class GridCanvas(QGraphicsView):
         
         # Create graphics scene
         self.scene = QGraphicsScene()
-        self.scene.setSceneRect(-5000, -5000, 10000, 10000)
+        self.scene.setSceneRect(-5000, -5000, 5000, 5000)
         self.setScene(self.scene)
         
         # Zoom setup
         self.zoom_level = 1.0
-        self.min_zoom = 0.1
-        self.max_zoom = 5.0
+        self.min_zoom = 0.5
+        self.max_zoom = 4.0
         self.zoom_speed = 0.1
         
         # Rendering
@@ -323,7 +500,7 @@ class GridCanvas(QGraphicsView):
         new_zoom = max(self.min_zoom, min(self.max_zoom, new_zoom))
         
         # Zoom toward mouse position
-        self.centerOn(self.mapToScene(event.position().toPoint()))
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
         self.scale(new_zoom / self.zoom_level, new_zoom / self.zoom_level)
         self.zoom_level = new_zoom
         
@@ -444,19 +621,16 @@ class GridCanvas(QGraphicsView):
         # Store in Utils
         Utils.top_infos[block_id] = {
             'type': block_type,
+            'id': block_id,
             'widget': block,
             'type': block_type,
             'width': block.boundingRect().width(),
             'height': block.boundingRect().height(),
             'x': x,
             'y': y,
-            'value_1_name': "",
-            'values_1': "",
-            'values_1_type': "",
-            'value_2_name': "",
-            'values_2': "",
-            'values_2_type': "",
-            'operator': "",
+            'value_1_name': "var1",
+            'value_2_name': "var2",
+            'operator': "==",
             'in_connections': [],
             'out_connections': []
         }
@@ -746,14 +920,19 @@ class MainWindow(QMainWindow):
             header_layout.addWidget(hide_btn)
             self.inspector_layout.addWidget(header)
             
-            scroll_area = QScrollArea()
-            scroll_area.setWidgetResizable(True)
+            self.scroll_area = QScrollArea()
+            self.scroll_area.setWidgetResizable(True)
+            self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
             
             self.inspector_content = QWidget()
             self.inspector_content_layout = QVBoxLayout(self.inspector_content)
             self.inspector_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-            scroll_area.setWidget(self.inspector_content)
-            self.inspector_layout.addWidget(scroll_area)
+            self.inspector_content.setSizePolicy(
+                QSizePolicy.Policy.Expanding,  # Grow vertically
+                QSizePolicy.Policy.Preferred
+            )
+            self.scroll_area.setWidget(self.inspector_content)
+            self.inspector_layout.addWidget(self.scroll_area)
             # Add to main layout
             central_widget = self.centralWidget()
             if central_widget:
@@ -806,9 +985,6 @@ class MainWindow(QMainWindow):
                 if block_data['type'] in ('Start', 'End'):
                     return
                 
-                row_widget = QWidget()
-                row_layout = QHBoxLayout(row_widget)
-                row_layout.setContentsMargins(5, 5, 5, 5)
                 if block_data['type'] == 'Timer':
                     # Timer block inputs
                     label = QLabel("Interval (ms):")
@@ -824,19 +1000,19 @@ class MainWindow(QMainWindow):
                         interval_input
                     )
                     break
-                if block_data['type'] in ('If', 'While', 'Switch', 'For Loop'):
+                if block_data['type'] in ('If', 'While', 'For Loop'):
                     name_label = QLabel("Value 1 Name:")
                     
                     self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), name_label)
                     
-                    self.name_input = SearchableLineEdit()
-                    self.name_input.setText(block_data.get('value_1_name', ''))
-                    self.name_input.setPlaceholderText("Value 1 Name")
-                    self.name_input.textChanged.connect(lambda text, bd=block_data: bd.update({'value_1_name': text}))
+                    self.name_1_input = SearchableLineEdit()
+                    self.name_1_input.setText(block_data.get('value_1_name', ''))
+                    self.name_1_input.setPlaceholderText("Value 1 Name")
+                    self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_name_1_changed(text, bd))
                     
-                    self.insert_items(block, self.name_input)
+                    self.insert_items(block, self.name_1_input)
                     
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), self.name_input)
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), self.name_1_input)
                     
                     type_label = QLabel("Operator:")
                     
@@ -845,7 +1021,7 @@ class MainWindow(QMainWindow):
                     type_input = QComboBox()
                     type_input.addItems(["==", "!=", "<", ">", "<=", ">="])
                     type_input.setCurrentText(block_data.get('operator', '=='))
-                    type_input.currentTextChanged.connect(lambda text, bd=block_data: bd.update({'operator': text}))
+                    type_input.currentTextChanged.connect(lambda text, bd=block_data: self.Block_operator_changed(text, bd))
                     
                     self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), type_input)
                     
@@ -853,15 +1029,79 @@ class MainWindow(QMainWindow):
                     
                     self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), value_label)
                     
-                    value_input = QLineEdit()
-                    value_input.setText(block_data.get('value_2_name', ''))
-                    value_input.setPlaceholderText("Value 2 Name")
-                    value_input.textChanged.connect(lambda text, bd=block_data: bd.update({'value_2_name': text}))
-                    print(value_input.width())
+                    self.name_2_input = SearchableLineEdit()
+                    self.name_2_input.setText(block_data.get('value_2_name', ''))
+                    self.name_2_input.setPlaceholderText("Value 2 Name")
+                    self.name_2_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_2_name_changed(text, bd))
                     
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), value_input)
+                    self.insert_items(block, self.name_2_input)
                     
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), self.name_2_input)
+                if block_data['type'] == 'Switch':
+                    name_label = QLabel("Value Name:")
+                    
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), name_label)
+                    
+                    self.name_1_input = SearchableLineEdit()
+                    self.name_1_input.setText(block_data.get('value_1_name', ''))
+                    self.name_1_input.setPlaceholderText("Value Name")
+                    self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_name_1_changed(text, bd))
+                    
+                    self.insert_items(block, self.name_1_input)
+                    
+                    self.Label_ON = QLabel("On")
+                    self.Label_OFF = QLabel("Off")
+                    
+                    
+                    
+                    self.switch = CustomSwitch()
+                    self.switch.set_checked(block_data.get('switch_state', False))
+                    self.switch.toggled.connect(lambda state, bd=block_data: self.Block_switch_changed(state, bd))
+                    
+                    row_widget = QWidget()
+                    row_layout = QHBoxLayout(row_widget)
+                    row_layout.setContentsMargins(5, 5, 5, 5)
+                    
+                    row_layout.addWidget(self.Label_OFF)
+                    row_layout.addWidget(self.switch)
+                    row_layout.addWidget(self.Label_ON)
+                    
+                    
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), self.name_1_input)
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), row_widget, alignment=Qt.AlignmentFlag.AlignCenter)
                 break
+    
+    def Block_value_name_1_changed(self, text, block_data):
+        block_data['value_1_name'] = text
+        if len(text) > 5:
+            text = text[:3] + "..."
+        item = block_data['widget']
+        if item:
+            item.value_1_name = text
+            item.update()
+    
+    def Block_operator_changed(self, text, block_data):
+        block_data['operator'] = text
+        item = block_data['widget']
+        if item:
+            item.operator = text
+            item.update()
+    
+    def Block_value_2_name_changed(self, text, block_data):
+        block_data['value_2_name'] = text
+        if len(text) > 5:
+            text = text[:3] + "..."
+        item = block_data['widget']
+        if item:
+            item.value_2_name = text
+            item.update()
+    
+    def Block_switch_changed(self, state, block_data):
+        block_data['switch_state'] = state
+        item = block_data['widget']
+        if item:
+            item.switch_state = state
+            item.update()
     
     def insert_items(self, block, line_edit):
         if not block.block_id in Utils.top_infos:
@@ -887,8 +1127,6 @@ class MainWindow(QMainWindow):
             line_edit.addItems(all_items)
             print(f"Added {len(all_items)} items to combo box")
             
-            
-    
     def hide_inspector_frame(self):
         """Hide the inspector panel"""
         if self.inspector_frame:

@@ -31,6 +31,10 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         self.block_type = block_type
         self.canvas = parent_canvas
         
+        self.value_1_name = "var1"
+        self.operator = "=="
+        self.value_2_name = "var2"
+        self.switch_state = False
         # Block dimensions based on type
         self._setup_dimensions()
         
@@ -105,26 +109,11 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         # Main body rectangle
         body_rect = QRectF(self.radius, 0, self.width, self.height)
         painter.drawRoundedRect(body_rect, 3, 3)
-        
-        # Left cap (for Start/End blocks)
-        if self.block_type == "End":
-            left_cap = QRectF(0, (self.height - 2*self.radius) / 2, 
-                             2*self.radius, 2*self.radius)
-            painter.drawEllipse(left_cap)
-        
-        # Right cap (for Start/End blocks)
-        if self.block_type == "Start":
-            right_cap = QRectF(self.width + self.radius - self.radius, 
-                              self.height / 2 - self.radius, 
-                              2*self.radius, 2*self.radius)
-            #out_circle = QRectF(self.width + self.radius - self.radius, 
-            #                       out_y - self.radius, 2*self.radius, 2*self.radius)
-            painter.drawEllipse(right_cap)
 
     def _draw_text(self, painter):
         """Draw block label text"""
         painter.setPen(QPen(QColor("black")))
-        font = QFont("Arial", 10, QFont.Weight.Bold)
+        font = QFont("Arial", 10, QFont.Weight.Normal)
         painter.setFont(font)
         
         # Determine text
@@ -134,19 +123,40 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             text = self.block_type
         
         # Draw text centered
-        text_rect = QRectF(self.radius, 0, self.width, self.height)
-        painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
+        if self.block_type in ["If", "While", "Switch"]:
+            text_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter, text)
+            text_rect2 = QRectF(self.radius, 0, self.width, self.height)
+            if self.block_type == "If":
+                condition_text = f"{self.value_1_name} {self.operator} {self.value_2_name}"
+            elif self.block_type == "While":
+                condition_text = f"{self.value_1_name} {self.operator} {self.value_2_name}"
+            elif self.block_type == "Switch":
+                condition_text = f"{self.value_1_name}"
+            painter.drawText(text_rect2, Qt.AlignmentFlag.AlignCenter, condition_text)
+        else:
+            text_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
         
         # For Switch blocks, draw ON/OFF labels
+        # For Switch blocks, draw ON/OFF labels with colors based on state
         if self.block_type == "Switch":
             small_font = QFont("Arial", 8)
             painter.setFont(small_font)
             
-            on_rect = QRectF(self.radius + 5, self.height / 2 - 5, 30, 10)
-            painter.drawText(on_rect, Qt.AlignmentFlag.AlignLeft, "ON")
+            # ON label - GREEN if ON, GRAY if OFF
             
-            off_rect = QRectF(self.radius + self.width - 35, self.height / 2 - 5, 30, 10)
-            painter.drawText(off_rect, Qt.AlignmentFlag.AlignRight, "OFF")
+            on_rect = QRectF(self.radius + self.width - 35, self.height / 2 - 5, 30, 10)
+            on_color = QColor("Green") if self.switch_state else QColor("Gray")
+            painter.setPen(QPen(on_color))
+            painter.drawText(on_rect, Qt.AlignmentFlag.AlignRight, "ON")
+            
+            # OFF label - RED if OFF, GRAY if ON
+            off_rect = QRectF(self.radius + 5, self.height / 2 - 5, 30, 10)
+            off_color = QColor("Red") if not self.switch_state else QColor("Gray")
+            painter.setPen(QPen(off_color))
+            painter.drawText(off_rect, Qt.AlignmentFlag.AlignLeft, "OFF")
+
 
     def _draw_connection_circles(self, painter):
         """Draw input/output connection circles"""

@@ -26,7 +26,7 @@ from pathlib import Path
 # ============================================================================
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea,
+    QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea,QSizePolicy,
     QLineEdit, QComboBox, QDialog, QTabWidget, QFileDialog, QMessageBox,
     QInputDialog, QStyleOptionComboBox, QStyledItemDelegate, QTextEdit,
     QSplitter, QTreeWidget, QTreeWidgetItem, QListWidget, QGraphicsView, QGraphicsScene,
