@@ -1,12 +1,12 @@
 from Imports import (
     sys, QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea,
+    QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea, QListWidget,
     QLineEdit, QComboBox, QDialog, QPainter, QPen, QColor, QBrush,
     QPalette, QMouseEvent, QRegularExpression, QRegularExpressionValidator,
-    QTimer, QMessageBox, QInputDialog, QFileDialog, QFont, Qt, QPoint,
+    QTimer, QMessageBox, QInputDialog, QFileDialog, QFont, Qt, QPoint, ctypes,
     QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication,
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
-    QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath
+    QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent
 )
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
@@ -23,6 +23,221 @@ FileManager = get_file_manager()
 PathManager = get_path_manager()[0]
 PathGraphicsItem = get_path_manager()[1]
 ElementsWindow = get_Elements_Window()
+
+class PassiveListPopup(QListWidget):
+    """
+    A list widget designed to float as a tool window without stealing focus.
+    """
+    selected = pyqtSignal(str)
+    
+    def __init__(self):
+        super().__init__()
+        # 1. Window Flags: Tool (no taskbar) + Frameless + Always on Top
+        self.setWindowFlags(
+            Qt.WindowType.Tool | 
+            Qt.WindowType.FramelessWindowHint | 
+            Qt.WindowType.WindowStaysOnTopHint
+        )
+        
+        # 2. Attribute: Tell Qt NOT to activate this window when showing it
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        
+        # 3. Focus Policy: logical focus should never be here
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        
+        # Styling
+        self.setStyleSheet("""
+            QListWidget { 
+                border: 1px solid gray; 
+                background: white; 
+                font-size: 10px;
+                color: #000000;
+            }
+            QListWidget::item:selected { 
+                background: #0078d7; 
+                color: white; 
+            }
+            QScrollBar:horizontal {
+                height: 0px;
+                border: none;
+                background: transparent;
+            }
+            QScrollBar:vertical {
+                width: 0px;
+                border: none;
+                background: transparent;
+            }
+        """)
+        
+        # Handle item clicks
+        self.itemClicked.connect(self._on_item_clicked)
+        
+        # Install global filter to handle clicking outside
+        QApplication.instance().installEventFilter(self)
+
+    def showEvent(self, event):
+        # Windows-specific fix to prevent activation on click
+        if sys.platform == "win32":
+            self._apply_windows_no_activate()
+        super().showEvent(event)
+
+    def _apply_windows_no_activate(self):
+        # Set WS_EX_NOACTIVATE (0x08000000)
+        GWL_EXSTYLE = -20
+        WS_EX_NOACTIVATE = 0x08000000
+        try:
+            hwnd = int(self.winId())
+            user32 = ctypes.windll.user32
+            # Handle 64-bit vs 32-bit API naming
+            set_window_long = user32.SetWindowLongPtrW if hasattr(user32, "SetWindowLongPtrW") else user32.SetWindowLongW
+            get_window_long = user32.GetWindowLongPtrW if hasattr(user32, "GetWindowLongPtrW") else user32.GetWindowLongW
+            
+            ex_style = get_window_long(hwnd, GWL_EXSTYLE)
+            set_window_long(hwnd, GWL_EXSTYLE, ex_style | WS_EX_NOACTIVATE)
+        except Exception:
+            pass
+
+    def eventFilter(self, source, event):
+        # Close popup if user clicks anywhere else
+        if self.isVisible() and event.type() == QEvent.Type.MouseButtonPress:
+            global_pos = event.globalPosition().toPoint()
+            # If click is NOT inside the popup, close it.
+            # Note: We don't check the LineEdit here because the LineEdit will 
+            # likely have its own logic or just keep focus naturally.
+            if not self.geometry().contains(global_pos):
+                self.hide()
+        return super().eventFilter(source, event)
+
+    def _on_item_clicked(self, item):
+        self.selected.emit(item.text())
+        self.hide()
+
+
+class SearchableLineEdit(QLineEdit):
+    """
+    A QLineEdit that mimics a ComboBox. 
+    It manages a passive popup list that filters based on input.
+    """
+    
+    selected = pyqtSignal(str)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.popup = PassiveListPopup()
+        self.popup.selected.connect(self.set_text_and_hide)
+        
+        self.setStyleSheet("""
+        QLineEdit {
+            background-color: white;
+            border: 1px solid #333;
+            border-radius: 3px;
+            font-size: 10px;
+            color: #333;
+        }
+        """)
+        self.all_items = []
+        
+        # Connect typing events
+        self.textEdited.connect(self.update_popup)
+        
+        self.setFixedWidth(245)
+
+    def addItem(self, text):
+        self.all_items.append(str(text))
+
+    def addItems(self, texts):
+        self.all_items.clear()
+        self.all_items.extend([str(t) for t in texts])
+        print(f"All items added: {self.all_items}")
+
+    def set_text_and_hide(self, text):
+        self.setText(text)
+        self.popup.hide()
+
+    def update_popup(self, text):
+        """Filter items and show popup."""
+        self.popup.clear()
+        
+        if not text:
+            self.popup.hide()
+            return
+
+        # Simple case-insensitive filter
+        filtered = [item for item in self.all_items if text.lower() in item.lower()]
+        
+        if not filtered:
+            self.popup.hide()
+            return
+
+        self.popup.addItems(filtered)
+        
+        # Select the first item by default for easy navigation
+        self.popup.setCurrentRow(0)
+        
+        # Position the popup
+        self._move_popup()
+        self.popup.show()
+
+    def _move_popup(self):
+        """Align popup geometry to the bottom of the line edit."""
+        rect = self.rect()
+        bottomleft = self.mapToGlobal(rect.bottomLeft())
+        
+        # Calculate popup width based on content (max 150px)
+        fm = self.fontMetrics()
+        max_text_width = 0
+        for item_text in range(self.popup.count()):
+            item = self.popup.item(item_text)
+            if item:
+                w = fm.horizontalAdvance(item.text())
+                max_text_width = max(max_text_width, w)
+        
+        # Add padding and cap at max width
+        popup_width = min(max_text_width + 20, self.MAX_WIDTH)
+        popup_width = max(popup_width, 30)  # Minimum 30px
+        
+        self.popup.setFixedWidth(popup_width)  # ← Now dynamic!
+        
+        itemheight = self.popup.sizeHintForRow(0)
+        print(f"Item height: {itemheight}")
+        count = self.popup.count()
+        print(f"Item count: {count}")
+        h = min(count * itemheight, itemheight * 5)  # Max 5 items visible
+        print(f"Popup height: {h}")
+        self.popup.setFixedHeight(h)
+        self.popup.updateGeometry()
+        self.popup.move(bottomleft)
+        
+    def keyPressEvent(self, event):
+        """Forward navigation keys to the popup."""
+        if not self.popup.isVisible():
+            super().keyPressEvent(event)
+            return
+
+        if event.key() in (Qt.Key.Key_Down, Qt.Key.Key_Up):
+            # Forward arrow keys to list
+            current_row = self.popup.currentRow()
+            count = self.popup.count()
+            
+            if event.key() == Qt.Key.Key_Down:
+                new_row = (current_row + 1) % count
+            else:
+                new_row = (current_row - 1 + count) % count
+                
+            self.popup.setCurrentRow(new_row)
+            return
+        
+        elif event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
+            # Select current item on Enter
+            if self.popup.currentItem():
+                self.set_text_and_hide(self.popup.currentItem().text())
+            return
+        
+        elif event.key() == Qt.Key.Key_Escape:
+            self.popup.hide()
+            return
+
+        super().keyPressEvent(event)
 
 #MARK: - GridCanvas
 class GridCanvas(QGraphicsView):
@@ -235,6 +450,13 @@ class GridCanvas(QGraphicsView):
             'height': block.boundingRect().height(),
             'x': x,
             'y': y,
+            'value_1_name': "",
+            'values_1': "",
+            'values_1_type': "",
+            'value_2_name': "",
+            'values_2': "",
+            'values_2_type': "",
+            'operator': "",
             'in_connections': [],
             'out_connections': []
         }
@@ -276,6 +498,10 @@ class GridCanvas(QGraphicsView):
         duplicate_action = QAction("Duplicate", self)
         duplicate_action.triggered.connect(lambda: self.duplicate_block(block, block_id))
         menu.addAction(duplicate_action)
+        
+        inspector_action = QAction("Show Inspector", self)
+        inspector_action.triggered.connect(lambda: self.main_window.toggle_inspector_frame(block))
+        menu.addAction(inspector_action)
         
         menu.addSeparator()
         
@@ -392,6 +618,9 @@ class MainWindow(QMainWindow):
         self.Devices_frame = None
         self.devices_frame_visible = False
         self.devices_row_count = 1
+        self.inspector_frame = None
+        self.inspector_layout = None
+        self.inspector_frame_visible = False
         self.blockIDs = {}
         
         self.create_menu_bar()
@@ -441,7 +670,6 @@ class MainWindow(QMainWindow):
         show_divs = variables_menu.addAction("Show Devices")
         show_divs.triggered.connect(self.toggle_devices_frame)
         
-        
         settings_menu = menubar.addMenu("Settings")
         settings_menu_action = settings_menu.addAction("Settings")
         settings_menu_action.triggered.connect(self.open_settings_window)
@@ -462,7 +690,7 @@ class MainWindow(QMainWindow):
         
         compile_action = compile_menu.addAction("Compile Code")
         compile_action.triggered.connect(self.compile_code)
-    
+
     def create_canvas_frame(self):
         """Create the main canvas area"""
         # Central widget
@@ -479,6 +707,193 @@ class MainWindow(QMainWindow):
         self.canvas.main_window = self
         #self.canvas.spawner = None
         main_layout.addWidget(self.canvas, stretch=1)
+    #MARK: - Inspector Panel Methods
+    def toggle_inspector_frame(self, block):
+        if not self.inspector_frame_visible:
+            self.last_block = block
+            self.show_inspector_frame(block)
+        elif self.inspector_frame_visible and self.last_block != block:
+            self.last_block = block
+            self.update_inspector_content(block)
+    
+    def show_inspector_frame(self, block):
+        """Show the inspector panel"""
+        if self.inspector_frame is None:
+            self.inspector_frame = QFrame()
+            self.inspector_frame.setMinimumWidth(250)
+            self.inspector_frame.setMaximumWidth(300)
+            self.inspector_frame.setStyleSheet("""
+                QFrame {
+                    background-color: #2B2B2B;
+                    border-left: 1px solid #3A3A3A;
+                }
+            """)
+            
+            # Create container layout ONCE
+            self.inspector_layout = QVBoxLayout(self.inspector_frame)
+            
+            header = QWidget()
+            header_layout = QHBoxLayout(header)
+            header_layout.setContentsMargins(0, 0, 0, 0)
+            
+            title = QLabel("Inspector")
+            hide_btn = QPushButton("×")
+            hide_btn.setFixedWidth(24)
+            hide_btn.clicked.connect(self.hide_inspector_frame)
+            
+            header_layout.addWidget(title)
+            header_layout.addStretch()
+            header_layout.addWidget(hide_btn)
+            self.inspector_layout.addWidget(header)
+            
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            
+            self.inspector_content = QWidget()
+            self.inspector_content_layout = QVBoxLayout(self.inspector_content)
+            self.inspector_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+            scroll_area.setWidget(self.inspector_content)
+            self.inspector_layout.addWidget(scroll_area)
+            # Add to main layout
+            central_widget = self.centralWidget()
+            if central_widget:
+                main_layout = central_widget.layout()
+                if main_layout:
+                    main_layout.insertWidget(0, self.inspector_frame)
+        
+        # Update content (reuse same layout)
+        self.update_inspector_content(block)
+        self.inspector_frame.show()
+        self.inspector_frame_visible = True
+
+    def update_inspector_content(self, block):
+        """Update the content of the inspector panel based on the selected block"""
+        
+        # Clear ONLY the content layout, NOT the main inspector layout
+        while self.inspector_content_layout.count():
+            item = self.inspector_content_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+        
+        # Remove spacer items
+        for i in range(self.inspector_content_layout.count() - 1, -1, -1):
+            item = self.inspector_content_layout.itemAt(i)
+            if item and item.spacerItem():
+                self.inspector_content_layout.takeAt(i)
+        
+        # Add new content
+        title = QLabel(f"Inspector - {block.block_type}")
+        title.setStyleSheet("font-weight: bold; font-size: 16px; padding: 5px;")
+        self.inspector_content_layout.addWidget(title)
+        
+        position_label = QLabel(f"Position: ({int(block.x())}, {int(block.y())})")
+        self.inspector_content_layout.addWidget(position_label)
+        
+        size_label = QLabel(f"Size: ({int(block.boundingRect().width())} x {int(block.boundingRect().height())})")
+        self.inspector_content_layout.addWidget(size_label)
+        
+        self.add_inputs(block)
+        self.inspector_content_layout.addStretch()
+
+    def add_inputs(self, block):
+        """Add input fields for block properties"""
+        
+        for block_id, top_info in Utils.top_infos.items():
+            if top_info.get('widget') == block:
+                block_data = top_info
+                
+                if block_data['type'] in ('Start', 'End'):
+                    return
+                
+                row_widget = QWidget()
+                row_layout = QHBoxLayout(row_widget)
+                row_layout.setContentsMargins(5, 5, 5, 5)
+                if block_data['type'] == 'Timer':
+                    # Timer block inputs
+                    label = QLabel("Interval (ms):")
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), label)
+                    
+                    interval_input = QLineEdit()
+                    interval_input.setText(block_data.get('value_1', '1000'))
+                    interval_input.setPlaceholderText("Interval in ms")
+                    interval_input.textChanged.connect(lambda text, bd=block_data: bd.update({'value_1': text}))
+                    
+                    self.inspector_content_layout.insertWidget(
+                        self.inspector_content_layout.count(), 
+                        interval_input
+                    )
+                    break
+                if block_data['type'] in ('If', 'While', 'Switch', 'For Loop'):
+                    name_label = QLabel("Value 1 Name:")
+                    
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), name_label)
+                    
+                    self.name_input = SearchableLineEdit()
+                    self.name_input.setText(block_data.get('value_1_name', ''))
+                    self.name_input.setPlaceholderText("Value 1 Name")
+                    self.name_input.textChanged.connect(lambda text, bd=block_data: bd.update({'value_1_name': text}))
+                    
+                    self.insert_items(block, self.name_input)
+                    
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), self.name_input)
+                    
+                    type_label = QLabel("Operator:")
+                    
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), type_label)
+                    
+                    type_input = QComboBox()
+                    type_input.addItems(["==", "!=", "<", ">", "<=", ">="])
+                    type_input.setCurrentText(block_data.get('operator', '=='))
+                    type_input.currentTextChanged.connect(lambda text, bd=block_data: bd.update({'operator': text}))
+                    
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), type_input)
+                    
+                    value_label = QLabel("Value 2 name:")
+                    
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), value_label)
+                    
+                    value_input = QLineEdit()
+                    value_input.setText(block_data.get('value_2_name', ''))
+                    value_input.setPlaceholderText("Value 2 Name")
+                    value_input.textChanged.connect(lambda text, bd=block_data: bd.update({'value_2_name': text}))
+                    print(value_input.width())
+                    
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), value_input)
+                    
+                break
+    
+    def insert_items(self, block, line_edit):
+        if not block.block_id in Utils.top_infos:
+            return
+        
+        if hasattr(line_edit, 'addItems'):
+            # Collect all items
+            all_items = []
+            print(f"All items before insertion: {all_items}")
+            if block.block_type == "Switch":
+                for id, text in Utils.dev_items.items():
+                    all_items.append(text)
+            else:
+                for id, text in Utils.var_items.items():
+                    all_items.append(text)
+                    print(f"Added variable item: {text}")
+                for id, text in Utils.dev_items.items():
+                    print(f"Added device item: {text}")
+                    all_items.append(text)
+
+            # Add all items at once
+            print(f"Inserting items into combo box: {all_items}")
+            line_edit.addItems(all_items)
+            print(f"Added {len(all_items)} items to combo box")
+            
+            
+    
+    def hide_inspector_frame(self):
+        """Hide the inspector panel"""
+        if self.inspector_frame:
+            self.inspector_frame.hide()
+            self.inspector_frame_visible = False
     #MARK: - Variable Panel Methods
     def toggle_variable_frame(self):
         """Toggle the variable panel visibility"""
@@ -871,7 +1286,8 @@ class MainWindow(QMainWindow):
                 for v_id in id_list:
                     Utils.variables[v_id]['name_imput'].setStyleSheet(border_col)
             print("Utils.variables:", Utils.variables)
-            self.refresh_all_blocks()
+            if self.inspector_frame_visible:
+                self.insert_items(self.last_block, self.name_input)
         
         elif type == "Device":
             Utils.devices[var_id]['name'] = text
@@ -897,26 +1313,8 @@ class MainWindow(QMainWindow):
                     Utils.devices[d_id]['name_imput'].setStyleSheet(border_col)
             print("Calling refresh_all_blocks from name_changed")
             print(f"Utils.devices: {Utils.devices}")
-            self.refresh_all_blocks()
-        
-    
-    def refresh_all_blocks(self):
-        """Find all If blocks on canvas and refresh their dropdowns"""
-        print("Refreshing all blocks' dropdowns")
-        print(f"Total blocks to check: {len(Utils.top_infos)}")
-        print(f"Utils.top_infos: {Utils.top_infos}")
-        print(f"Variables dict: {Utils.variables}")
-        print(f"Devices dict: {Utils.devices}")
-        print(f"Variables: {Utils.var_items}")
-        print(f"Devices: {Utils.dev_items}")
-        for block_id, block_info in Utils.top_infos.items():
-            widget = block_info['widget']
-            print(f"Refreshing block {block_id} of type {block_info['type']}")
-            # Check if it's an If block with the refresh method
-            if hasattr(widget, 'refresh_dropdown'):
-                print(f"Found block {block_id}, refreshing dropdown")
-                widget.refresh_dropdown()
-                #print(f"Refreshed If block dropdown for {block_id}")
+            if self.inspector_frame_visible:
+                self.insert_items(self.last_block, self.name_input)
     
     def type_changed(self, imput, id, type):
         #print(f"Updating variable {imput}")
