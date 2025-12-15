@@ -1,26 +1,43 @@
-from Imports import (QWidget, QDialog, QVBoxLayout, QHBoxLayout, 
-                     QPushButton, QLabel, QFrame, QTabWidget, Qt, QFont,
-                     pyqtSignal)
+from Imports import (QWidget, QDialog, QVBoxLayout, QHBoxLayout,
+QPushButton, QLabel, QFrame, QTabWidget, Qt, QFont,
+pyqtSignal)
+
 from Imports import get_spawn_elements
-spawning_elements = get_spawn_elements()[0]
+
+# Get the spawning_elements class and other exported items
+spawning_elements = get_spawn_elements()[1]
+
+# NOTE: BlockGraphicsItem is now in spawn_elements module
+# We import it from there if needed:
+# from spawn_elements_pyqt import BlockGraphicsItem
+
 
 class ElementsWindow(QDialog):
-    """Elements selection window with tabs"""
+    """Elements selection window with tabs - synced with spawn_elements"""
     
     _instance = None
     
+    # Signals for element spawning
+    element_requested = pyqtSignal(str)  # element_type
+    
     def __init__(self, parent=None):
         super().__init__(parent)
+        
         self.parent_canvas = parent
+        
+        # Create spawning_elements instance
+        # This now handles BlockGraphicsItem creation internally
         self.element_spawner = spawning_elements(self.parent_canvas)
         self.element_spawner.elements_window = self
+        
         self.is_hidden = False
         
+        # Store spawner reference on canvas
         if hasattr(parent, 'spawner'):
-            parent.spawner = self.element_spawner  
+            parent.spawner = self.element_spawner
         
         self.setup_ui()
-        
+    
     @classmethod
     def get_instance(cls, parent):
         """Get or create singleton instance"""
@@ -93,7 +110,6 @@ class ElementsWindow(QDialog):
     
     def mousePressEvent(self, event):
         """Debug: Track if elements window gets mouse press"""
-        #print("⚠ ElementsWindow.mousePressEvent fired!")
         super().mousePressEvent(event)
     
     def create_shapes_tab(self):
@@ -107,10 +123,9 @@ class ElementsWindow(QDialog):
         title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
-        
         layout.addSpacing(10)
         
-        # Buttons
+        # Buttons - MAPPED TO SPAWNING ELEMENTS
         shapes = [
             ("Start", "Start"),
             ("End", "End"),
@@ -119,7 +134,7 @@ class ElementsWindow(QDialog):
         
         for label, shape_type in shapes:
             btn = QPushButton(label)
-            btn.clicked.connect(lambda checked, s=shape_type: self.spawn_shape(s))
+            btn.clicked.connect(lambda checked, s=shape_type: self.spawn_element(s))
             layout.addWidget(btn)
         
         layout.addStretch()
@@ -136,10 +151,9 @@ class ElementsWindow(QDialog):
         title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
-        
         layout.addSpacing(10)
         
-        # Buttons
+        # Buttons - MAPPED TO SPAWNING ELEMENTS
         logic_elements = [
             ("If", "If"),
             ("While", "While"),
@@ -149,7 +163,7 @@ class ElementsWindow(QDialog):
         
         for label, logic_type in logic_elements:
             btn = QPushButton(label)
-            btn.clicked.connect(lambda checked, s=logic_type: self.spawn_shape(s))
+            btn.clicked.connect(lambda checked, s=logic_type: self.spawn_element(s))
             layout.addWidget(btn)
         
         layout.addStretch()
@@ -166,26 +180,42 @@ class ElementsWindow(QDialog):
         title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
-        
         layout.addSpacing(10)
         
-        # Buttons
+        # Buttons - MAPPED TO SPAWNING ELEMENTS
         io_elements = ["Input", "Output", "Print", "Read File"]
         
         for element in io_elements:
             btn = QPushButton(element)
+            btn.clicked.connect(lambda checked, e=element: self.spawn_element(e))
             layout.addWidget(btn)
         
         layout.addStretch()
         self.tab_widget.addTab(tab, "I/O")
     
-    def spawn_shape(self, shape_type):
-        """Spawn a shape element"""
+    def spawn_element(self, element_type):
+        """
+        Spawn a shape/logic/IO element
+        
+        Args:
+            element_type: "Start", "End", "Timer", "If", "While", "Switch", etc.
+        """
         try:
-            self.element_spawner.start(self.parent_canvas, shape_type)
-            print(f"Spawned: {shape_type}")
+            print(f"\n[ElementsWindow] spawn_element called: {element_type}")
+            
+            # Emit signal for external listeners
+            self.element_requested.emit(element_type)
+            
+            # Start the spawning process via element_spawner
+            # element_spawner.start() will wait for mouse click to place the element
+            self.element_spawner.start(self.parent_canvas, element_type)
+            
+            print(f"  ✓ Element spawn initiated: {element_type}")
+            
         except Exception as e:
-            print(f"Error spawning {shape_type}: {e}")
+            print(f"  ✗ Error spawning {element_type}: {e}")
+            import traceback
+            traceback.print_exc()
     
     def open(self):
         """Show the window"""

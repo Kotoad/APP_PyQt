@@ -16,6 +16,7 @@ import json
 import subprocess
 import ctypes
 import math
+import time
 from datetime import datetime
 from ctypes import windll, wintypes, byref
 from pathlib import Path
@@ -29,17 +30,17 @@ from PyQt6.QtWidgets import (
     QLineEdit, QComboBox, QDialog, QTabWidget, QFileDialog, QMessageBox,
     QInputDialog, QStyleOptionComboBox, QStyledItemDelegate, QTextEdit,
     QSplitter, QTreeWidget, QTreeWidgetItem, QListWidget, QGraphicsView, QGraphicsScene,
-    QGraphicsRectItem
+    QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem, QGraphicsPixmapItem
 )
 from PyQt6.QtCore import (
     Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression, QTimer, QEvent,
     pyqtProperty, QEasingCurve, QRectF, QPropertyAnimation, QObject, QLine, QCoreApplication,
-    QSortFilterProxyModel, QAbstractAnimation
+    QSortFilterProxyModel, QAbstractAnimation, QPointF, QRectF
 )
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent,
     QRegularExpressionValidator, QFont, QPixmap, QImage, QStandardItem,
-    QIntValidator, QPainterPath, QIcon, QStandardItemModel, QAction
+    QIntValidator, QPainterPath, QIcon, QStandardItemModel, QAction, QPixmap
 )
 # ============================================================================
 # PROJECT-SPECIFIC IMPORTS (Internal)
@@ -67,8 +68,8 @@ def get_code_compiler():
 
 def get_spawn_elements():
     """Lazy import spawning_elements and Elements_events - avoid circular import"""
-    from spawn_elements_pyqt import spawning_elements, Elements_events, BlockWidget
-    return spawning_elements, Elements_events, BlockWidget
+    from spawn_elements_pyqt import spawning_elements, Elements_events, BlockGraphicsItem
+    return BlockGraphicsItem, spawning_elements, Elements_events
 
 def get_device_settings_window():
     """Lazy import DeviceSettingsWindow - avoid circular import"""
@@ -77,8 +78,8 @@ def get_device_settings_window():
 
 def get_path_manager():
     """Lazy import PathManager - avoid circular import"""
-    from Path_manager_pyqt import PathManager
-    return PathManager
+    from Path_manager_pyqt import PathManager, PathGraphicsItem
+    return PathManager, PathGraphicsItem
 
 def get_Elements_Window():
     """Lazy import ElementsWindow - avoid circular import"""
