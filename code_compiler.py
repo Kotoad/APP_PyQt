@@ -162,11 +162,11 @@ class CodeCompiler:
             self.indent_level+=1
             self.writeline("if dev_config['type'] == 'Output':")
             self.indent_level+=1
-            self.writeline(f"GPIO.setup({{dev_config['PIN']}}, GPIO.OUT)")
+            self.writeline(f"GPIO.setup(dev_config['PIN'], GPIO.OUT)")
             self.indent_level-=1
             self.writeline("elif dev_config['type'] == 'Input':")
             self.indent_level+=1
-            self.writeline(f"GPIO.setup({{dev_config['PIN']}}, GPIO.IN)")
+            self.writeline(f"GPIO.setup(dev_config['PIN'], GPIO.IN)")
             self.indent_level-=1
             self.indent_level-=1
             
@@ -239,14 +239,14 @@ class CodeCompiler:
         if self.is_variable_reference(value_str):
             print(f"Resolving variable reference: {value_str}")
             # Look up variable's current runtime value
-            if value_type == 'device':
+            if value_type == 'Device':
                 print(f"Looking up device: {value_str}")
                 for dev_id, dev_info in Utils.devices.items():
                     print(dev_info)
                     if dev_info['name'] == value_str:
                         print(f"Found device {value_str} with PIN {dev_info['PIN']}")
                         return f"Devices['{value_str}']['PIN']"
-            elif value_type == 'variable':
+            elif value_type == 'Variable':
                 print(f"Looking up variable: {value_str}")
                 for var_id, var_info in Utils.variables.items():
                     print(var_info)
@@ -299,7 +299,7 @@ class CodeCompiler:
         # Find connection from specified output circle
         for conn_id in current_info['out_connections']:
             conn_info = Utils.paths.get(conn_id)
-            if conn_info and conn_info['from_circle'] == output_circle:
+            if conn_info and conn_info['from_circle_type'] == output_circle:
                 # Find which block this connection goes to
                 for block_id, info in Utils.top_infos.items():
                     if conn_id in info['in_connections']:
@@ -308,10 +308,10 @@ class CodeCompiler:
     
     def handle_if_block(self, block):
         print(f"Handling If block {block}")
-        value_1 = self.resolve_value(block['value_1'], block['value_1_type'])
-        value_2 = self.resolve_value(block['value_2'], block['value_2_type'])
+        value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
+        value_2 = self.resolve_value(block['value_2_name'], block['value_2_type'])
         print(f"Resolved If block values: {value_1}, {value_2}")
-        operator = self.get_comparison_operator(block['combo_value'])
+        operator = self.get_comparison_operator(block['operator'])
         print(f"Using operator: {operator}")
         out1_id = self.get_next_block_from_output(block['id'], 'out1')  # True path
         out2_id = self.get_next_block_from_output(block['id'], 'out2')  # False path
@@ -331,10 +331,10 @@ class CodeCompiler:
         self.indent_level -= 1
     
     def handle_while_block(self, block):
-        value_1 = self.resolve_value(block['value_1'], block['value_1_type'])
-        value_2 = self.resolve_value(block['value_2'], block['value_2_type'])
+        value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
+        value_2 = self.resolve_value(block['value_2_name'], block['value_2_type'])
         print(f"Resolved While block values: {value_1}, {value_2}")
-        operator = self.get_comparison_operator(block['combo_value'])
+        operator = self.get_comparison_operator(block['operator'])
         print(f"Using operator: {operator}")
         out1_id = self.get_next_block_from_output(block['id'], 'out1')  # True path
         out2_id = self.get_next_block_from_output(block['id'], 'out2')  # False path
@@ -350,7 +350,7 @@ class CodeCompiler:
         self.process_block(out2_id)
         
     def handle_timer_block(self, block):
-        self.writeline(f"time.sleep({block['value_1']})")
+        self.writeline(f"time.sleep({block['sleep_time']}/1000)")
         
         next_id = self.get_next_block(block['id'])
         if next_id:
@@ -358,37 +358,37 @@ class CodeCompiler:
         self.process_block(next_id)
     
     def handle_switch_block(self, block):
-        switch_value = block['switch_value']
+        switch_state = block['switch_state']
     
     # ✅ Check if it's already a boolean
-        if isinstance(switch_value, bool):
-            Switch_value = switch_value
+        if isinstance(switch_state, bool):
+            switch_state = switch_state 
         else:
             # Only resolve if it's a string (variable reference or literal)
-            Switch_value = self.resolve_value(switch_value, 'switch')
+            switch_state = self.resolve_value(switch_state, 'switch')
         
-        Var_1 = self.resolve_value(block['value_1'], block['value_1_type'])
+        Var_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
         
-        print(f"Resolved Switch block value: {Switch_value} (type: {type(Switch_value).__name__})")
+        print(f"Resolved Switch block value: {switch_state} (type: {type(switch_state).__name__})")
         if self.GPIO_compile:
-            if Switch_value is True:
+            if switch_state is True:
                 print(f"Writing GPIO HIGH for Switch block")
                 self.writeline(f"GPIO.output({Var_1}, GPIO.HIGH)")
-            elif Switch_value is False:
+            elif switch_state is False:
                 print(f"Writing GPIO LOW for Switch block")
                 self.writeline(f"GPIO.output({Var_1}, GPIO.LOW)")
             else:
-                print(f"Unknown Switch value {Switch_value}, defaulting to LOW")
+                print(f"Unknown Switch value {switch_state}, defaulting to LOW")
                 self.writeline(f"GPIO.output({Var_1}, GPIO.LOW)")
         elif self.MC_compile:
-            if Switch_value is True:
+            if switch_state is True:
                 print(f"Writing PIN HIGH for Switch block")
                 self.writeline(f"{Var_1}.value(1)")
-            elif Switch_value is False:
+            elif switch_state is False:
                 print(f"Writing PIN LOW for Switch block")
                 self.writeline(f"{Var_1}.value(0)")
             else:
-                print(f"Unknown Switch value {Switch_value}, defaulting to LOW")
+                print(f"Unknown Switch value {switch_state}, defaulting to LOW")
                 self.writeline(f"{Var_1}.value(0)")
         next_id = self.get_next_block(block['id'])
         if next_id:

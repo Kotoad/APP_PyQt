@@ -88,7 +88,6 @@ class PathManager:
         self.preview_points = []
         self.preview_item = None
         self.grid_size = Utils.config.get("grid_size", 25)
-        self.scene_paths = {}  # path_id -> PathGraphicsItem
     
     def start_connection(self, block, circle_center, circle_type):
         """Start a new connection from a block's output circle"""
@@ -141,12 +140,14 @@ class PathManager:
                 # Store in Utils and scene_paths
                 Utils.paths[connection_id] = {
                     'from': self.start_node['id'],
+                    'from_circle_type': self.start_node['circle_type'],
                     'to': block_id,
+                    'to_circle_type': circle_type,
                     'waypoints': self.preview_points,
                     'color': QColor(31, 83, 141),
                     'item': path_item
                 }
-                self.scene_paths[connection_id] = path_item
+                Utils.scene_paths[connection_id] = path_item
                 
                 # Update block connection info
                 Utils.top_infos[self.start_node['id']]['out_connections'].append(connection_id)
@@ -214,7 +215,7 @@ class PathManager:
         """Update all paths connected to a widget"""
         block_id = widget.block_id
         
-        for path_id, path_item in self.scene_paths.items():
+        for path_id, path_item in Utils.scene_paths.items():
             if path_item.from_block == widget or path_item.to_block == widget:
                 path_item.update_path()
     
@@ -225,7 +226,7 @@ class PathManager:
         paths_to_remove = []
         
         # Find all connected paths
-        for path_id, path_item in list(self.scene_paths.items()):
+        for path_id, path_item in list(Utils.scene_paths.items()):
             if path_item.from_block.block_id == block_id or path_item.to_block.block_id == block_id:
                 self.canvas.scene.removeItem(path_item)
                 paths_to_remove.append(path_id)
@@ -234,21 +235,21 @@ class PathManager:
         for path_id in paths_to_remove:
             if path_id in Utils.paths:
                 del Utils.paths[path_id]
-            if path_id in self.scene_paths:
-                del self.scene_paths[path_id]
+            if path_id in Utils.scene_paths:
+                del Utils.scene_paths[path_id]
     
     def remove_path(self, path_id):
         """Remove a specific path"""
-        if path_id in self.scene_paths:
-            path_item = self.scene_paths[path_id]
+        if path_id in Utils.scene_paths:
+            path_item = Utils.scene_paths[path_id]
             self.canvas.scene.removeItem(path_item)
-            del self.scene_paths[path_id]
+            del Utils.scene_paths[path_id]
         
         if path_id in Utils.paths:
             del Utils.paths[path_id]
     
     def clear_all_paths(self):
         """Clear all paths"""
-        for path_id in list(self.scene_paths.keys()):
+        for path_id in list(Utils.scene_paths.keys()):
             self.remove_path(path_id)
         Utils.paths.clear()

@@ -19,6 +19,7 @@ vars_same = {}
 devs_same = {}
 var_items = {}
 dev_items = {}
+scene_paths = {}
 
 config = {
     'grid_size': 25,  # Snap-to-grid pixel size

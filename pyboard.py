@@ -72,6 +72,7 @@ import errno
 import os
 import struct
 import sys
+import telnetlib
 import time
 
 from collections import namedtuple
@@ -104,8 +105,6 @@ listdir_result = namedtuple("dir_result", ["name", "st_mode", "st_ino", "st_size
 class TelnetToSerial:
     def __init__(self, ip, user, password, read_timeout=None):
         self.tn = None
-        import telnetlib
-
         self.tn = telnetlib.Telnet(ip, timeout=15)
         self.read_timeout = read_timeout
         if b"Login as:" in self.tn.read_until(b"Login as:", timeout=read_timeout):

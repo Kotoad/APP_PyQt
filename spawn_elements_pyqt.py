@@ -35,6 +35,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         self.operator = "=="
         self.value_2_name = "var2"
         self.switch_state = False
+        self.sleep_time = "1000"
         # Block dimensions based on type
         self._setup_dimensions()
         
@@ -134,6 +135,10 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             elif self.block_type == "Switch":
                 condition_text = f"{self.value_1_name}"
             painter.drawText(text_rect2, Qt.AlignmentFlag.AlignCenter, condition_text)
+        elif self.block_type == "Timer":
+            text_rect = QRectF(self.radius, 0, self.width, self.height)
+            timer_text = f"Wait {self.sleep_time} ms"
+            painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, timer_text)
         else:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)

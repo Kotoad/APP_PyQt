@@ -79,14 +79,18 @@ class FileManager:
         for block_id, block_info in Utils.top_infos.items():
             blocks_data[block_id] = {
                 'type': block_info['type'],
+                'id': block_id,
                 'x': block_info['x'],
                 'y': block_info['y'],
                 'width': block_info['width'],
                 'height': block_info['height'],
                 'value_1_name': block_info.get('value_1_name', ''),
+                'value_1_type': block_info.get('value_1_type', ''),
                 'value_2_name': block_info.get('value_2_name', ''),
+                'value_2_type': block_info.get('value_2_type', ''),
                 'operator': block_info.get('operator', ''),
-                'switch_value': block_info.get('switch_value', ''),
+                'sleep_time': block_info.get('sleep_time', 0),
+                'switch_state': block_info.get('switch_state', ''),
                 'in_connections': block_info.get('in_connections', []),
                 'out_connections': block_info.get('out_connections', []),
             }
@@ -95,12 +99,11 @@ class FileManager:
         connections_data = {}
         for conn_id, conn_info in Utils.paths.items():
             connections_data[conn_id] = {
-                'from_block': cls._get_block_id_from_widget(conn_info['from']),
-                'from_circle': conn_info.get('from_circle', 'out'),
-                'to_block': cls._get_block_id_from_widget(conn_info['to']),
-                'to_circle': conn_info.get('to_circle', 'in'),
+                'from': conn_info['from'],
+                'from_circle_type': conn_info.get('from_circle_type', 'out'),
+                'to': conn_info['to'],
+                'to_circle_type': conn_info.get('to_circle_type', 'in'),
                 'waypoints': conn_info.get('waypoints', []),
-                'color': 'blue',  # Store as string, not QColor object
             }
         
         # Build variables data (pure data, no widget references)
@@ -149,7 +152,10 @@ class FileManager:
     def _get_block_id_from_widget(cls, widget) -> str:
         """Get block ID from widget reference"""
         for block_id, block_info in Utils.top_infos.items():
-            if block_info['widget'] is widget:
+            print(f"Checking block {block_id} for widget match...")
+            print(f"Block widget: {block_info['id']}, Target widget: {widget}")
+            if block_info['id'] is widget:
+                print(f"Match found: {block_id}")
                 return block_id
         return "unknown"
     
@@ -434,6 +440,7 @@ class FileManager:
                 result['devices_changed'] or 
                 result['settings_changed']
             )
+            os.remove(compare_path)  # Clean up temp compare file
             
             return result
             

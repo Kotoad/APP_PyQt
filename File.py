@@ -1,19 +1,20 @@
-from machine import Pin
+import RPi.GPIO as GPIO
 import time
+GPIO.setmode(GPIO.BCM)
 Devices = {
-    "DEV":{"PIN": 8, "type":"Output"},
-}
-Variables = {
-    "VAR":{"value": 5},
+    "DEV":{"PIN": 17, "type":"Output"},
 }
 for dev_name, dev_config in Devices.items():
     if dev_config['type'] == 'Output':
-        dev_name = Pin(dev_config['PIN'], Pin.OUT)
+        GPIO.setup(dev_config['PIN'], GPIO.OUT)
     elif dev_config['type'] == 'Input':
-        dev_name = Pin(dev_config['PIN'], Pin.IN)
-while Variables['VAR']['value'] == 5:
-    Devices['DEV']['PIN'].value(0)
-    time.sleep(2)
-    time.sleep(50)
-    Devices['DEV']['PIN'].value(1)
-time.sleep(20)
+        GPIO.setup(dev_config['PIN'], GPIO.IN)
+Variables = {
+    "var":{"value": 1},
+}
+while Variables['var']['value'] == Variables['var']['value']:
+    time.sleep(1000/1000)
+    GPIO.output(Devices['DEV']['PIN'], GPIO.HIGH)
+    time.sleep(1000/1000)
+    GPIO.output(Devices['DEV']['PIN'], GPIO.LOW)
+GPIO.cleanup()
