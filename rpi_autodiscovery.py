@@ -21,12 +21,32 @@ class RPiAutoDiscovery:
     
     DEFAULT_USERNAME = "pi"
     DEFAULT_PASSWORDS = ["raspberry", ""]  # Common defaults
-    SCAN_TIMEOUT = 1.0  # Increased from 0.5
-    SSH_TIMEOUT = 10  # Increased timeout
+    SCAN_TIMEOUT = 2.0  # Increased from 0.5
+    SSH_TIMEOUT = 15  # Increased timeout
     
     @staticmethod
-    def scan_network_for_rpi(network_prefix: str = "192.168.1", max_ips: int = 254) -> List[Dict]:
+    def scan_network_for_rpi(network_prefix: None = None, max_ips: int = 254) -> List[Dict]:
         """Scan network for Raspberry Pi devices"""
+        print("🔍 Starting network scan for Raspberry Pi devices...")
+        print(f"Network prefix provided: '{network_prefix}'")
+        if network_prefix is None:
+            print("⚠️ network_prefix is None, defaulting to empty string")
+            network_prefix = ""
+            try:
+                # Get local IP to determine network
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                print("🌐 Determining local IP address...")
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+                print(f"✓ Local IP detected: {local_ip}")
+                s.close()
+                # Extract first 3 octets
+                network_prefix = '.'.join(local_ip.split('.')[:-1])
+                print(f"📡 Auto-detected network: {network_prefix}.0/24")
+            except:
+                print("⚠️ Could not determine local IP. Using default network prefix.")
+                network_prefix = "192.168.1"  # Fallback
+        
         found_devices = []
         threads = []
         
@@ -65,6 +85,7 @@ class RPiAutoDiscovery:
         # Scan IPs in parallel
         for i in range(1, min(max_ips + 1, 255)):
             ip = f"{network_prefix}.{i}"
+            print(f"🔎 Checking IP: {ip}")
             thread = threading.Thread(target=check_ip, args=(ip,), daemon=True)
             threads.append(thread)
             thread.start()

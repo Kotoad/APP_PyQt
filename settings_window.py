@@ -12,7 +12,7 @@ models = ["RPI pico/pico W", "RPI zero/zero W", "RPI 2 zero W", "RPI 1 model B/B
 
 class DetectionWorker(QObject):
     """Emits signals for thread-safe UI updates"""
-    result_ready = pyqtSignal(dict)
+    result_ready = pyqtSignal(object)
     error_occurred = pyqtSignal(str)
     
     def __init__(self, detect_func):
@@ -303,21 +303,24 @@ class DeviceSettingsWindow(QDialog):
         
         try:
             # Validate result
-            if not result or not isinstance(result, dict):
-                print("❌ Invalid result")
-                self.rpi_status_label.setText("Status: Auto-detection failed")
+            if result is None:
+                print("No Raspberry Pi found")
+                self.rpi_status_label.setText("Status: No Pi detected")
                 self.rpi_status_label.setStyleSheet("color: #F44336; font-size: 10px;")
-                
                 self.lower()
                 self.process.cancel()
                 QMessageBox.warning(
-                    self,
-                    "Detection Failed",
-                    "Could not find Raspberry Pi on network.\n"
-                    "Please enter connection details manually.",
+                    self, "Detection Failed",
+                    "Could not find Raspberry Pi on network.\nPlease enter connection details manually.",
                     QMessageBox.StandardButton.Ok
                 )
                 self.raise_()
+                return
+            
+            # Validate result is a dict
+            if not isinstance(result, dict):
+                print(f"Invalid result type: {type(result)}")
+                self.on_detection_error("Invalid result returned from detection")
                 return
             
             if 'ip' not in result or 'hostname' not in result:
