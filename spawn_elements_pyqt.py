@@ -65,6 +65,9 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         elif self.block_type == "Switch":
             self.width = 100
             self.height = 54
+        elif self.block_type == "Button":
+            self.width = 100
+            self.height = 54
         else:  # Start, End, or default
             self.width = 100
             self.height = 36
@@ -78,6 +81,8 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             "If": QColor("#87CEEB"),        # Sky blue
             "While": QColor("#87CEEB"),     # Sky blue
             "Switch": QColor("#87CEEB"),    # Sky blue
+            "Button": QColor("#D3D3D3"),    # Light gray
+            "While_true": QColor("#87CEEB"),     # Sky blue
         }
         return colors.get(self.block_type, QColor("#FFD700"))  # Default yellow
 
@@ -119,7 +124,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         
         # Determine text
         if self.block_type == "Switch":
-            text = "Variable"
+            text = "Device"
         else:
             text = self.block_type
         
@@ -139,6 +144,14 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             text_rect = QRectF(self.radius, 0, self.width, self.height)
             timer_text = f"Wait {self.sleep_time} ms"
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, timer_text)
+        elif self.block_type == "Button":
+            ON_rect = QRectF(self.radius, 5, self.width-10, self.height)
+            OFF_rect = QRectF(self.radius, 0, self.width-10, self.height-5)
+            device_text = f"{self.value_1_name}"
+            
+            painter.drawText(QRectF(self.radius, 0, self.width, self.height), Qt.AlignmentFlag.AlignCenter, device_text)
+            painter.drawText(ON_rect, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight, "ON")
+            painter.drawText(OFF_rect, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight, "OFF")
         else:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
@@ -169,7 +182,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         
         # Input circle (white)
         if self.block_type != "Start":
-            if self.block_type in ["If", "While", "Switch"]:
+            if self.block_type in ["If", "While", "Switch", "Button"]:
                 in_y = 3 * self.height / 4
             else:
                 in_y = self.height / 2
@@ -180,7 +193,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         
         # Output circle(s) (red)
         if self.block_type != "End":
-            if self.block_type in ["If", "While"]:
+            if self.block_type in ["If", "While", "Button"]:
                 # Two output circles
                 out_y1 = self.height / 4
                 out_y2 = 3 * self.height / 4
@@ -206,16 +219,20 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         """Connect graphics item circle click signals to event handler"""
         if self.block_id not in Utils.top_infos:
             return
-
+        print(f"✓ Connecting signals for block: {self.block_id}")
         block_info = Utils.top_infos[self.block_id]
         block_graphics = block_info.get('widget')
-
+        print(f"   block_graphics: {block_graphics}")
         if block_graphics and hasattr(block_graphics, 'signals'):
+            print(f"   block_graphics.signals: {block_graphics.signals}")
+            print(f"   canvas: {self.canvas if hasattr(self.canvas, 'elements_events') else 'No canvas events'}")
             if hasattr(self.canvas, 'elements_events'):
+                print(f"   canvas.elements_events: {self.canvas.elements_events}")
                 events = self.canvas.elements_events
                 try:
                     block_graphics.signals.input_clicked.connect(events.on_input_clicked)
                     block_graphics.signals.output_clicked.connect(events.on_output_clicked)
+                    print(f"   Signals connected for {self.block_id}")
                 except Exception as e:
                     print(f"Error connecting signals for {self.block_id}: {e}")
 
@@ -292,7 +309,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         effective_radius = self.radius + radius_margin
         
         # Check input circles
-        if self.block_type in ('If', 'While', 'Switch'):
+        if self.block_type in ('If', 'While', 'Switch', 'Button'):
             # One input at 3/4 height
             in_x, in_y = self.radius, 3 * (self.height / 4)
             dist_in = ((click_pos.x() - in_x)**2 + (click_pos.y() - in_y)**2)**0.5
@@ -308,7 +325,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         # Check output circles
         out_x = self.width + self.radius
         
-        if self.block_type in ('If', 'While'):
+        if self.block_type in ('If', 'While', 'Button'):
             # Two output circles
             out_y1 = self.height / 4
             out_y2 = 3 * (self.height / 4)

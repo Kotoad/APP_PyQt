@@ -122,12 +122,16 @@ class CodeCompiler:
             self.handle_if_block(block)
         elif block['type'] == 'While':
             self.handle_while_block(block)
+        elif block['type'] == 'While_true':
+            self.handle_while_true_block(block)
         elif block['type'] == 'Timer':
             self.handle_timer_block(block)
         elif block['type'] == 'End':
             self.handle_end_block(block)
         elif block['type'] == 'Switch':
             self.handle_switch_block(block)
+        elif block['type'] == 'Button':
+            self.handle_button_block(block)
         else:
             print(f"Unknown block type: {block['type']}")
             pass
@@ -146,7 +150,6 @@ class CodeCompiler:
                     self.file.write("import time\n")
                     break
     
-        
     def write_setup(self):
         print("Writing setup code...")
         if self.GPIO_compile:
@@ -167,6 +170,10 @@ class CodeCompiler:
             self.writeline("elif dev_config['type'] == 'Input':")
             self.indent_level+=1
             self.writeline(f"GPIO.setup(dev_config['PIN'], GPIO.IN)")
+            self.indent_level-=1
+            self.writeline("elif dev_config['type'] == 'Button':")
+            self.indent_level+=1
+            self.writeline(f"GPIO.setup(dev_config['PIN'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)")
             self.indent_level-=1
             self.indent_level-=1
             
@@ -207,7 +214,8 @@ class CodeCompiler:
             self.indent_level-=1
                 
     def write_cleanup(self):
-        self.file.write("GPIO.cleanup()\n")
+        self.writeline("GPIO.cleanup()")
+
     
     def find_block_by_type(self, block_type):
         """Find first block of given type"""
@@ -348,6 +356,16 @@ class CodeCompiler:
         self.indent_level -= 1
         print(f"Processing While false branch for While block")
         self.process_block(out2_id)
+    
+    def handle_while_true_block(self, block):
+        print(f"Handling While true block {block}")
+        next_id = self.get_next_block(block['id'])
+        self.writeline("while True:")
+        self.indent_level += 1
+        print(f"Processing While true branch for While true block")
+        self.process_block(next_id)
+        self.indent_level -= 1
+        
         
     def handle_timer_block(self, block):
         self.writeline(f"time.sleep({block['sleep_time']}/1000)")
@@ -394,6 +412,39 @@ class CodeCompiler:
         if next_id:
             print(f"Processing next block after Switch: {next_id}")
         self.process_block(next_id)
+    
+    def handle_button_block(self, block):
+        DEV_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
+        out1_id = self.get_next_block_from_output(block['id'], 'out1')  # ON path
+        out2_id = self.get_next_block_from_output(block['id'], 'out2')
+        print(f"Resolved Button block device: {DEV_1}")
+        if self.GPIO_compile:
+            self.write_condition(
+                "if", f"GPIO.input({DEV_1})", "==", "GPIO.HIGH"
+            )
+            self.indent_level += 1
+            print(f"Processing Button ON branch for Button block")
+            self.process_block(out1_id)
+            self.indent_level -= 1
+            self.writeline("else:")
+            print(f"Processing Button OFF branch for Button block")
+            self.indent_level += 1
+            self.process_block(out2_id)
+            self.indent_level -= 1
+        elif self.MC_compile:
+            self.write_condition(
+                "if", f"{DEV_1}.value()", "==", "1"
+            )
+            self.indent_level += 1
+            print(f"Processing Button ON branch for Button block")
+            self.process_block(out1_id)
+            self.indent_level -= 1
+            self.writeline("else:")
+            print(f"Processing Button OFF branch for Button block")
+            self.indent_level += 1
+            self.process_block(out2_id)
+            self.indent_level -= 1
+            
     
     def handle_end_block(self, block):
         print(f"Handling End block {block['id']}")

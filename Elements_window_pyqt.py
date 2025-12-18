@@ -157,6 +157,7 @@ class ElementsWindow(QDialog):
         logic_elements = [
             ("If", "If"),
             ("While", "While"),
+            ("While true", "While_true"),
             ("Switch", "Switch"),
             ("For Loop", "For Loop")
         ]
@@ -183,7 +184,7 @@ class ElementsWindow(QDialog):
         layout.addSpacing(10)
         
         # Buttons - MAPPED TO SPAWNING ELEMENTS
-        io_elements = ["Input", "Output", "Print", "Read File"]
+        io_elements = ["Button", "Output", "Print", "Read File"]
         
         for element in io_elements:
             btn = QPushButton(element)

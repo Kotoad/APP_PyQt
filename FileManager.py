@@ -121,7 +121,7 @@ class FileManager:
             devices_data[dev_id] = {
                 'name': dev_info.get('name', ''),
                 'type': dev_info.get('type', 'Output'),
-                'pin': dev_info.get('PIN', None),
+                'PIN': dev_info.get('PIN', None),
             }
         metadata = {
             'version': '1.0',

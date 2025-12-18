@@ -1,9 +1,9 @@
 from Imports import (
-    sys, QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    sys, QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, threading,
     QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea, QListWidget,
     QLineEdit, QComboBox, QDialog, QPainter, QPen, QColor, QBrush, pyqtProperty,
-    QPropertyAnimation, QEasingCurve, QStyledItemDelegate, os, QThread,
-    QPalette, QMouseEvent, QRegularExpression, QRegularExpressionValidator,
+    QPropertyAnimation, QEasingCurve, QStyledItemDelegate, os, QThread, paramiko,
+    QPalette, QMouseEvent, QRegularExpression, QRegularExpressionValidator, time,
     QTimer, QMessageBox, QInputDialog, QFileDialog, QFont, Qt, QPoint, ctypes,
     QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication, QSizePolicy,
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
@@ -28,113 +28,254 @@ PathGraphicsItem = get_path_manager()[1]
 ElementsWindow = get_Elements_Window()
 
 class RPiExecutionThread(QThread):
-    """Background thread with ability to stop"""
+    """
+    Background thread for executing code on Raspberry Pi via SSH.
     
-    finished = pyqtSignal()
-    error = pyqtSignal(str)
-    output = pyqtSignal(str)
-    status = pyqtSignal(str)
+    This thread can be stopped gracefully from the main GUI thread.
+    """
+    
+    # Signals emitted to main GUI
+    finished = pyqtSignal()  # Execution completed successfully
+    error = pyqtSignal(str)  # Execution error
+    output = pyqtSignal(str)  # Command output
+    status = pyqtSignal(str)  # Status messages
+    execution_completed = pyqtSignal(bool)  # Success/failure status
     
     def __init__(self, ssh_config):
+        """
+        Initialize the execution thread.
+        
+        Args:
+            ssh_config: dict with keys: filepath, rpi_host, rpi_user, rpi_password
+        """
         super().__init__()
         self.ssh_config = ssh_config
-        self.should_stop = False  # ← Add stop flag!
-        self.ssh = None  # Keep reference for cleanup
+        self.should_stop = False  # Flag to stop execution
+        self.ssh = None  # SSH connection reference
+        self.channel = None  # SSH channel reference
+        self.stop_lock = threading.Lock()  # Thread-safe stop flag
     
     def stop(self):
-        """Signal thread to stop gracefully"""
-        print("🛑 Stopping execution...")
-        self.should_stop = True
+        """
+        Signal thread to stop gracefully.
+        This is called from the main GUI thread.
+        """
+        print("[RPiExecutionThread] ⚠️  Stop signal received")
         
-        # Close SSH connection immediately
-        if self.ssh:
+        with self.stop_lock:
+            self.should_stop = True
+        
+        # CRITICAL: Close SSH connection immediately to interrupt blocking operations
+        if self.ssh is not None:
             try:
+                print("[RPiExecutionThread] 🔌 Closing SSH connection...")
                 self.ssh.close()
-            except:
-                pass
+            except Exception as e:
+                print(f"[RPiExecutionThread] Error closing SSH: {e}")
+        
+        # Close channel if it exists
+        if self.channel is not None:
+            try:
+                print("[RPiExecutionThread] 🔌 Closing SSH channel...")
+                self.channel.close()
+            except Exception as e:
+                print(f"[RPiExecutionThread] Error closing channel: {e}")
+    
+    def should_continue(self):
+        """
+        Thread-safe check if execution should continue.
+        Use this instead of checking self.should_stop directly.
+        """
+        with self.stop_lock:
+            return not self.should_stop
     
     def run(self):
-        """Main execution - checks should_stop regularly"""
+        """
+        Main execution method. This runs in background thread.
+        """
         try:
-            import paramiko
-            
-            if self.should_stop:
-                self.status.emit("❌ Execution cancelled")
+            # ===== STEP 1: Check if stop was called before execution =====
+            if not self.should_continue():
+                self.status.emit("⏹️  Execution cancelled before start")
                 return
             
+            # ===== STEP 2: Connect to RPi =====
             self.status.emit("🔌 Connecting to RPi...")
             
-            # Create SSH connection
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            self.ssh = ssh  # Store reference
+            try:
+                ssh = paramiko.SSHClient()
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                self.ssh = ssh  # Store reference for cleanup
+                
+                # Set timeout for connection attempt
+                ssh.connect(
+                    self.ssh_config['rpi_host'],
+                    username=self.ssh_config['rpi_user'],
+                    password=self.ssh_config['rpi_password'],
+                    timeout=10,  # Connection timeout
+                    allow_agent=False,
+                    look_for_keys=False
+                )
+            except Exception as e:
+                self.error.emit(f"Failed to connect to RPi: {str(e)}")
+                self.execution_completed.emit(False)
+                return
             
-            # Connect
-            ssh.connect(
-                self.ssh_config['rpi_host'],
-                username=self.ssh_config['rpi_user'],
-                password=self.ssh_config['rpi_password'],
-                timeout=10,
-                allow_agent=False,
-                look_for_keys=False
-            )
-            
-            if self.should_stop:
+            # ===== STEP 3: Check if stop was called during connection =====
+            if not self.should_continue():
                 ssh.close()
+                self.status.emit("⏹️  Execution cancelled during connection")
                 return
             
             self.status.emit("✓ Connected to RPi")
             
-            # Upload file
-            self.status.emit("📤 Uploading File.py...")
-            sftp = ssh.open_sftp()
+            # ===== STEP 4: Upload file via SFTP =====
+            try:
+                self.status.emit("📤 Uploading File.py...")
+                sftp = ssh.open_sftp()
+                
+                # Get home directory
+                stdin, stdout, stderr = ssh.exec_command("echo $HOME")
+                home_dir = stdout.read().decode().strip()
+                if not home_dir:
+                    home_dir = f"/home/{self.ssh_config['rpi_user']}"
+                
+                remote_path = f"{home_dir}/File.py"
+                
+                # ===== STEP 5: Check if stop was called before upload =====
+                if not self.should_continue():
+                    sftp.close()
+                    ssh.close()
+                    self.status.emit("⏹️  Execution cancelled before upload")
+                    return
+                
+                # Upload file
+                sftp.put(self.ssh_config['filepath'], remote_path)
+                sftp.close()
+                
+                self.status.emit(f"✓ Uploaded to {remote_path}")
             
-            # Get home directory
-            stdin, stdout, stderr = ssh.exec_command("echo $HOME")
-            home_dir = stdout.read().decode().strip()
-            if not home_dir:
-                home_dir = f"/home/{self.ssh_config['rpi_user']}"
-            
-            remote_path = f"{home_dir}/File.py"
-            sftp.put(self.ssh_config['file_path'], remote_path)
-            sftp.close()
-            
-            if self.should_stop:
+            except Exception as e:
+                self.error.emit(f"Failed to upload file: {str(e)}")
+                self.execution_completed.emit(False)
                 ssh.close()
                 return
             
-            self.status.emit(f"✓ Uploaded to {remote_path}")
-            
-            # Execute
-            self.status.emit("🚀 Executing code...")
-            stdin, stdout, stderr = ssh.exec_command(
-                f"python3 {remote_path}", 
-                timeout=30
-            )
-            
-            # Wait for completion (check stop flag)
-            exit_code = stdout.channel.recv_exit_status()
-            output = stdout.read().decode('utf-8', errors='ignore')
-            error_output = stderr.read().decode('utf-8', errors='ignore')
-            
-            ssh.close()
-            
-            # Send results back to UI
-            if self.should_stop:
-                self.status.emit("❌ Execution cancelled")
+            # ===== STEP 6: Check if stop was called before execution =====
+            if not self.should_continue():
+                ssh.close()
+                self.status.emit("⏹️  Execution cancelled before code execution")
                 return
             
-            if exit_code == 0:
-                self.status.emit("✓ Execution successful!")
-                if output:
-                    self.output.emit(f"Output:\n{output}")
-                self.finished.emit()
-            else:
-                self.error.emit(f"Execution failed:\n{error_output}")
+            # ===== STEP 7: Execute code on RPi =====
+            self.status.emit("🔪 Killing old processes...")
+
+            try:
+                # Kill any existing python processes that might be running old code
+                # This ensures old code stops before new code starts
+                kill_command = "pkill -f 'python3.*File.py' || true"
+                stdin, stdout, stderr = ssh.exec_command(kill_command, timeout=5)
+                kill_status = stdout.channel.recv_exit_status()
+                print(f"[RPiExecutionThread] Kill command executed (exit code: {kill_status})")
+            except Exception as e:
+                print(f"[RPiExecutionThread] Warning: Could not kill old processes: {e}")
+
+            # Check if stop was called while killing
+            if not self.should_continue():
+                ssh.close()
+                self.status.emit("⏹️  Execution stopped by user")
+                self.execution_completed.emit(False)
+                return
+
+            # Give the old process time to die
+            time.sleep(0.5)
+
+            self.status.emit("🚀 Executing code...")
+            
+            
+            try:
+                # Execute Python file with timeout
+                stdin, stdout, stderr = ssh.exec_command(
+                    f"python3 {remote_path}",
+                    timeout=30  # Overall timeout for command
+                )
+                
+                # Store channel for potential interruption
+                self.channel = stdout.channel
+                
+                # ===== CRITICAL: Non-blocking read with stop checks =====
+                # Wait for command completion while checking stop flag
+                
+                while not stdout.channel.exit_status_ready():
+                    # Check if stop was called (every 100ms)
+                    if not self.should_continue():
+                        # Close channel to interrupt remote process
+                        try:
+                            stdout.channel.close()
+                            ssh.close()
+                        except:
+                            pass
+                        return
+                    
+                    # Check timeout
+                    
+                    # Sleep briefly to avoid busy-waiting
+                    time.sleep(0.1)
+                
+                # Get exit code
+                exit_code = stdout.channel.recv_exit_status()
+                
+                # ===== STEP 8: Check if stop was called during execution =====
+                if not self.should_continue():
+                    ssh.close()
+                    self.status.emit("⏹️  Execution cancelled after completion")
+                    return
+                
+                # Read output with timeout
+                output = ""
+                error_output = ""
+                
+                try:
+                    # Set a read timeout
+                    stdout.channel.settimeout(5)
+                    output = stdout.read().decode('utf-8', errors='ignore')
+                except:
+                    pass
+                
+                try:
+                    stderr.channel.settimeout(5)
+                    error_output = stderr.read().decode('utf-8', errors='ignore')
+                except:
+                    pass
+                
+                # Close SSH connection
+                ssh.close()
+                
+                # ===== STEP 9: Handle results =====
+                if exit_code == 0:
+                    self.status.emit("✓ Execution successful!")
+                    if output:
+                        self.output.emit(f"Output:\n{output}")
+                    self.execution_completed.emit(True)
+                    self.finished.emit()
+                else:
+                    self.status.emit(f"✗ Execution failed (exit code: {exit_code})")
+                    self.error.emit(f"Execution failed:\n{error_output}")
+                    self.execution_completed.emit(False)
+            
+            except Exception as e:
+                if self.should_continue():  # Only report error if not stopped by user
+                    self.error.emit(f"Execution error: {str(e)}")
+                    self.execution_completed.emit(False)
+                try:
+                    ssh.close()
+                except:
+                    pass
         
         except Exception as e:
-            if not self.should_stop:
-                self.error.emit(str(e))
+            if self.should_continue():
+                self.error.emit(f"Thread error: {str(e)}")
+                self.execution_completed.emit(False)
 
 class CustomSwitch(QWidget):
     """
@@ -1186,6 +1327,19 @@ class MainWindow(QMainWindow):
                     
                     self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), self.name_1_input)
                     self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), row_widget, alignment=Qt.AlignmentFlag.AlignCenter)
+                if block_data['type'] == 'Button':
+                    name_label = QLabel("Value Name:")
+                    
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), name_label)
+                    
+                    self.name_1_input = SearchableLineEdit()
+                    self.name_1_input.setText(block_data.get('value_1_name', ''))
+                    self.name_1_input.setPlaceholderText("Value Name")
+                    self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_name_1_changed(text, bd))
+                    
+                    self.insert_items(block, self.name_1_input)
+                    
+                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), self.name_1_input)
                 break
     
     def Block_value_name_1_changed(self, text, block_data):
@@ -1198,9 +1352,16 @@ class MainWindow(QMainWindow):
             if dev_info['name'] == text:
                 block_data['value_1_type'] = 'Device'
                 break
-        if len(text) > 5:
-            text = text[:3] + "..."
-        item = block_data['widget']
+        if self.last_block.block_type == 'Button':
+            block_data['value_2_name'] = ''
+            block_data['value_2_type'] = 'N/A'
+            if len(text) > 6:
+                text = text[:4] + "..."
+            item = block_data['widget']
+        else:
+            if len(text) > 5:
+                text = text[:3] + "..."
+            item = block_data['widget']
         if item:
             item.value_1_name = text
             item.update()
@@ -1247,13 +1408,15 @@ class MainWindow(QMainWindow):
     def insert_items(self, block, line_edit):
         if not block.block_id in Utils.top_infos:
             return
-        
+        print("Inserting items into combo box")
         if hasattr(line_edit, 'addItems'):
+            print("Line edit supports addItems")
             # Collect all items
             all_items = []
             print(f"All items before insertion: {all_items}")
-            if block.block_type == "Switch":
+            if block.block_type in ('Switch', 'Button'):
                 for id, text in Utils.dev_items.items():
+                    print(f"Added device item into Switch/Button: {text}")
                     all_items.append(text)
             else:
                 for id, text in Utils.var_items.items():
@@ -1328,7 +1491,7 @@ class MainWindow(QMainWindow):
                     background-color: #2667B3;
                 }
             """)
-            add_btn.clicked.connect(self.add_variable_row)
+            add_btn.clicked.connect(lambda: self.add_variable_row(None, None))
             main_layout.addWidget(add_btn)
             
             scroll_area = QScrollArea()
@@ -1360,9 +1523,10 @@ class MainWindow(QMainWindow):
             self.variable_frame.hide()
         self.variable_frame_visible = False
     
-    def add_variable_row(self):
+    def add_variable_row(self, var_id=None, var_data=None):
         """Add a new variable row"""
-        var_id = f"var_{self.variable_row_count}"
+        if var_id is None:
+            var_id = f"var_{self.variable_row_count}"
         self.var_id = var_id
         #print(f"Adding variable row {self.var_id}")
         
@@ -1372,16 +1536,25 @@ class MainWindow(QMainWindow):
  
         name_imput = QLineEdit()
         name_imput.setPlaceholderText("Name")
+        if var_data and 'name' in var_data:
+            name_imput.setText(var_data['name'])
+            Utils.variables[var_id]['name'] = var_data['name']
         
         name_imput.textChanged.connect(lambda text, v_id=var_id, t="Variable": self.name_changed(text, v_id, t))
         
         type_input = QComboBox()
         type_input.addItems(["Int", "Float", "String", "Bool"])
+        if var_data and 'type' in var_data:
+            type_input.setCurrentText(var_data['type'])
+            Utils.variables[var_id]['type'] = var_data['type']
         
         type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable": self.type_changed(text, v_id , t))
         
         self.value_var_input = QLineEdit()
         self.value_var_input.setPlaceholderText("Initial Value")
+        if var_data and 'value' in var_data:
+            self.value_var_input.setText(var_data['value'])
+            Utils.variables[var_id]['value'] = var_data['value']
         regex = QRegularExpression(r"^\d*$")
         validator = QRegularExpressionValidator(regex, self)
         self.value_var_input.setValidator(validator)
@@ -1483,7 +1656,7 @@ class MainWindow(QMainWindow):
                     background-color: #2667B3;
                 }
             """)
-            add_btn.clicked.connect(self.add_device_row)
+            add_btn.clicked.connect(lambda: self.add_device_row(None, None))
             main_layout.addWidget(add_btn)
             
             scroll_area = QScrollArea()
@@ -1514,11 +1687,24 @@ class MainWindow(QMainWindow):
             self.Devices_frame.hide()
         self.devices_frame_visible = False
     
-    def add_device_row(self):
+    def add_device_row(self, device_id=None, dev_data=None):
         """Add a new device row"""
-        device_id = f"device_{self.devices_row_count}"
+        print(f"Adding device row called with device_id: {device_id}, dev_data: {dev_data}")
+        
+        if device_id is None:
+            device_id = f"device_{self.devices_row_count}"
         self.device_id = device_id
-        #print(f"Adding device row {self.device_id}")
+        print(f"Adding device row {self.device_id}, dev_data: {dev_data}. Current devices: {Utils.devices}")
+        
+        Utils.devices[device_id] = {
+            'name': '',
+            'type': 'Output',
+            'PIN': None,
+            'widget': None,
+            'name_imput': None,
+            'type_input': None,
+            'value_input': None
+        } 
         
         row_widget = QWidget()
         row_layout = QHBoxLayout(row_widget)
@@ -1526,16 +1712,25 @@ class MainWindow(QMainWindow):
  
         name_imput = QLineEdit()
         name_imput.setPlaceholderText("Name")
+        if dev_data and 'name' in dev_data:
+            name_imput.setText(dev_data['name'])
+            Utils.devices[device_id]['name'] = dev_data['name']
         
         name_imput.textChanged.connect(lambda text, d_id=device_id, t="Device": self.name_changed(text, d_id, t))
         
         type_input = QComboBox()
-        type_input.addItems(["Output", "Input", "PWM"])
+        type_input.addItems(["Output", "Input", "PWM", "Button"])
+        if dev_data and 'type' in dev_data:
+            type_input.setCurrentText(dev_data['type'])
+            Utils.devices[device_id]['type'] = dev_data['type']
         
         type_input.currentTextChanged.connect(lambda text, d_id=device_id, t="Device": self.type_changed(text, d_id, t))
         
         self.value_dev_input = QLineEdit()
         self.value_dev_input.setPlaceholderText("PIN")
+        if dev_data and 'PIN' in dev_data:
+            self.value_dev_input.setText(str(dev_data['PIN']))
+            Utils.devices[device_id]['PIN'] = dev_data['PIN']
         regex = QRegularExpression(r"^\d*$")
         validator = QRegularExpressionValidator(regex, self)
         self.value_dev_input.setValidator(validator)
@@ -1551,20 +1746,16 @@ class MainWindow(QMainWindow):
         
         delete_btn.clicked.connect(lambda _, d_id=device_id, rw=row_widget, t="Device": self.remove_row(rw, d_id, t))
         
-        Utils.devices[device_id] = {
-            'name': '',
-            'type': 'Output',
-            'PIN': None,
-            'widget': row_widget,
-            'name_imput': name_imput,
-            'type_input': type_input,
-            'value_input': self.value_dev_input
-        } 
-        
         panel_layout = self.Devices_frame.layout()
         self.dev_content_layout.insertWidget(self.dev_content_layout.count() - 1, row_widget)
         
         self.devices_row_count += 1
+        
+        Utils.devices[device_id]['widget'] = row_widget
+        Utils.devices[device_id]['name_imput'] = name_imput
+        Utils.devices[device_id]['type_input'] = type_input
+        Utils.devices[device_id]['value_input'] = self.value_dev_input
+        
 
     def Clear_All_Devices(self):
         print("Clearing all devices")
@@ -1603,8 +1794,6 @@ class MainWindow(QMainWindow):
                 if len(var) <= 1:
                     for var_id in var:
                         Utils.variables[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
-                
-            self.refresh_all_blocks()
             
             panel_layout = self.variable_frame.layout()
             panel_layout.removeWidget(row_widget)
@@ -1630,8 +1819,6 @@ class MainWindow(QMainWindow):
                 if len(dev) <= 1:
                     for dev_id in dev:
                         Utils.devices[dev_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
-                
-            self.refresh_all_blocks()
             
             panel_layout = self.Devices_frame.layout()
             panel_layout.removeWidget(row_widget)
@@ -1666,8 +1853,12 @@ class MainWindow(QMainWindow):
                     Utils.variables[v_id]['name_imput'].setStyleSheet(border_col)
             print("Utils.variables:", Utils.variables)
             if self.inspector_frame_visible:
-                self.insert_items(self.last_block, self.name_1_input)
-                self.insert_items(self.last_block, self.name_2_input)
+                print(f"Last block type: {self.last_block.block_type}")
+                if self.last_block.block_type in ('Switch', 'Button'):
+                    self.insert_items(self.last_block, self.name_1_input)
+                else:
+                    self.insert_items(self.last_block, self.name_1_input)
+                    self.insert_items(self.last_block, self.name_2_input)
         
         elif type == "Device":
             Utils.devices[var_id]['name'] = text
@@ -1694,8 +1885,12 @@ class MainWindow(QMainWindow):
             print("Calling refresh_all_blocks from name_changed")
             print(f"Utils.devices: {Utils.devices}")
             if self.inspector_frame_visible:
-                self.insert_items(self.last_block, self.name_1_input)
-                self.insert_items(self.last_block, self.name_2_input)
+                print(f"Last block type: {self.last_block.block_type}")
+                if self.last_block.block_type in ('Switch', 'Button'):
+                    self.insert_items(self.last_block, self.name_1_input)
+                else:
+                    self.insert_items(self.last_block, self.name_1_input)
+                    self.insert_items(self.last_block, self.name_2_input)
     
     def type_changed(self, imput, id, type):
         #print(f"Updating variable {imput}")
@@ -1857,10 +2052,28 @@ class MainWindow(QMainWindow):
             "Select project:", items, 0, False)
         
         if ok and item:
+            self.clear_canvas()
             if FileManager.load_project(item):
                 self.rebuild_from_data()
                 print(f"✓ Project '{item}' loaded")
 
+    def clear_canvas(self):
+        """Clear the canvas of all blocks and connections"""
+        self.Clear_All_Variables()
+        self.Clear_All_Devices()
+        self.canvas.path_manager.clear_all_paths()
+        widget_ids_to_remove = list(Utils.top_infos.keys())
+        
+        for block_id in widget_ids_to_remove:
+            if block_id in Utils.top_infos:
+                widget = Utils.top_infos[block_id]['widget']
+                widget.setParent(None)  # Remove from parent
+                widget.deleteLater()     # Schedule for deletion
+        
+        QCoreApplication.processEvents()
+        
+        self.canvas.update()
+    
     def on_new_file(self):
         """Create new project"""
         self.Clear_All_Variables()
@@ -1985,92 +2198,117 @@ class MainWindow(QMainWindow):
                 device_settings_window.close()
         except:
             pass
-    
+    #MARK: - Compile and Upload Methods
     def compile_and_upload(self):
         """
-        Compile code, execute it, and upload to Raspberry Pi/Pico W
+        Main compile and upload method.
+        Updated to properly handle RPi execution.
         """
-        # Show status message
-        reply = QMessageBox.information(
-            self,
-            "Compiling...",
-            "Compiling your code and preparing upload...",
-            QMessageBox.StandardButton.Ok
-        )
-        
         try:
-            # Step 1: Compile the code
+            # Show compilation message
+            QMessageBox.information(
+                self,
+                "Compiling...",
+                "Compiling your code and preparing upload...",
+                QMessageBox.StandardButton.Ok
+            )
+            
+            # ===== STEP 1: Compile code =====
             print("📝 Step 1: Compiling code...")
             self.code_compiler.compile()  # This creates File.py
             print("✓ Code compiled successfully to File.py")
             
-            # Step 2: Show compiled output
+            # ===== STEP 2: Show compiled output =====
             try:
-                with open("File.py", "r") as f:
+                with open('File.py', 'r') as f:
                     compiled_code = f.read()
-                    print("\n--- Generated Code ---")
-                    print(compiled_code)
-                    print("--- End of Code ---\n")
+                print("--- Generated Code ---")
+                print(compiled_code)
+                print("--- End of Code ---")
             except FileNotFoundError:
-                print("⚠ Warning: Could not read compiled File.py")
+                print("⚠️  Warning: Could not read compiled File.py")
             
-            # Step 3: Automatically run/execute
+            # ===== STEP 3: Execute based on device type =====
             print("🚀 Step 3: Executing on device...")
-            if self.execute_on_device():
-                print("✓ Code executed successfully!")
+            
+            rpi_model = Utils.app_settings.rpi_model_index
+            
+            if rpi_model == 0:  # Pico W
+                print("🎯 Target: Pico W (MicroPython)")
+                if self.execute_on_pico_w():
+                    print("✓ Code executed successfully!")
+                    QMessageBox.information(
+                        self,
+                        "Success",
+                        "Code compiled, executed, and uploaded successfully!",
+                        QMessageBox.StandardButton.Ok
+                    )
+                else:
+                    print("⚠️  Execution warning - Check device connection")
+                    QMessageBox.warning(
+                        self,
+                        "Execution Issue",
+                        "Code compiled but execution encountered issues. Check device connection and try again.",
+                        QMessageBox.StandardButton.Ok
+                    )
+            
+            elif rpi_model in [1, 2, 3, 4, 5, 6, 7]:  # Raspberry Pi
+                print(f"🎯 Target: Raspberry Pi (GPIO) - Model {rpi_model}")
+                # Execute on RPi in background thread
+                self.execute_on_rpi_ssh_background()
+                
+                print("✓ Execution started on Raspberry Pi")
+                # Show info (don't show success here - let thread signals handle it)
                 QMessageBox.information(
                     self,
-                    "Success",
-                    "Code compiled, executed, and uploaded successfully!",
-                    QMessageBox.StandardButton.Ok
-                )
-            else:
-                print("⚠ Execution warning - Check device connection")
-                QMessageBox.warning(
-                    self,
-                    "Execution Issue",
-                    "Code compiled but execution encountered issues.\n"
-                    "Check device connection and try again.",
+                    "Execution Started",
+                    "Code is being executed on your Raspberry Pi.\nCheck the status messages for updates.",
                     QMessageBox.StandardButton.Ok
                 )
             
+            else:
+                print("❌ Unknown device model")
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Unknown device model: {rpi_model}",
+                    QMessageBox.StandardButton.Ok
+                )
+        
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f"❌ Error: {str(e)}")
             QMessageBox.critical(
                 self,
                 "Compilation Error",
                 f"Failed to compile code:\n{str(e)}",
                 QMessageBox.StandardButton.Ok
             )
-
-    def execute_on_device(self):
-        """
-        Execute the compiled code on the connected device (Pico W or Raspberry Pi)
-        """
-        import subprocess
-        import sys
-        
-        try:
-            # Check which model is selected
-            rpi_model = Utils.app_settings.rpi_model_index
-            
-            if rpi_model == 0:
-                # Pico W - Use mpremote or pyboard
-                print("🎯 Target: Pico W (MicroPython)")
-                return self.execute_on_pico_w()
-            
-            elif rpi_model in (1, 2, 3, 4, 5, 6, 7):
-                # Regular Raspberry Pi - Use SSH
-                print("🎯 Target: Raspberry Pi (GPIO)")
-                return self.execute_on_rpi_ssh_background()
-            
-            else:
-                print("⚠ Unknown device model")
-                return False
-                
-        except Exception as e:
-            print(f"❌ Execution error: {e}")
-            return False
+    
+    # ===== Signal handlers for thread communication =====
+    
+    def on_execution_status(self, status):
+        """Handle status updates from execution thread"""
+        print(f"[RPi Status] {status}")
+    
+    def on_execution_output(self, output):
+        """Handle output from execution thread"""
+        print(f"[RPi Output] {output}")
+        QMessageBox.information(
+            self,
+            "Execution Output",
+            output,
+            QMessageBox.StandardButton.Ok
+        )
+    
+    def on_execution_error(self, error):
+        """Handle errors from execution thread"""
+        print(f"[RPi Error] {error}")
+        QMessageBox.critical(
+            self,
+            "Execution Error",
+            error,
+            QMessageBox.StandardButton.Ok
+        )
 
     def execute_on_pico_w(self):
         """
@@ -2155,41 +2393,40 @@ class MainWindow(QMainWindow):
 
     def execute_on_rpi_ssh_background(self):
         """
-        Execute on RPi in background thread
-        Stops any existing execution first!
+        Execute code on RPi in background thread.
+        This replaces the old execute_on_rpi_ssh_background() method.
         """
-        import os
-        
         try:
-            # ⭐ STEP 1: STOP OLD THREAD IF RUNNING
+            # ===== STEP 1: Stop old execution if running =====
             if self.execution_thread is not None and self.execution_thread.isRunning():
-                print("⛔ Stopping previous execution...")
+                print("[MainWindow] ⏹️  Stopping previous execution...")
                 self.execution_thread.stop()  # Signal it to stop
-                self.execution_thread.wait(5000)  # Wait max 5 seconds for it to finish
-                print("✓ Previous execution stopped")
+                
+                # Wait for thread to finish (max 5 seconds)
+                if not self.execution_thread.wait(5000):
+                    print("[MainWindow] ⚠️  Warning: Thread didn't stop gracefully")
+                    # Optional: Force terminate (not recommended, but available)
+                    # self.execution_thread.terminate()
+                
+                print("[MainWindow] ✓ Previous execution stopped")
             
-            # Get file path
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            file_path = os.path.join(script_dir, "File.py")
-            
-            if not os.path.exists(file_path):
-                QMessageBox.critical(self, "File Not Found", 
-                    f"File.py not found at:\n{file_path}")
-                return
-            
-            # Get RPi settings
+            # ===== STEP 2: Get RPi settings =====
             rpi_host = Utils.app_settings.rpi_host
             rpi_user = Utils.app_settings.rpi_user
             rpi_password = Utils.app_settings.rpi_password
             
             if not rpi_host or not rpi_user:
-                QMessageBox.warning(self, "Configuration Error",
-                    "Raspberry Pi not configured.")
+                QMessageBox.warning(
+                    self,
+                    "Configuration Error",
+                    "Raspberry Pi not configured. Go to Settings.",
+                    QMessageBox.StandardButton.Ok
+                )
                 return
             
-            # ⭐ STEP 2: CREATE NEW THREAD
+            # ===== STEP 3: Create new thread =====
             ssh_config = {
-                'file_path': file_path,
+                'filepath': 'File.py',  # Your compiled file
                 'rpi_host': rpi_host,
                 'rpi_user': rpi_user,
                 'rpi_password': rpi_password,
@@ -2197,41 +2434,23 @@ class MainWindow(QMainWindow):
             
             self.execution_thread = RPiExecutionThread(ssh_config)
             
-            # Connect signals
+            # Connect signals to UI slots
             self.execution_thread.status.connect(self.on_execution_status)
             self.execution_thread.output.connect(self.on_execution_output)
             self.execution_thread.error.connect(self.on_execution_error)
-            self.execution_thread.finished.connect(self.on_execution_finished)
             
-            # ⭐ STEP 3: START NEW THREAD
+            # ===== STEP 4: Start execution =====
             self.execution_thread.start()
-            
-            print("✓ New execution started")
-            
+            print("[MainWindow] ✓ New execution started")
+        
         except Exception as e:
-            QMessageBox.critical(self, "Error", str(e))
-
-    def on_execution_status(self, status):
-        """Update status from background thread"""
-        print(f"[RPi Status] {status}")
-
-    def on_execution_output(self, output):
-        """Handle output from background thread"""
-        print(f"[RPi Output] {output}")
-        QMessageBox.information(self, "Execution Output", output)
-
-    def on_execution_error(self, error):
-        """Handle error from background thread"""
-        print(f"[RPi Error] {error}")
-        QMessageBox.critical(self, "Execution Error", error)
-
-    def on_execution_finished(self):
-        """Handle execution completion"""
-        print("[RPi] Execution finished!")
-        QMessageBox.information(self, "Success",
-            "Code executed successfully on Raspberry Pi!")
-
-    
+            print(f"[MainWindow] ❌ Error: {str(e)}")
+            QMessageBox.critical(
+                self,
+                "Execution Error",
+                f"Failed to start execution: {str(e)}",
+                QMessageBox.StandardButton.Ok
+            ) 
     #MARK: - Rebuild UI from Saved Data
     def rebuild_from_data(self):
         """
@@ -2318,13 +2537,13 @@ class MainWindow(QMainWindow):
             x=x, y=y,
             block_id=block_id,
             block_type=block_type,
-            parent_canvas=self
+            parent_canvas=self.canvas
         )
         
         block.value_1_name = Utils.project_data.blocks[block_id].get('value_1_name', "var1")
-        block.value_1_type = Utils.project_data.blocks[block_id].get('value_1_type', "N/A")
+        #block.value_1_type = Utils.project_data.blocks[block_id].get('value_1_type', "N/A")
         block.value_2_name = Utils.project_data.blocks[block_id].get('value_2_name', "var2")
-        block.value_2_type = Utils.project_data.blocks[block_id].get('value_2_type', "N/A")
+        #block.value_2_type = Utils.project_data.blocks[block_id].get('value_2_type', "N/A")
         block.operator = Utils.project_data.blocks[block_id].get('operator', "==")
         block.switch_state = Utils.project_data.blocks[block_id].get('switch_state', False)
         block.sleep_time = Utils.project_data.blocks[block_id].get('sleep_time', "1000")
@@ -2394,16 +2613,16 @@ class MainWindow(QMainWindow):
                     to_block=to_blockwidget,
                     path_id=conn_id,
                     parent_canvas=self.canvas,
-                    to_circle_type=conn_data.get("to_circle", "in"),
-                    from_circle_type=conn_data.get("from_circle", "out")
+                    to_circle_type=conn_data.get("to_circle_type", "in"),
+                    from_circle_type=conn_data.get("from_circle_type", "out")
                 )
                 self.canvas.scene.addItem(path_item)
                 # Recreate connection
                 Utils.paths[conn_id] = {
                     'from': from_block_id,
-                    'from_circle_type': conn_data.get("from_circle", "out"),
+                    'from_circle_type': conn_data.get("from_circle_type", "out"),
                     'to': to_block_id,
-                    'to_circle_type': conn_data.get("to_circle", "in"),
+                    'to_circle_type': conn_data.get("to_circle_type", "in"),
                     'waypoints': conn_data.get("waypoints", []),
                     'color': QColor(31, 83, 141),
                     'item': path_item
@@ -2411,8 +2630,10 @@ class MainWindow(QMainWindow):
                 Utils.scene_paths[conn_id] = path_item
                 
                 # Update block connection references
-                from_block.get("out_connections", []).append(conn_id)
-                to_block.get("in_connections", []).append(conn_id)
+                if conn_id not in from_block.get("out_connections", []):
+                    from_block.get("out_connections", []).append(conn_id)
+                if conn_id not in to_block.get("in_connections", []):
+                    to_block.get("in_connections", []).append(conn_id)
                 
                 print(f"✓ Connection {conn_id} recreated")
                 
@@ -2450,74 +2671,15 @@ class MainWindow(QMainWindow):
         for var_id, var_data in Utils.project_data.variables.items():
             try:
                 # Add variable row to UI
-                self._add_variable_row_from_data(var_id, var_data)
-                
+                self.add_variable_row(var_id, var_data)
+                for v_id, v_info in Utils.variables.items():
+                    Utils.var_items[v_id] = v_info['name']
                 print(f"  ✓ Variable {var_id} ({var_data['name']}) recreated")
                 
             except Exception as e:
                 print(f"  ✗ Error recreating variable {var_id}: {e}")
         if self.variable_frame:
             self.hide_variable_frame()
-        
-    def _add_variable_row_from_data(self, var_id, var_data):
-        """Add a single variable row to the panel from saved data"""
-        print(f"Adding variable row from data: {var_id} with data {var_data}")
-        row_widget = QWidget()
-        row_layout = QHBoxLayout(row_widget)
-        row_layout.setContentsMargins(5, 5, 5, 5)
-        
-        # Name input
-        name_input = QLineEdit()
-        name_input.setText(var_data['name'])
-        name_input.textChanged.connect(lambda text, v_id=var_id, t="Variable": self.name_changed(text, v_id, t))
-        
-        # Type input
-        type_input = QComboBox()
-        type_input.addItems(["int", "float", "bool", "string"])
-        type_input.setCurrentText(var_data['type'])
-        type_input.currentTextChanged.connect(lambda text, v_id=var_id, t="Variable": self.type_changed(text, v_id, t))
-        
-        # Value input
-        value_input = QLineEdit()
-        value_input.setText(str(var_data['value']))
-        value_input.setPlaceholderText("Value")
-        regex = QRegularExpression(r"^\d*$")
-        validator = QRegularExpressionValidator(regex, self)
-        value_input.setValidator(validator)
-        value_input.textChanged.connect(lambda text, v_id=var_id, t="Variable": self.value_changed(text, v_id, t))
-        
-        # Delete button
-        delete_btn = QPushButton("×")
-        delete_btn.setFixedWidth(30)
-        
-        row_layout.addWidget(name_input)
-        row_layout.addWidget(type_input)
-        row_layout.addWidget(value_input)
-        row_layout.addWidget(delete_btn)
-        
-        delete_btn.clicked.connect(lambda _, v_id=var_id, rw=row_widget, t="Variable": self.remove_row(rw, v_id, t))
-        
-        # Store in Utils
-        Utils.variables[var_id] = {
-            'name': var_data['name'],
-            'type': var_data['type'],
-            'value': str(var_data['value']),
-            'widget': row_widget,
-            'name_imput': name_input,
-            'type_input': type_input,
-            'value_input': value_input,
-        }
-        
-        # Update UI maps
-        Utils.var_items[var_id] = var_data['name']
-        
-        # Add to panel
-        panel_layout = self.variable_frame.layout()
-        if panel_layout:
-            panel_layout.insertWidget(panel_layout.count() - 1, row_widget)
-        
-        self.variable_row_count += 1
-
 
     def _rebuild_devices_panel(self):
         """Recreate devices in the side panel"""
@@ -2546,8 +2708,9 @@ class MainWindow(QMainWindow):
         for dev_id, dev_data in Utils.project_data.devices.items():
             try:
                 # Add device row to UI
-                self._add_device_row_from_data(dev_id, dev_data)
-                
+                self.add_device_row(dev_id, dev_data)
+                for d_id, d_info in Utils.devices.items():
+                    Utils.dev_items[d_id] = d_info['name']
                 print(f"  ✓ Device {dev_id} ({dev_data['name']}) recreated")
                 
             except Exception as e:
@@ -2555,66 +2718,6 @@ class MainWindow(QMainWindow):
 
         if self.Devices_frame:
             self.hide_devices_frame()
-
-    def _add_device_row_from_data(self, dev_id, dev_data):
-        """Add a single device row to the panel from saved data"""
-        
-        row_widget = QWidget()
-        row_layout = QHBoxLayout(row_widget)
-        row_layout.setContentsMargins(5, 5, 5, 5)
-        
-        # Name input
-        name_input = QLineEdit()
-        name_input.setText(dev_data['name'])
-        name_input.textChanged.connect(lambda text, d_id=dev_id, t="Device": self.name_changed(text, d_id, t))
-        
-        # Type input
-        type_input = QComboBox()
-        type_input.addItems(["Output", "Input", "PWM"])
-        type_input.setCurrentText(dev_data['type'])
-        type_input.currentTextChanged.connect(lambda text, d_id=dev_id, t="Device": self.type_changed(text, d_id, t))
-        
-        # PIN input
-        pin_input = QLineEdit()
-        if dev_data['pin']:
-            pin_input.setText(str(dev_data['pin']))
-        pin_input.setPlaceholderText("PIN")
-        regex = QRegularExpression(r"^\d*$")
-        validator = QRegularExpressionValidator(regex, self)
-        pin_input.setValidator(validator)
-        pin_input.textChanged.connect(lambda text, d_id=dev_id, t="Device": self.value_changed(text, d_id, t))
-        
-        # Delete button
-        delete_btn = QPushButton("×")
-        delete_btn.setFixedWidth(30)
-        
-        row_layout.addWidget(name_input)
-        row_layout.addWidget(type_input)
-        row_layout.addWidget(pin_input)
-        row_layout.addWidget(delete_btn)
-        
-        delete_btn.clicked.connect(lambda _, d_id=dev_id, rw=row_widget, t="Device": self.remove_row(rw, d_id, t))
-        
-        # Store in Utils
-        Utils.devices[dev_id] = {
-            'name': dev_data['name'],
-            'type': dev_data['type'],
-            'PIN': dev_data['pin'],
-            'widget': row_widget,
-            'name_imput': name_input,
-            'type_input': type_input,
-            'value_input': pin_input,
-        }
-        
-        # Update UI maps
-        Utils.dev_items[dev_id] = dev_data['name']
-        
-        # Add to panel
-        panel_layout = self.Devices_frame.layout()
-        if panel_layout:
-            panel_layout.insertWidget(panel_layout.count() - 1, row_widget)
-        
-        self.devices_row_count += 1
         
 def main():
     app = QApplication(sys.argv)
