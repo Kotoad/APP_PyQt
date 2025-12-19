@@ -14,18 +14,19 @@ from PyQt6 import QtGui
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
     get_file_manager, get_path_manager, get_Elements_Window, get_utils,
-    get_Help_Window
+    get_Help_Window, get_Sidebar_TabView
 )
 Utils = get_utils()
 Code_Compiler = get_code_compiler()
 BlockGraphicsItem = get_spawn_elements()[0]
-spawning_elements = get_spawn_elements()[1]
-element_events = get_spawn_elements()[2]
+spawningelements = get_spawn_elements()[1]
+elementevents = get_spawn_elements()[2]
 DeviceSettingsWindow = get_device_settings_window()
 FileManager = get_file_manager()
 PathManager = get_path_manager()[0]
 PathGraphicsItem = get_path_manager()[1]
 ElementsWindow = get_Elements_Window()
+SidebarTabView = get_Sidebar_TabView()
 
 class RPiExecutionThread(QThread):
     """
@@ -676,7 +677,7 @@ class GridCanvas(QGraphicsView):
         self.grid_size = grid_size
         self.spawner = None
         self.path_manager = PathManager(self)
-        self.elements_events = element_events(self)
+        self.elements_events = elementevents(self)
         self.file_manager = FileManager()
         
         # Create graphics scene
@@ -1094,13 +1095,16 @@ class MainWindow(QMainWindow):
         add_element.triggered.connect(self.open_elements_window)
         
         # Variables menu
-        variables_menu = menubar.addMenu("Variables")
-        
-        show_vars = variables_menu.addAction("Show Variables")
-        show_vars.triggered.connect(self.toggle_variable_frame)
-        
-        show_divs = variables_menu.addAction("Show Devices")
-        show_divs.triggered.connect(self.toggle_devices_frame)
+        view_menu = menubar.addMenu("View")
+
+        canvas_action = view_menu.addAction("Show Canvas")
+        canvas_action.triggered.connect(lambda: self.sidebar.set_current_tab(0))
+
+        variables_action = view_menu.addAction("Show Variables")
+        variables_action.triggered.connect(lambda: self.sidebar.set_current_tab(1))
+
+        devices_action = view_menu.addAction("Show Devices")
+        devices_action.triggered.connect(lambda: self.sidebar.set_current_tab(2))
         
         settings_menu = menubar.addMenu("Settings")
         settings_menu_action = settings_menu.addAction("Settings")
@@ -1123,9 +1127,12 @@ class MainWindow(QMainWindow):
         compile_action = compile_menu.addAction("Compile Code")
         compile_action.triggered.connect(self.compile_and_upload)
 
+    def _on_tab_changed(self, tab_index):
+        """Handle tab changes"""
+        # Tab indices: 0=Canvas, 1=Variables, 2=Devices
+        print(f"Tab changed to: {tab_index}")
+        
     def create_canvas_frame(self):
-        """Create the main canvas area"""
-        # Central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
@@ -1134,11 +1141,108 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        # Canvas
+        # Create sidebar tabview
+        self.sidebar = SidebarTabView()
+        
         self.canvas = GridCanvas(grid_size=Utils.config['grid_size'])
         self.canvas.main_window = self
-        #self.canvas.spawner = None
-        main_layout.addWidget(self.canvas, stretch=1)
+        # Add Canvas tab (your existing canvas)
+        self.sidebar.add_tab("Canvas", self.canvas)
+        
+        # Add separator
+        self.sidebar.add_separator()
+        
+        # Add Variables tab
+        self.variables_panel = self.create_variables_panel()
+        self.sidebar.add_tab("Variables", self.variables_panel)
+        
+        # Add Devices tab
+        self.devices_panel = self.create_devices_panel()
+        self.sidebar.add_tab("Devices", self.devices_panel)
+        
+        # Connect signal
+        self.sidebar.tab_changed.connect(self._on_tab_changed)
+        
+        # Add to layout
+        main_layout.addWidget(self.sidebar)
+        
+    def create_variables_panel(self):
+        """Create Variables panel"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(10, 10, 10, 10)
+        
+        header = QLabel("Variables")
+        header.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
+        layout.addWidget(header)
+        
+        add_btn = QPushButton("Add Variable")
+        add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1F538D;
+                color: white;
+                padding: 8px;
+                border-radius: 4px;
+            }
+        """)
+        add_btn.clicked.connect(lambda: self.add_variable_row(None, None))
+        layout.addWidget(add_btn)
+        
+        # Scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        self.var_content = QWidget()
+        self.var_layout = QVBoxLayout(self.var_content)
+        self.var_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.var_layout.addStretch()
+        scroll.setWidget(self.var_content)
+        layout.addWidget(scroll)
+        
+        widget.setStyleSheet("""
+            QWidget { background-color: #2B2B2B; }
+        """)
+        
+        return widget
+
+
+    def create_devices_panel(self):
+        """Create Devices panel"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(10, 10, 10, 10)
+        
+        header = QLabel("Devices")
+        header.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
+        layout.addWidget(header)
+        
+        add_btn = QPushButton("Add Device")
+        add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1F538D;
+                color: white;
+                padding: 8px;
+                border-radius: 4px;
+            }
+        """)
+        add_btn.clicked.connect(lambda: self.add_device_row(None, None))
+        layout.addWidget(add_btn)
+        
+        # Scroll area
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        self.dev_content = QWidget()
+        self.dev_layout = QVBoxLayout(self.dev_content)
+        self.dev_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.dev_layout.addStretch()
+        scroll.setWidget(self.dev_content)
+        layout.addWidget(scroll)
+        
+        widget.setStyleSheet("""
+            QWidget { background-color: #2B2B2B; }
+        """)
+        
+        return widget    
+    
     #MARK: - Inspector Panel Methods
     def toggle_inspector_frame(self, block):
         if not self.inspector_frame_visible:
@@ -1437,92 +1541,6 @@ class MainWindow(QMainWindow):
             self.inspector_frame.hide()
             self.inspector_frame_visible = False
     #MARK: - Variable Panel Methods
-    def toggle_variable_frame(self):
-        """Toggle the variable panel visibility"""
-        if not self.variable_frame_visible:
-            if self.devices_frame_visible:
-                self.hide_devices_frame()
-            self.show_variable_frame()
-        else:
-            self.hide_variable_frame()
-    
-    def show_variable_frame(self):
-        """Show the variable panel"""
-        if self.variable_frame is None:
-            self.variable_frame = QFrame()
-            self.variable_frame.setMinimumWidth(250)
-            self.variable_frame.setMaximumWidth(300)
-            self.variable_frame.setStyleSheet("""
-                QFrame {
-                    background-color: #2B2B2B;
-                    border-left: 1px solid #3A3A3A;
-                }
-            """)
-            
-            
-            main_layout = QVBoxLayout(self.variable_frame)
-            
-            
-            header = QWidget()
-            header_layout = QHBoxLayout(header)
-            header_layout.setContentsMargins(0, 0, 0, 0)
-
-            title = QLabel("Variables")
-            hide_btn = QPushButton("×")
-            hide_btn.setFixedWidth(24)
-            hide_btn.clicked.connect(self.hide_variable_frame)
-
-            header_layout.addWidget(title)
-            header_layout.addStretch()
-            header_layout.addWidget(hide_btn)
-            main_layout.addWidget(header)
-            
-            # Add button
-            add_btn = QPushButton("Add Variable")
-            add_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #1F538D;
-                    color: #FFFFFF;
-                    border: none;
-                    padding: 8px;
-                    border-radius: 4px;
-                }
-                QPushButton:hover {
-                    background-color: #2667B3;
-                }
-            """)
-            add_btn.clicked.connect(lambda: self.add_variable_row(None, None))
-            main_layout.addWidget(add_btn)
-            
-            scroll_area = QScrollArea()
-            scroll_area.setWidgetResizable(True)
-
-            # Content widget inside scroll area
-            self.var_content_widget = QWidget()
-            self.var_content_layout = QVBoxLayout(self.var_content_widget)
-            self.var_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-            # Add stretch at end if you want padding at the bottom:
-            self.var_content_layout.addStretch()
-
-            scroll_area.setWidget(self.var_content_widget)
-            main_layout.addWidget(scroll_area)
-                        # Add to main layout
-            central_widget = self.centralWidget()
-            if central_widget:
-                main_layout = central_widget.layout()
-                if main_layout:
-                    main_layout.addWidget(self.variable_frame)
-        
-        self.variable_frame.show()
-        self.variable_frame_visible = True
-    
-    def hide_variable_frame(self):
-        """Hide the variable panel"""
-        if self.variable_frame:
-            self.variable_frame.hide()
-        self.variable_frame_visible = False
-    
     def add_variable_row(self, var_id=None, var_data=None):
         """Add a new variable row"""
         if var_id is None:
@@ -1580,8 +1598,8 @@ class MainWindow(QMainWindow):
             'value_input': self.value_var_input
         } 
         
-        panel_layout = self.variable_frame.layout()
-        self.var_content_layout.insertWidget(self.var_content_layout.count() - 1, row_widget)
+        panel_layout = self.var_layout
+        self.var_layout.insertWidget(self.var_layout.count() - 1, row_widget)
         
         self.variable_row_count += 1
         
@@ -1604,89 +1622,6 @@ class MainWindow(QMainWindow):
                 print(f"WARNING: varid {varid} not found in Utils.variables")
 
     #MARK: - Devices Panel Methods
-    def toggle_devices_frame(self):
-        """Toggle the devices panel visibility"""
-        if not self.devices_frame_visible:
-            if self.variable_frame_visible:
-                self.hide_variable_frame()
-            self.show_devices_frame()
-        else:
-            self.hide_devices_frame()
-        
-    def show_devices_frame(self):
-        """Show the devices panel"""
-        if self.Devices_frame is None:
-            self.Devices_frame = QFrame()
-            self.Devices_frame.setMinimumWidth(250)
-            self.Devices_frame.setMaximumWidth(300)
-            self.Devices_frame.setStyleSheet("""
-                QFrame {
-                    background-color: #2B2B2B;
-                    border-left: 1px solid #3A3A3A;
-                }
-            """)
-            
-            main_layout = QVBoxLayout(self.Devices_frame)
-            
-            header = QWidget()
-            header_layout = QHBoxLayout(header)
-            header_layout.setContentsMargins(0, 0, 0, 0)
-
-            title = QLabel("Devices")
-            hide_btn = QPushButton("×")
-            hide_btn.setFixedWidth(24)
-            hide_btn.clicked.connect(self.hide_devices_frame)
-
-            header_layout.addWidget(title)
-            header_layout.addStretch()
-            header_layout.addWidget(hide_btn)
-            main_layout.addWidget(header)
-            
-            # Add button
-            add_btn = QPushButton("Add Device")
-            add_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #1F538D;
-                    color: #FFFFFF;
-                    border: none;
-                    padding: 8px;
-                    border-radius: 4px;
-                }
-                QPushButton:hover {
-                    background-color: #2667B3;
-                }
-            """)
-            add_btn.clicked.connect(lambda: self.add_device_row(None, None))
-            main_layout.addWidget(add_btn)
-            
-            scroll_area = QScrollArea()
-            scroll_area.setWidgetResizable(True)
-
-            # Content widget inside scroll area
-            self.dev_content_widget = QWidget()
-            self.dev_content_layout = QVBoxLayout(self.dev_content_widget)
-            self.dev_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-            # Add stretch at end if you want padding at the bottom:
-            self.dev_content_layout.addStretch()
-            scroll_area.setWidget(self.dev_content_widget)
-            main_layout.addWidget(scroll_area)
-                        # Add to main layout
-            central_widget = self.centralWidget()
-            if central_widget:
-                main_layout = central_widget.layout()
-                if main_layout:
-                    main_layout.addWidget(self.Devices_frame)
-        
-        self.Devices_frame.show()
-        self.devices_frame_visible = True
-    
-    def hide_devices_frame(self):
-        """Hide the devices panel"""
-        if self.Devices_frame:
-            self.Devices_frame.hide()
-        self.devices_frame_visible = False
-    
     def add_device_row(self, device_id=None, dev_data=None):
         """Add a new device row"""
         print(f"Adding device row called with device_id: {device_id}, dev_data: {dev_data}")
@@ -1746,8 +1681,8 @@ class MainWindow(QMainWindow):
         
         delete_btn.clicked.connect(lambda _, d_id=device_id, rw=row_widget, t="Device": self.remove_row(rw, d_id, t))
         
-        panel_layout = self.Devices_frame.layout()
-        self.dev_content_layout.insertWidget(self.dev_content_layout.count() - 1, row_widget)
+        panel_layout = self.dev_layout
+        self.dev_layout.insertWidget(self.dev_layout.count() - 1, row_widget)
         
         self.devices_row_count += 1
         
@@ -1795,7 +1730,7 @@ class MainWindow(QMainWindow):
                     for var_id in var:
                         Utils.variables[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
             
-            panel_layout = self.variable_frame.layout()
+            panel_layout = self.var_layout
             panel_layout.removeWidget(row_widget)
             
             row_widget.setParent(None)
@@ -1820,7 +1755,7 @@ class MainWindow(QMainWindow):
                     for dev_id in dev:
                         Utils.devices[dev_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
             
-            panel_layout = self.Devices_frame.layout()
+            panel_layout = self.dev_layout
             panel_layout.removeWidget(row_widget)
             
             row_widget.setParent(None)
@@ -2651,7 +2586,7 @@ class MainWindow(QMainWindow):
         if not self.variable_frame:
             self.show_variable_frame()
         
-        panel_layout = self.variable_frame.layout()
+        panel_layout = self.var_layout
         
         # Clear existing variable rows
         for var_id in list(Utils.variables.keys()):
@@ -2688,7 +2623,7 @@ class MainWindow(QMainWindow):
         if not self.Devices_frame:
             self.show_devices_frame()
             
-        panel_layout = self.Devices_frame.layout()
+        panel_layout = self.dev_layout
         
         # Clear existing device rows
         for dev_id in list(Utils.devices.keys()):

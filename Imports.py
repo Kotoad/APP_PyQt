@@ -32,7 +32,8 @@ from PyQt6.QtWidgets import (
     QLineEdit, QComboBox, QDialog, QTabWidget, QFileDialog, QMessageBox,
     QInputDialog, QStyleOptionComboBox, QStyledItemDelegate, QTextEdit, QProgressDialog,
     QSplitter, QTreeWidget, QTreeWidgetItem, QListWidget, QGraphicsView, QGraphicsScene,
-    QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem, QGraphicsPixmapItem
+    QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem, QGraphicsPixmapItem,
+    QListWidgetItem, QStackedWidget
 )
 from PyQt6.QtCore import (
     Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression, QTimer, QEvent,
@@ -92,6 +93,11 @@ def get_Help_Window():
     """Lazy import HelpWindow - avoid circular import"""
     from Help_window import HelpWindow
     return HelpWindow()
+
+def get_Sidebar_TabView():
+    """Lazy import SidebarTabView - avoid circular import"""
+    from sidebar_tabview import SidebarTabView
+    return SidebarTabView
 # ============================================================================
 # LAZY IMPORTS (Imported only when needed to avoid circular deps)
 # ============================================================================

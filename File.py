@@ -1,7 +1,7 @@
 import RPi.GPIO as GPIO
+import time
 GPIO.setmode(GPIO.BCM)
 Devices = {
-    "BUT":{"PIN": 27, "type":"Button"},
     "LED":{"PIN": 17, "type":"Output"},
 }
 for dev_name, dev_config in Devices.items():
@@ -14,8 +14,8 @@ for dev_name, dev_config in Devices.items():
 Variables = {
 }
 while True:
-    if GPIO.input(Devices['BUT']['PIN']) == GPIO.HIGH:
-        GPIO.output(Devices['LED']['PIN'], GPIO.HIGH)
-    else:
-        GPIO.output(Devices['LED']['PIN'], GPIO.LOW)
+    GPIO.output(Devices['LED']['PIN'], GPIO.HIGH)
+    time.sleep(1000/1000)
+    GPIO.output(Devices['LED']['PIN'], GPIO.LOW)
+    time.sleep(1000/1000)
 GPIO.cleanup()
