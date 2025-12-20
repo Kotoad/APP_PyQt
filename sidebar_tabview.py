@@ -10,6 +10,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 
+from Imports import get_utils
+
+Utils = get_utils()
 
 class SidebarTabView(QWidget):
     """
@@ -27,8 +30,10 @@ class SidebarTabView(QWidget):
     
     tab_changed = pyqtSignal(int)
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, canvas_class=None):
         super().__init__(parent)
+        self.GridCanvasClass = canvas_class  # Store the class for later use
+        self.Grid_canvas = None  # Will be set in init_ui if canvas_class provided
         self.init_ui()
     
     def init_ui(self):
@@ -73,12 +78,27 @@ class SidebarTabView(QWidget):
         
         main_layout.addWidget(self.content_area, stretch=1)
         
+        if self.GridCanvasClass:
+            self.Grid_canvas = self.GridCanvasClass()
+        else:
+            self.Grid_canvas = None
+        
         # Storage
         self.pages = {}
         self.page_count = 0
+        self.canvas_count = 0
         self.tab_buttons = []  # Track tab buttons
+        
+    def set_canvas_class(self, canvas_class):
+        """
+        Set the GridCanvas class after initialization.
+        Useful if canvas_class wasn't available at __init__ time.
+        """
+        self.GridCanvasClass = canvas_class
+        if self.Grid_canvas is None and canvas_class:
+            self.Grid_canvas = canvas_class()
     
-    def add_tab(self, tab_name, content_widget=None, icon=None):
+    def add_tab(self, tab_name, content_widget=None, icon=None, reference=None):
         """
         Add a tab to the sidebar
         
@@ -121,9 +141,11 @@ class SidebarTabView(QWidget):
         """)
         
         tab_index = self.page_count
-        tab_button.clicked.connect(lambda: self._on_tab_clicked(tab_index))
-        
-        self.tab_layout.addWidget(tab_button)
+        tab_button.clicked.connect(lambda: self._on_tab_clicked(tab_index, reference))
+        if reference == "canvas":
+            self.tab_layout.insertWidget(self.canvas_count, tab_button)
+        else:
+            self.tab_layout.addWidget(tab_button)
         self.tab_buttons.append({
             'button': tab_button,
             'index': tab_index,
@@ -131,7 +153,49 @@ class SidebarTabView(QWidget):
         })
         
         self.page_count += 1
+        if reference == "canvas":
+            self.canvas_count += 1
         return tab_index - 1
+    
+    def add_new_canvas_tab_button(self):
+        """Add a special button to create a new canvas tab"""
+        new_canvas_button = QPushButton("+ New Canvas")
+        new_canvas_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2B2B2B;
+                color: #FFFFFF;
+                border: none;
+                padding: 12px;
+                text-align: left;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #3A3A3A;
+            }
+            QPushButton:pressed {
+                background-color: #1F538D;
+                border-left: 3px solid #4CAF50;
+            }
+        """)
+        new_canvas_button.clicked.connect(self._on_new_canvas_clicked)
+        self.tab_layout.addWidget(new_canvas_button)
+    
+    def _on_new_canvas_clicked(self):
+        """Handler for new canvas tab button click"""
+        if self.Grid_canvas is None:
+            print("Warning: Grid_canvas not initialized")
+            return
+        new_canvas = self.GridCanvasClass()
+        
+        new_tab_index = self.add_tab(
+            f"Canvas {self.canvas_count + 1}",
+            new_canvas,
+            reference="canvas"
+        )
+        Utils.canvas_instances.append(new_canvas)
+        print(f"Utils.canvas_instances count: {len(Utils.canvas_instances)}")
+        print(f"Utils.canvas_instances: {Utils.canvas_instances}")
+        self.set_current_tab(new_tab_index)
     
     def add_separator(self):
         """Add a visual separator line with exactly 5px height"""
@@ -173,7 +237,7 @@ class SidebarTabView(QWidget):
         """Get the widget for a specific tab"""
         return self.pages.get(tab_name)
     
-    def _on_tab_clicked(self, tab_index):
+    def _on_tab_clicked(self, tab_index, reference=None):
         """Internal handler for tab clicks"""
         if 0 <= tab_index < len(self.tab_buttons):
             self.content_area.setCurrentIndex(tab_index)
@@ -204,7 +268,18 @@ class SidebarTabView(QWidget):
                             background-color: #3A3A3A;
                         }
                     """)
-            
+            if reference == "canvas":
+                print(f"Setting Utils.courent_canvas to canvas tab index {tab_index}")
+                print(f"Utils.canvas_instances: {Utils.canvas_instances}")
+                #if tab_index - self.canvas_count < 0:
+                    #tab_index = 0
+                    #print(f"Courent canvas index: {tab_index}")
+                    #Utils.courent_canvas = Utils.canvas_instances[tab_index]
+                    #print(f"Set Utils.courent_canvas to tab '{Utils.courent_canvas}'")
+                #else:
+                    #print(f"Setting Utils.courent_canvas to index {tab_index - self.canvas_count+1}")
+                    #Utils.courent_canvas = Utils.canvas_instances[tab_index-self.canvas_count+1]
+                    #print(f"Set Utils.courent_canvas to tab '{Utils.courent_canvas}'")
             self.tab_changed.emit(tab_index)
 
 

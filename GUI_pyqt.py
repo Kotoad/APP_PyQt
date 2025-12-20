@@ -26,7 +26,7 @@ FileManager = get_file_manager()
 PathManager = get_path_manager()[0]
 PathGraphicsItem = get_path_manager()[1]
 ElementsWindow = get_Elements_Window()
-SidebarTabView = get_Sidebar_TabView()
+SidebarTabView = None
 
 class RPiExecutionThread(QThread):
     """
@@ -887,8 +887,10 @@ class GridCanvas(QGraphicsView):
             'switch_state': False,
             'sleep_time': "1000",
             'in_connections': [],
-            'out_connections': []
+            'out_connections': [],
+            'canvas': self
         }
+        print(f"Added block: {Utils.top_infos[block_id]}")
         block.connect_graphics_signals()
         return block
     
@@ -984,6 +986,19 @@ class GridCanvas(QGraphicsView):
 class MainWindow(QMainWindow):
     """Main application window"""
     
+    @property
+    def current_canvas(self):
+        """Get the currently active canvas from the sidebar"""
+        current_index = self.sidebar.get_current_tab_index()
+        widget = self.sidebar.content_area.widget(current_index)
+        print(f"Current sidebar tab index: {current_index}, widget: {widget}")
+        # Check if it's a GridCanvas instance
+        if isinstance(widget, GridCanvas):
+            print("Current canvas found.")
+            return widget
+        
+        return None
+        
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Visual Programming Interface")
@@ -1053,7 +1068,6 @@ class MainWindow(QMainWindow):
         self.inspector_frame_visible = False
 
         self.blockIDs = {}
-        
         self.execution_thread = None
                 
         self.create_menu_bar()
@@ -1135,20 +1149,29 @@ class MainWindow(QMainWindow):
     def create_canvas_frame(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        
+
         # Main layout
         main_layout = QHBoxLayout(central_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
+
+        # ✓ Import SidebarTabView NOW (after GUI_pyqt is fully loaded)
+        global SidebarTabView
+        if SidebarTabView is None:
+            SidebarTabView = get_Sidebar_TabView()
+
+        # ✓ Pass GridCanvas CLASS to SidebarTabView (not instance!)
+        self.sidebar = SidebarTabView(canvas_class=GridCanvas)
         
-        # Create sidebar tabview
-        self.sidebar = SidebarTabView()
-        
-        self.canvas = GridCanvas(grid_size=Utils.config['grid_size'])
+        # ✓ Get canvas instance from sidebar (already created inside)
+        self.canvas = self.sidebar.Grid_canvas
         self.canvas.main_window = self
+
+        Utils.canvas_instances.append(self.canvas)
+
         # Add Canvas tab (your existing canvas)
-        self.sidebar.add_tab("Canvas", self.canvas)
-        
+        self.sidebar.add_tab(tab_name="Canvas", content_widget=self.canvas, reference="canvas")
+        self.sidebar.add_new_canvas_tab_button()
         # Add separator
         self.sidebar.add_separator()
         
@@ -1165,7 +1188,7 @@ class MainWindow(QMainWindow):
         
         # Add to layout
         main_layout.addWidget(self.sidebar)
-        
+    
     def create_variables_panel(self):
         """Create Variables panel"""
         widget = QWidget()
@@ -1884,18 +1907,18 @@ class MainWindow(QMainWindow):
     #MARK: - Other Methods
     def open_elements_window(self):
         """Open the elements window"""
-        elements_window = ElementsWindow.get_instance(self.canvas)
+        elements_window = ElementsWindow.get_instance(self.current_canvas)
         elements_window.open()
     
     def open_settings_window(self):
         """Open the device settings window"""
-        device_settings_window = DeviceSettingsWindow.get_instance(self.canvas)
+        device_settings_window = DeviceSettingsWindow.get_instance(self.current_canvas)
         device_settings_window.open()
     
     def open_help(self, which):
         """Open the help window"""
         HelpWindow = get_Help_Window()
-        self.help_window_instance = HelpWindow.get_instance(self.canvas, which)
+        self.help_window_instance = HelpWindow.get_instance(self.current_canvas, which)
         self.help_window_instance.open()
     
     
@@ -1996,7 +2019,7 @@ class MainWindow(QMainWindow):
         """Clear the canvas of all blocks and connections"""
         self.Clear_All_Variables()
         self.Clear_All_Devices()
-        self.canvas.path_manager.clear_all_paths()
+        self.current_canvas.path_manager.clear_all_paths()
         widget_ids_to_remove = list(Utils.top_infos.keys())
         
         for block_id in widget_ids_to_remove:
@@ -2007,13 +2030,13 @@ class MainWindow(QMainWindow):
         
         QCoreApplication.processEvents()
         
-        self.canvas.update()
+        self.current_canvas.update()
     
     def on_new_file(self):
         """Create new project"""
         self.Clear_All_Variables()
         self.Clear_All_Devices()
-        self.canvas.path_manager.clear_all_paths()
+        self.current_canvas.path_manager.clear_all_paths()
         widget_ids_to_remove = list(Utils.top_infos.keys())
         
         for block_id in widget_ids_to_remove:
@@ -2026,7 +2049,7 @@ class MainWindow(QMainWindow):
         
         QCoreApplication.processEvents()
         
-        self.canvas.update()
+        self.current_canvas.update()
     
     def closeEvent(self, event):
         """Handle window close event - prompt to save if there are unsaved changes"""
@@ -2120,7 +2143,7 @@ class MainWindow(QMainWindow):
         
         # Close Elements window if it exists
         try:
-            elements_window = ElementsWindow.get_instance(self.canvas)
+            elements_window = ElementsWindow.get_instance(self.current_canvas)
             if elements_window.isVisible():
                 elements_window.close()
         except:
@@ -2128,7 +2151,7 @@ class MainWindow(QMainWindow):
         
         # Close Device Settings window if it exists
         try:
-            device_settings_window = DeviceSettingsWindow.get_instance(self.canvas)
+            device_settings_window = DeviceSettingsWindow.get_instance(self.current_canvas)
             if device_settings_window.isVisible():
                 device_settings_window.close()
         except:
@@ -2426,7 +2449,7 @@ class MainWindow(QMainWindow):
         Utils.app_settings.rpi_model = Utils.project_data.settings.get('rpi_model', "RPI 4 model B")
         Utils.app_settings.rpi_model_index = Utils.project_data.settings.get('rpi_model_index', 6)
         print(f" RPi Model: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
-        self.canvas.update()
+        self.current_canvas.update()
         print(" Settings rebuilt")
 
     def _rebuild_blocks(self):
@@ -2472,7 +2495,7 @@ class MainWindow(QMainWindow):
             x=x, y=y,
             block_id=block_id,
             block_type=block_type,
-            parent_canvas=self.canvas
+            parent_canvas=self.current_canvas
         )
         
         block.value_1_name = Utils.project_data.blocks[block_id].get('value_1_name', "var1")
@@ -2483,7 +2506,7 @@ class MainWindow(QMainWindow):
         block.switch_state = Utils.project_data.blocks[block_id].get('switch_state', False)
         block.sleep_time = Utils.project_data.blocks[block_id].get('sleep_time', "1000")
         
-        self.canvas.scene.addItem(block)
+        self.current_canvas.scene.addItem(block)
         
         # Store in Utils
         Utils.top_infos[block_id] = {
@@ -2514,7 +2537,7 @@ class MainWindow(QMainWindow):
         
         # Don't clear! The blocks should already be in Utils.top_infos from rebuild_blocks()
         # Utils.paths.clear()  # KEEP THIS
-        self.canvas.path_manager.clear_all_paths()
+        self.current_canvas.path_manager.clear_all_paths()
         
         print(f"Utils.top_infos contains: {list(Utils.top_infos.keys())}")
         print(f"Project connections: {list(Utils.project_data.connections.keys())}")
@@ -2547,11 +2570,11 @@ class MainWindow(QMainWindow):
                     from_block=from_blockwidget,
                     to_block=to_blockwidget,
                     path_id=conn_id,
-                    parent_canvas=self.canvas,
+                    parent_canvas=self.current_canvas,
                     to_circle_type=conn_data.get("to_circle_type", "in"),
                     from_circle_type=conn_data.get("from_circle_type", "out")
                 )
-                self.canvas.scene.addItem(path_item)
+                self.current_canvas.scene.addItem(path_item)
                 # Recreate connection
                 Utils.paths[conn_id] = {
                     'from': from_block_id,
@@ -2577,7 +2600,7 @@ class MainWindow(QMainWindow):
                 import traceback
                 traceback.print_exc()
         
-        self.canvas.update()
+        self.current_canvas.update()
 
     def _rebuild_variables_panel(self):
         """Recreate variables in the side panel"""

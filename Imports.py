@@ -59,10 +59,10 @@ def get_utils():
     import Utils
     return Utils
 
-def get_gui_main_window():
+def get_gui():
     """Lazy import GUI MainWindow - avoid circular deps"""
-    from GUI_pyqt import MainWindow
-    return MainWindow
+    from GUI_pyqt import MainWindow, GridCanvas
+    return MainWindow, GridCanvas
 
 def get_code_compiler():
     """Lazy import CodeCompiler - avoid circular import"""

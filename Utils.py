@@ -20,6 +20,7 @@ devs_same = {}
 var_items = {}
 dev_items = {}
 scene_paths = {}
+canvas_instances = []
 
 config = {
     'grid_size': 25,  # Snap-to-grid pixel size
