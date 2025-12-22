@@ -11,7 +11,7 @@ QStandardItemModel, QListWidget, QEvent, ctypes, sys, time,
 QGraphicsPixmapItem, QGraphicsItem, QPointF)
 from PIL import Image, ImageDraw, ImageFont
 import random
-from Imports import get_utils
+from Imports import get_utils, get_gui
 Utils = get_utils()
 
 class BlockSignals(QObject):
@@ -23,10 +23,17 @@ class BlockSignals(QObject):
 class BlockGraphicsItem(QGraphicsItem, QObject):
     """Graphics item representing a block - renders with QPainter for perfect zoom quality"""
 
-    def __init__(self, x, y, block_id, block_type, parent_canvas):
+    def __init__(self, x, y, block_id, block_type, parent_canvas, main_window=None):
         super().__init__()
         
         self.signals = BlockSignals()
+        if main_window is not None:
+            self.main_window = main_window
+        elif hasattr(parent_canvas, 'main_window'):
+            self.main_window = parent_canvas.main_window
+        else:
+            self.main_window = QApplication.instance().activeWindow()
+        print(f"Main window in BlockGraphicsItem: {self.main_window}")
         self.block_id = block_id
         self.block_type = block_type
         self.canvas = parent_canvas
@@ -217,10 +224,26 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
 
     def connect_graphics_signals(self):
         """Connect graphics item circle click signals to event handler"""
-        if self.block_id not in Utils.top_infos:
-            return
+        print(f"        Self: {self}")
+        print(f"        canvas: {self.canvas}")
+        if self.canvas.reference == 'canvas':
+            print("   Connecting signals for main canvas block")
+            if self.block_id not in Utils.main_canvas['blocks']:
+                return
+            else:
+                print(f"   Found block in main canvas: {self.block_id}")
+                block_info = Utils.main_canvas['blocks'][self.block_id]
+        else:
+            print("   Connecting signals for function canvas block")
+            for f_id, f_info in Utils.functions.items():
+                if self.canvas == f_info.get('canvas'):
+                    if self.block_id not in f_info['blocks']:
+                        return
+                    else:
+                        print(f"   Found block in function {f_id}: {self.block_id}")
+                        block_info = f_info['blocks'][self.block_id]
+                        break
         print(f"✓ Connecting signals for block: {self.block_id}")
-        block_info = Utils.top_infos[self.block_id]
         block_graphics = block_info.get('widget')
         print(f"   block_graphics: {block_graphics}")
         if block_graphics and hasattr(block_graphics, 'signals'):
@@ -240,13 +263,24 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         """Handle position/selection changes"""
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             pos = self.pos()
-            if self.block_id in Utils.top_infos:
-                Utils.top_infos[self.block_id]['x'] = pos.x()
-                Utils.top_infos[self.block_id]['y'] = pos.y()
+            if self.canvas.reference == 'canvas':
+                if self.block_id in Utils.main_canvas['blocks']:
+                    Utils.main_canvas['blocks'][self.block_id]['x'] = pos.x()
+                    Utils.main_canvas['blocks'][self.block_id]['y'] = pos.y()
+            else:
+                for f_id, f_info in Utils.functions.items():
+                    if self.canvas == f_info.get('canvas'):
+                        if self.block_id in f_info['blocks']:
+                            f_info['blocks'][self.block_id]['x'] = pos.x()
+                            f_info['blocks'][self.block_id]['y'] = pos.y()
+                            break
             
             # Update connected paths
             if hasattr(self.canvas, 'path_manager'):
                 self.canvas.path_manager.update_paths_for_widget(self)
+            if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
+                if self.canvas.last_inspector_block and self.canvas.last_inspector_block.block_id == self.block_id:
+                    self.main_window.update_inspector_content(self.canvas.last_inspector_block)
         
         return super().itemChange(change, value)
 
@@ -425,6 +459,9 @@ class Elements_events(QObject):
         super().__init__()
         self.canvas = canvas
         self.path_manager = canvas.path_manager if hasattr(canvas, 'path_manager') else None
+        self.inspector_frame_visible = canvas.inspector_frame_visible if hasattr(canvas, 'inspector_frame_visible') else None
+        print(f"Instantiating ElementsEvents for canvas: {canvas}")
+        print(f" → inspector_panel: {self.inspector_frame_visible}")
         print("✓ ElementsEvents initialized")
         print(f" → path_manager: {self.path_manager}")
 

@@ -33,7 +33,7 @@ from PyQt6.QtWidgets import (
     QInputDialog, QStyleOptionComboBox, QStyledItemDelegate, QTextEdit, QProgressDialog,
     QSplitter, QTreeWidget, QTreeWidgetItem, QListWidget, QGraphicsView, QGraphicsScene,
     QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem, QGraphicsPixmapItem,
-    QListWidgetItem, QStackedWidget
+    QListWidgetItem, QStackedWidget,
 )
 from PyQt6.QtCore import (
     Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression, QTimer, QEvent,

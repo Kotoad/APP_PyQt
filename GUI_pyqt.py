@@ -7,7 +7,8 @@ from Imports import (
     QTimer, QMessageBox, QInputDialog, QFileDialog, QFont, Qt, QPoint, ctypes,
     QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication, QSizePolicy,
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
-    QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent
+    QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent,
+    QStackedWidget, QSplitter
 )
 import typing
 from PyQt6 import QtGui
@@ -26,8 +27,8 @@ FileManager = get_file_manager()
 PathManager = get_path_manager()[0]
 PathGraphicsItem = get_path_manager()[1]
 ElementsWindow = get_Elements_Window()
-SidebarTabView = None
-
+    
+#MARK: - RPiExecutionThread
 class RPiExecutionThread(QThread):
     """
     Background thread for executing code on Raspberry Pi via SSH.
@@ -277,6 +278,44 @@ class RPiExecutionThread(QThread):
             if self.should_continue():
                 self.error.emit(f"Thread error: {str(e)}")
                 self.execution_completed.emit(False)
+
+class GridScene(QGraphicsScene):
+    def __init__(self, grid_size=25):
+        super().__init__()
+        self.grid_size = grid_size
+        self.grid_color = QColor("#3A3A3A")
+        self.grid_pen = QPen(self.grid_color, 1)
+    
+    def drawBackground(self, painter, rect):
+        """
+        Draw grid only for visible area - HUGE performance improvement!
+        Called automatically by Qt when rendering, and only for visible region
+        """
+        super().drawBackground(painter, rect)
+        
+        # Only draw grid lines within the visible rect
+        # This means only ~10-30 lines needed instead of 160,000
+        left = int(rect.left()) - (int(rect.left()) % self.grid_size)
+        top = int(rect.top()) - (int(rect.top()) % self.grid_size)
+        right = int(rect.right())
+        bottom = int(rect.bottom())
+        
+        painter.setPen(self.grid_pen)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+        
+        # Draw vertical lines
+        x = left
+        while x < right:
+            painter.drawLine(x, int(rect.top()), x, int(rect.bottom()))
+            x += self.grid_size
+        
+        # Draw horizontal lines
+        y = top
+        while y < bottom:
+            painter.drawLine(int(rect.left()), y, int(rect.right()), y)
+            y += self.grid_size
+        
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
 class CustomSwitch(QWidget):
     """
@@ -673,15 +712,16 @@ class GridCanvas(QGraphicsView):
     
     def __init__(self, parent=None, grid_size=25):
         super().__init__(parent)
-        
+        print(f"Self in GridCanvas init: {self}")
         self.grid_size = grid_size
-        self.spawner = None
+        
+        self.spawner = spawningelements(self)
         self.path_manager = PathManager(self)
         self.elements_events = elementevents(self)
         self.file_manager = FileManager()
         
         # Create graphics scene
-        self.scene = QGraphicsScene()
+        self.scene = GridScene(grid_size=grid_size)  # ✅ Use custom scene
         self.scene.setSceneRect(-5000, -5000, 5000, 5000)
         self.setScene(self.scene)
         
@@ -699,9 +739,6 @@ class GridCanvas(QGraphicsView):
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
         self.middle_mouse_pressed = False
         self.middle_mouse_start = QPoint()
-        
-        # Draw grid
-        self.draw_grid()
         
         # Tracking
         self.main_window = None
@@ -864,13 +901,20 @@ class GridCanvas(QGraphicsView):
             x=x, y=y,
             block_id=block_id,
             block_type=block_type,
-            parent_canvas=self
+            parent_canvas=self,
+            main_window=self.main_window
         )
         
         self.scene.addItem(block)
         
+        current_canvas = self.main_window.current_canvas
+        if current_canvas:
+            print(f"Current canvas in add_block: {current_canvas}")
+            print(f"Parent canvas in block: {self}")
+        if hasattr(self, 'reference') and self.reference:
+            print(f"Canvas reference in add_block: {self.reference}")
         # Store in Utils
-        Utils.top_infos[block_id] = {
+        info = {
             'type': block_type,
             'id': block_id,
             'widget': block,
@@ -890,12 +934,27 @@ class GridCanvas(QGraphicsView):
             'out_connections': [],
             'canvas': self
         }
-        print(f"Added block: {Utils.top_infos[block_id]}")
+        if self.reference == 'canvas':
+            Utils.main_canvas['blocks'].setdefault(block_id, info)
+        elif self.reference == 'function':
+            for f_id, f_info in Utils.functions.items():
+                print(f"Utils.functions key: {f_id}, value: {f_info}")
+                if self == f_info.get('canvas'):
+                    print(f"Matched function canvas for block addition: {f_id}")
+                    Utils.functions[f_id]['blocks'].setdefault(block_id, info)
+                    break
+        print(f"Added block: {info}")
+        if self.reference == 'canvas':
+            print(f"Current Utils.main_canvas blocks: {Utils.main_canvas['blocks']}")
+        elif self.reference == 'function':
+            print(f"Current Utils.functions[{f_id}] blocks: {Utils.functions[f_id]['blocks']}")
+        Utils.top_infos[block_id] = info
         block.connect_graphics_signals()
         return block
     
     def clear_canvas(self):
         """Clear all blocks and paths from canvas"""
+        #TODO: complete clearing logic
         self.scene.clear()
         Utils.top_infos.clear()
         Utils.paths.clear()
@@ -903,11 +962,43 @@ class GridCanvas(QGraphicsView):
     
     def remove_block(self, block_id):
         """Remove a block from canvas"""
-        if block_id in Utils.top_infos:
-            block = Utils.top_infos[block_id]['widget']
-            self.scene.removeItem(block)
-            del Utils.top_infos[block_id]
-    
+        try:
+            current_canvas = self.main_window.current_canvas
+            if not current_canvas:
+                return
+            
+            reference = current_canvas.reference
+            
+            if reference == "canvas":
+                block_data = Utils.main_canvas['blocks'].get(block_id)
+                if block_data:
+                    widget = block_data.get('widget')
+                    if widget:
+                        # ✅ Properly remove from scene
+                        widget.setParent(None)
+                        self.scene.removeItem(widget)
+                        # ✅ Explicitly delete
+                        widget.deleteLater()
+                    
+                    del Utils.main_canvas['blocks'][block_id]
+            
+            elif reference == "function":
+                for fid, finfo in Utils.functions.items():
+                    if current_canvas == finfo.get('canvas'):
+                        block_data = Utils.functions[fid]['blocks'].get(block_id)
+                        if block_data:
+                            widget = block_data.get('widget')
+                            if widget:
+                                widget.setParent(None)
+                                self.scene.removeItem(widget)
+                                widget.deleteLater()
+                            
+                            del Utils.functions[fid]['blocks'][block_id]
+                        break
+        
+        except Exception as e:
+            print(f"Error removing block {block_id}: {e}")
+            
     def remove_path(self, path_id):
         """Remove a path from canvas"""
         if path_id in Utils.paths:
@@ -931,6 +1022,7 @@ class GridCanvas(QGraphicsView):
         menu.addAction(duplicate_action)
         
         inspector_action = QAction("Show Inspector", self)
+
         inspector_action.triggered.connect(lambda: self.main_window.toggle_inspector_frame(block))
         menu.addAction(inspector_action)
         
@@ -961,6 +1053,7 @@ class GridCanvas(QGraphicsView):
     
     def duplicate_block(self, block, block_id):
         """Create a copy of a block"""
+        #TODO : Implement duplication logic
         if block_id not in Utils.top_infos:
             return
         
@@ -986,17 +1079,33 @@ class GridCanvas(QGraphicsView):
 class MainWindow(QMainWindow):
     """Main application window"""
     
+    tab_changed = pyqtSignal(int)
+    
     @property
     def current_canvas(self):
         """Get the currently active canvas from the sidebar"""
-        current_index = self.sidebar.get_current_tab_index()
-        widget = self.sidebar.content_area.widget(current_index)
-        print(f"Current sidebar tab index: {current_index}, widget: {widget}")
-        # Check if it's a GridCanvas instance
-        if isinstance(widget, GridCanvas):
-            print("Current canvas found.")
-            return widget
+        try:
+            index = self.get_current_tab_index()
+            for canvas, info in Utils.canvas_instances.items():
+                print(f"Canvas in Utils.canvas_instances: {canvas}, info: {info}")
+                if info['index'] == index:
+                    print(f"✓ Found current canvas in Utils.canvas_instances: {canvas}")
+                    widget = info['canvas']
+            print(f"Current sidebar tab index: {index}, widget: {widget}")
+            
+            # Check if it's a GridCanvas instance
+            if isinstance(widget, GridCanvas):
+                print("✓ Current canvas found.")
+                return widget
+        except Exception as e:
+            print(f"⚠️ Error getting current canvas: {e}")
         
+        # Fallback to main canvas if property fails
+        if hasattr(self, 'canvas') and self.canvas is not None:
+            print("✓ Using main canvas as fallback.")
+            return self.canvas
+        
+        print("❌ No canvas available.")
         return None
         
     def __init__(self):
@@ -1063,12 +1172,11 @@ class MainWindow(QMainWindow):
         self.Devices_frame = None
         self.devices_frame_visible = False
         self.devices_row_count = 1
-        self.inspector_frame = None
-        self.inspector_layout = None
-        self.inspector_frame_visible = False
-
+        self.last_canvas = None
         self.blockIDs = {}
         self.execution_thread = None
+        self.canvas_added = None
+                
                 
         self.create_menu_bar()
         self.create_canvas_frame()
@@ -1112,13 +1220,13 @@ class MainWindow(QMainWindow):
         view_menu = menubar.addMenu("View")
 
         canvas_action = view_menu.addAction("Show Canvas")
-        canvas_action.triggered.connect(lambda: self.sidebar.set_current_tab(0))
+        canvas_action.triggered.connect(lambda: self.set_current_tab(0))
 
         variables_action = view_menu.addAction("Show Variables")
-        variables_action.triggered.connect(lambda: self.sidebar.set_current_tab(1))
+        variables_action.triggered.connect(lambda: self.set_current_tab(1))
 
         devices_action = view_menu.addAction("Show Devices")
-        devices_action.triggered.connect(lambda: self.sidebar.set_current_tab(2))
+        devices_action.triggered.connect(lambda: self.set_current_tab(2))
         
         settings_menu = menubar.addMenu("Settings")
         settings_menu_action = settings_menu.addAction("Settings")
@@ -1140,64 +1248,83 @@ class MainWindow(QMainWindow):
         
         compile_action = compile_menu.addAction("Compile Code")
         compile_action.triggered.connect(self.compile_and_upload)
-
-    def _on_tab_changed(self, tab_index):
-        """Handle tab changes"""
-        # Tab indices: 0=Canvas, 1=Variables, 2=Devices
-        print(f"Tab changed to: {tab_index}")
         
     def create_canvas_frame(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-
-        # Main layout
+        
         main_layout = QHBoxLayout(central_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
-
-        # ✓ Import SidebarTabView NOW (after GUI_pyqt is fully loaded)
-        global SidebarTabView
-        if SidebarTabView is None:
-            SidebarTabView = get_Sidebar_TabView()
-
-        # ✓ Pass GridCanvas CLASS to SidebarTabView (not instance!)
-        self.sidebar = SidebarTabView(canvas_class=GridCanvas)
         
-        # ✓ Get canvas instance from sidebar (already created inside)
-        self.canvas = self.sidebar.Grid_canvas
-        self.canvas.main_window = self
-
-        Utils.canvas_instances.append(self.canvas)
-
-        # Add Canvas tab (your existing canvas)
-        self.sidebar.add_tab(tab_name="Canvas", content_widget=self.canvas, reference="canvas")
-        self.sidebar.add_new_canvas_tab_button()
-        # Add separator
-        self.sidebar.add_separator()
+        self.sidebar = self.create_sidebar()
         
-        # Add Variables tab
-        self.variables_panel = self.create_variables_panel()
-        self.sidebar.add_tab("Variables", self.variables_panel)
+        # Create a splitter for canvas + inspector
         
-        # Add Devices tab
-        self.devices_panel = self.create_devices_panel()
-        self.sidebar.add_tab("Devices", self.devices_panel)
+        self.canvas = GridCanvas()
+        try:
+            self.canvas.main_window = self
+        except Exception as e:
+            print(f"Error setting mainwindow on canvas: {e}")
         
-        # Connect signal
-        self.sidebar.tab_changed.connect(self._on_tab_changed)
+        Utils.canvas_instances[self.canvas] = {
+            'canvas': self.canvas,
+            'index': 0,
+            'ref': 'canvas'
+        }
         
-        # Add to layout
+        # Add splitter to main layout
         main_layout.addWidget(self.sidebar)
+        
+        # Rest of your code...
+        self.add_tab(tab_name="Canvas", content_widget=self.canvas, reference="canvas")
+        self.last_canvas = self.canvas
+        self.tab_changed.connect(self.on_tab_changed)
     
-    def create_variables_panel(self):
+    def on_tab_changed(self, index):
+        if index not in [info['index'] for info in Utils.canvas_instances.values()]:
+            print(f"Tab index {index} not in Utils.canvas_instances indices.")
+            return
+        if self.current_canvas != self.last_canvas:
+            print(f"Sidebar tab changed to index: {index}, widget: {self.current_canvas}")
+            for var_canvas, var_panel in Utils.variables_panels.items():
+                if var_canvas == self.current_canvas:
+                    print("Current tab is a GridCanvas with Variables panel.")
+                    try:
+                        for canvas, info in Utils.canvas_instances.items():
+                            canvas.var_button.hide()
+                            if info['ref'] == 'canvas':
+                                print("Keeping variable button visible for main canvas.")
+                                canvas.var_button.show()
+                            if canvas == self.current_canvas:
+                                canvas.var_button.show()
+                    except Exception as e:
+                        print(f"Error showing/hiding variable buttons: {e}")
+            for dev_canvas, dev_panel in Utils.devices_panels.items():
+                if dev_canvas == self.current_canvas:
+                    print("Current tab is a GridCanvas with Devices panel.")
+                    try:
+                        for canvas, info in Utils.canvas_instances.items():
+                            canvas.dev_button.hide()
+                            if info['ref'] == 'canvas':
+                                print("Keeping variable button visible for main canvas.")
+                                canvas.dev_button.show()
+                            if canvas == self.current_canvas:
+                                canvas.dev_button.show()
+                    except Exception as e:
+                        print(f"Error showing/hiding device buttons: {e}")
+            self.last_canvas = self.current_canvas
+            
+    def create_variables_panel(self, canvas_reference=None):
         """Create Variables panel"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(10, 10, 10, 10)
+        canvas_reference.variable_row_count = 0
+        canvas_reference.widget = QWidget()
+        canvas_reference.layout = QVBoxLayout(canvas_reference.widget)
+        canvas_reference.layout.setContentsMargins(10, 10, 10, 10)
         
         header = QLabel("Variables")
         header.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
-        layout.addWidget(header)
+        canvas_reference.layout.addWidget(header)
         
         add_btn = QPushButton("Add Variable")
         add_btn.setStyleSheet("""
@@ -1208,35 +1335,34 @@ class MainWindow(QMainWindow):
                 border-radius: 4px;
             }
         """)
-        add_btn.clicked.connect(lambda: self.add_variable_row(None, None))
-        layout.addWidget(add_btn)
+        canvas_reference.layout.addWidget(add_btn)
         
         # Scroll area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        self.var_content = QWidget()
-        self.var_layout = QVBoxLayout(self.var_content)
-        self.var_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.var_layout.addStretch()
-        scroll.setWidget(self.var_content)
-        layout.addWidget(scroll)
-        
-        widget.setStyleSheet("""
+        canvas_reference.var_content = QWidget()
+        canvas_reference.var_layout = QVBoxLayout(canvas_reference.var_content)
+        canvas_reference.var_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        canvas_reference.var_layout.addStretch()
+        scroll.setWidget(canvas_reference.var_content)
+        canvas_reference.layout.addWidget(scroll)
+        add_btn.clicked.connect(lambda: self.add_variable_row(None, None, canvas_reference))
+        canvas_reference.widget.setStyleSheet("""
             QWidget { background-color: #2B2B2B; }
         """)
-        
-        return widget
+        Utils.variables_panels[canvas_reference] = canvas_reference.widget
+        return canvas_reference.widget
 
-
-    def create_devices_panel(self):
+    def create_devices_panel(self, canvas_reference=None):
         """Create Devices panel"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(10, 10, 10, 10)
+        canvas_reference.devices_row_count = 0
+        canvas_reference.widget = QWidget()
+        canvas_reference.layout = QVBoxLayout(canvas_reference.widget)
+        canvas_reference.layout.setContentsMargins(10, 10, 10, 10)
         
         header = QLabel("Devices")
         header.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
-        layout.addWidget(header)
+        canvas_reference.layout.addWidget(header)
         
         add_btn = QPushButton("Add Device")
         add_btn.setStyleSheet("""
@@ -1247,229 +1373,610 @@ class MainWindow(QMainWindow):
                 border-radius: 4px;
             }
         """)
-        add_btn.clicked.connect(lambda: self.add_device_row(None, None))
-        layout.addWidget(add_btn)
+        add_btn.clicked.connect(lambda: self.add_device_row(None, None, canvas_reference))
+        canvas_reference.layout.addWidget(add_btn)
         
         # Scroll area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        self.dev_content = QWidget()
-        self.dev_layout = QVBoxLayout(self.dev_content)
-        self.dev_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.dev_layout.addStretch()
-        scroll.setWidget(self.dev_content)
-        layout.addWidget(scroll)
+        canvas_reference.dev_content = QWidget()
+        canvas_reference.dev_layout = QVBoxLayout(canvas_reference.dev_content)
+        canvas_reference.dev_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        canvas_reference.dev_layout.addStretch()
+        scroll.setWidget(canvas_reference.dev_content)
+        canvas_reference.layout.addWidget(scroll)
         
-        widget.setStyleSheet("""
+        canvas_reference.widget.setStyleSheet("""
             QWidget { background-color: #2B2B2B; }
         """)
+        Utils.devices_panels[canvas_reference] = canvas_reference.widget
+        return canvas_reference.widget
         
-        return widget    
+    def create_sidebar(self):
+        """Initialize sidebar and content areas"""
+        widget = QWidget()
+        main_layout = QHBoxLayout(widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        # ===== LEFT SIDEBAR =====
+        self.sidebar_frame = QFrame()
+        self.sidebar_frame.setMinimumWidth(120)
+        self.sidebar_frame.setMaximumWidth(150)
+        self.sidebar_frame.setStyleSheet("""
+            QFrame {
+                background-color: #2B2B2B;
+                border-right: 1px solid #3A3A3A;
+            }
+        """)
+        
+        sidebar_layout = QVBoxLayout(self.sidebar_frame)
+        sidebar_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_layout.setSpacing(0)
+        
+        # Tab buttons container (using QVBoxLayout instead of QListWidget)
+        self.tab_container = QWidget()
+        self.tab_layout = QVBoxLayout(self.tab_container)
+        self.tab_layout.setContentsMargins(0, 0, 0, 0)
+        self.tab_layout.setSpacing(0)
+        
+        sidebar_layout.addWidget(self.tab_container)
+        sidebar_layout.addStretch()
+        
+        main_layout.addWidget(self.sidebar_frame)
+        
+        # ===== RIGHT CONTENT AREA =====
+        self.content_area = QStackedWidget()
+        self.content_area.setStyleSheet("""
+            QStackedWidget {
+                background-color: #1F1F1F;
+            }
+        """)
+        
+        main_layout.addWidget(self.content_area, stretch=1)
+        # Storage
+        self.pages = {}
+        self.page_count = 0
+        self.count_w_separator = 0
+        self.canvas_count = 0
+        self.tab_buttons = []  # Track tab buttons
+        
+        return widget
+
+    def add_tab(self, tab_name, content_widget=None, icon=None, reference=None):
+        """
+        Add a tab to the sidebar
+        
+        Args:
+            tab_name: Name of the tab
+            content_widget: Widget to show when tab is active
+            icon: Optional QIcon for the tab
+            
+        Returns:
+            Index of the new tab
+        """
+        if content_widget is None:
+            content_widget = QWidget()
+            layout = QVBoxLayout(content_widget)
+            layout.addWidget(QLabel(f"Content for {tab_name}"))
+            layout.addStretch()
+        
+        if reference in ["canvas", "function"]:
+            print(f"Adding canvas tab: {tab_name}")
+            canvas_splitter = QSplitter(Qt.Orientation.Vertical)
+            canvas_splitter.addWidget(content_widget)
+            canvas_splitter.setSizes([600, 400])  # Initial sizes (canvas, inspector)
+            canvas_splitter.setCollapsible(0, False)  # Canvas cannot collapse
+            content_widget.canvas_splitter = canvas_splitter
+            content_widget.inspector_frame = None
+            content_widget.inspector_layout = None
+            content_widget.inspector_frame_visible = False
+            content_widget.last_inspector_block = None
+            content_widget.reference = reference
+            if reference == "function":
+                function_id = 'function_'+str(len(Utils.functions)+1)
+                Utils.functions[function_id] = {
+                    'name': tab_name,
+                    'id': function_id,
+                    'canvas': content_widget,
+                    'blocks': {},
+                    'paths': {}
+                }
+            elif reference == "canvas":
+                Utils.main_canvas = {
+                    'name': tab_name,
+                    'id': 'main_canvas',
+                    'canvas': content_widget,
+                    'blocks': {},
+                    'paths': {}
+                }
+            self.content_area.addWidget(canvas_splitter)
+            
+        else: 
+            self.content_area.addWidget(content_widget)
+        self.pages[tab_name] = content_widget
+        
+        # Create tab button
+        if reference == 'variable':
+            print("Adding Variable tab button")
+            print(f"Content widget in variable tab: {content_widget}")
+            self.canvas_added.var_button = QPushButton(tab_name)
+            tab_button = self.canvas_added.var_button
+        elif reference == 'device':
+            print("Adding Device tab button")
+            print(f"Content widget in device tab: {content_widget}")
+            self.canvas_added.dev_button = QPushButton(tab_name)
+            tab_button = self.canvas_added.dev_button
+        else:
+            tab_button = QPushButton(tab_name)
+        tab_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2B2B2B;
+                color: #FFFFFF;
+                border: none;
+                padding: 12px;
+                text-align: left;
+            }
+            
+            QPushButton:hover {
+                background-color: #3A3A3A;
+            }
+            
+            QPushButton:pressed {
+                background-color: #1F538D;
+                border-left: 3px solid #4CAF50;
+            }
+        """)
+        tab_index = self.page_count
+        self.tab_buttons.append({
+            'button': tab_button,
+            'index': tab_index,
+            'name': tab_name
+        })
+        print(f"Adding tab '{tab_name}' at index {tab_index} with reference '{reference}'")
+        tab_button.clicked.connect(lambda: self._on_tab_clicked(tab_index, reference))
+        if reference == 'canvas':
+            self.tab_layout.insertWidget(self.canvas_count, tab_button)
+            self.page_count+=1
+            self.count_w_separator+=1
+            self.canvas_count+=1
+            self.canvas_added = content_widget
+            self.add_separator(ref='reference')
+            self.add_new_canvas_tab_button()
+            self.add_separator()
+            self.add_variable_tab(content_widget, 'Main')
+            self.add_device_tab(content_widget, 'Main')
+            self.add_separator(ref='reference')
+            self.canvas_added = None
+            return tab_index
+        elif reference == 'function':
+            self.tab_layout.insertWidget(self.canvas_count, tab_button)
+            self.page_count+=1
+            self.count_w_separator+=1
+            self.canvas_count+=1
+            self.canvas_added = content_widget
+            self.add_variable_tab(content_widget, tab_name)
+            self.add_device_tab(content_widget, tab_name)
+            self.add_separator(ref='reference')
+            self.canvas_added = None
+            return tab_index
+        elif reference in ('variable', 'device'):
+            self.tab_layout.insertWidget(self.count_w_separator, tab_button)
+            self.page_count+=1
+            self.count_w_separator+=1
+            return tab_index
+        else:
+            self.tab_layout.addWidget(tab_button)
+            self.page_count+=1
+            self.count_w_separator+=1
+            return tab_index
     
+    def add_variable_tab(self, canvas_reference, name):
+        """Add a Variables tab to the sidebar"""
+        print("Adding Variables tab")
+        variables_panel = self.create_variables_panel(canvas_reference)
+        self.add_tab(name+' variables', variables_panel, reference="variable")
+    
+    def add_device_tab(self, canvas_reference, name):
+        """Add a Devices tab to the sidebar"""
+        print("Adding Devices tab")
+        devices_panel = self.create_devices_panel(canvas_reference)
+        self.add_tab(name+' devices', devices_panel, reference="device")
+    
+    def add_new_canvas_tab_button(self):
+        """Add a special button to create a new canvas tab"""
+        new_canvas_button = QPushButton("+ New Canvas")
+        new_canvas_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2B2B2B;
+                color: #FFFFFF;
+                border: none;
+                padding: 12px;
+                text-align: left;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #3A3A3A;
+            }
+            QPushButton:pressed {
+                background-color: #1F538D;
+                border-left: 3px solid #4CAF50;
+            
+        """)
+        new_canvas_button.clicked.connect(self._on_new_canvas_clicked)
+        self.tab_layout.insertWidget(self.canvas_count, new_canvas_button)
+    
+    def _on_new_canvas_clicked(self):
+        """Handler for new canvas tab button click"""
+        name, ok = QInputDialog.getText(
+            self,
+            "New Canvas",
+            "Enter name for new canvas:"
+        )
+        if not ok or not name.strip():
+            return
+        new_canvas = GridCanvas()
+        new_canvas.main_window = self
+        new_tab_index = self.add_tab(
+            name,
+            new_canvas,
+            reference="function",
+        )
+        Utils.canvas_instances[new_canvas] = {'canvas': new_canvas,
+                                              'index': new_tab_index,
+                                              'ref': 'function'}
+        self.tab_changed.emit(new_tab_index)
+        print(f"Utils.canvas_instances count: {len(Utils.canvas_instances)}")
+        print(f"Utils.canvas_instances: {Utils.canvas_instances}")
+        self.set_current_tab(new_tab_index)
+    
+    def add_separator(self, ref=None):
+        """Add a visual separator line with exactly 5px height"""
+        
+        # Create a container for the separator
+        separator_container = QFrame()
+        separator_container.setStyleSheet("""
+            QFrame {
+                background-color: transparent;
+            }
+        """)
+        separator_container.setFixedHeight(5)
+        
+        # Create the actual line
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Plain)
+        separator.setLineWidth(1)
+        separator.setStyleSheet("background-color: #555555;")
+        
+        # Layout for container
+        layout = QVBoxLayout(separator_container)
+        layout.setContentsMargins(0, 2, 0, 2)  # Vertical padding: 2px top + 2px bottom + 1px line = 5px total
+        layout.setSpacing(0)
+        layout.addWidget(separator)
+        if ref is None:
+            self.tab_layout.insertWidget(self.canvas_count, separator_container)
+        else:
+            self.tab_layout.insertWidget(self.count_w_separator, separator_container)
+            self.count_w_separator+=1
+            
+    def set_current_tab(self, tab_index):
+        """Switch to a specific tab by index"""
+        if 0 <= tab_index < len(self.tab_buttons):
+            self._on_tab_clicked(tab_index)
+    
+    def get_current_tab_index(self):
+        """Get currently active tab index"""
+        return self.content_area.currentIndex()
+    
+    def get_tab_widget(self, tab_name):
+        """Get the widget for a specific tab"""
+        return self.pages.get(tab_name)
+    
+    def _on_tab_clicked(self, tab_index, reference=None):
+        """Internal handler for tab clicks"""
+        if 0 <= tab_index < len(self.tab_buttons):
+            self.content_area.setCurrentIndex(tab_index)
+            
+            # Update button styles
+            for tb in self.tab_buttons:
+                if tb['index'] == tab_index:
+                    tb['button'].setStyleSheet("""
+                        QPushButton {
+                            background-color: #1F538D;
+                            color: #FFFFFF;
+                            border-left: 3px solid #4CAF50;
+                            padding: 12px;
+                            text-align: left;
+                        }
+                    """)
+                else:
+                    tb['button'].setStyleSheet("""
+                        QPushButton {
+                            background-color: #2B2B2B;
+                            color: #FFFFFF;
+                            border: none;
+                            padding: 12px;
+                            text-align: left;
+                        }
+                        
+                        QPushButton:hover {
+                            background-color: #3A3A3A;
+                        }
+                    """)
+            if reference == "canvas":
+                print(f"Setting Utils.courent_canvas to canvas tab index {tab_index}")
+                print(f"Utils.canvas_instances: {Utils.canvas_instances}")
+                #if tab_index - self.canvas_count < 0:
+                    #tab_index = 0
+                    #print(f"Courent canvas index: {tab_index}")
+                    #Utils.courent_canvas = Utils.canvas_instances[tab_index]
+                    #print(f"Set Utils.courent_canvas to tab '{Utils.courent_canvas}'")
+                #else:
+                    #print(f"Setting Utils.courent_canvas to index {tab_index - self.canvas_count+1}")
+                    #Utils.courent_canvas = Utils.canvas_instances[tab_index-self.canvas_count+1]
+                    #print(f"Set Utils.courent_canvas to tab '{Utils.courent_canvas}'")
+            self.tab_changed.emit(tab_index)
     #MARK: - Inspector Panel Methods
     def toggle_inspector_frame(self, block):
-        if not self.inspector_frame_visible:
-            self.last_block = block
+        """Toggle inspector panel based on block selection"""
+        print(f"Self in toggle_inspector_frame: {self}")
+        print(f"Current canvas in toggle_inspector_frame: {self.current_canvas}")
+        current_canvas = self.current_canvas
+        if current_canvas is None:
+            print("ERROR: No current canvas available")
+            return
+        
+        # Get the splitter from the current canvas
+        canvas_splitter = getattr(current_canvas, 'canvas_splitter', None)
+        if canvas_splitter is None:
+            print("ERROR: No canvas_splitter found in current canvas")
+            return
+        if not current_canvas.inspector_frame_visible:
+            current_canvas.last_inspector_block = block
             self.show_inspector_frame(block)
-        elif self.inspector_frame_visible and self.last_block != block:
-            self.last_block = block
+        elif current_canvas.inspector_frame_visible and current_canvas.last_inspector_block != block:
+            current_canvas.last_inspector_block = block
             self.update_inspector_content(block)
-    
+        else:
+            # Toggle off if clicking same block
+            self.hide_inspector_frame()
+        
     def show_inspector_frame(self, block):
         """Show the inspector panel"""
-        if self.inspector_frame is None:
-            self.inspector_frame = QFrame()
-            self.inspector_frame.setMinimumWidth(250)
-            self.inspector_frame.setMaximumWidth(300)
-            self.inspector_frame.setStyleSheet("""
-                QFrame {
-                    background-color: #2B2B2B;
-                    border-left: 1px solid #3A3A3A;
-                }
-            """)
-            
-            # Create container layout ONCE
-            self.inspector_layout = QVBoxLayout(self.inspector_frame)
-            
-            header = QWidget()
-            header_layout = QHBoxLayout(header)
-            header_layout.setContentsMargins(0, 0, 0, 0)
-            
-            title = QLabel("Inspector")
-            hide_btn = QPushButton("×")
-            hide_btn.setFixedWidth(24)
-            hide_btn.clicked.connect(self.hide_inspector_frame)
-            
-            header_layout.addWidget(title)
-            header_layout.addStretch()
-            header_layout.addWidget(hide_btn)
-            self.inspector_layout.addWidget(header)
-            
-            self.scroll_area = QScrollArea()
-            self.scroll_area.setWidgetResizable(True)
-            self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            
-            self.inspector_content = QWidget()
-            self.inspector_content_layout = QVBoxLayout(self.inspector_content)
-            self.inspector_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-            self.inspector_content.setSizePolicy(
-                QSizePolicy.Policy.Expanding,  # Grow vertically
-                QSizePolicy.Policy.Preferred
-            )
-            self.scroll_area.setWidget(self.inspector_content)
-            self.inspector_layout.addWidget(self.scroll_area)
-            # Add to main layout
-            central_widget = self.centralWidget()
-            if central_widget:
-                main_layout = central_widget.layout()
-                if main_layout:
-                    main_layout.insertWidget(0, self.inspector_frame)
+        print(f"Self in show_inspector_frame: {self}")
+        current_canvas = self.current_canvas
+        if current_canvas is None:
+            print("ERROR: No current canvas available")
+            return
         
-        # Update content (reuse same layout)
-        self.update_inspector_content(block)
-        self.inspector_frame.show()
-        self.inspector_frame_visible = True
+        # Get the splitter from the current canvas
+        canvas_splitter = getattr(current_canvas, 'canvas_splitter', None)
+        if canvas_splitter is None:
+            print("ERROR: No canvas_splitter found in current canvas")
+            return
+        if not current_canvas.inspector_frame_visible:
+            current_canvas.last_inspector_block = block
+            
+            # Get current canvas
+            
+            
+            # Create inspector frame if it doesn't exist
+            if current_canvas.inspector_frame is None:
+                current_canvas.inspector_frame = QFrame()
+                current_canvas.inspector_frame.setStyleSheet("""
+                    QFrame {
+                        background-color: 2B2B2B;
+                        border-left: 1px solid 3A3A3A;
+                    }
+                """)
+                current_canvas.inspector_layout = QVBoxLayout(current_canvas.inspector_frame)
+                
+                # Scroll area
+                current_canvas.scroll_area = QScrollArea()
+                current_canvas.scroll_area.setWidgetResizable(True)
+                current_canvas.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+                
+                current_canvas.inspector_content = QWidget()
+                current_canvas.inspector_content_layout = QVBoxLayout(current_canvas.inspector_content)
+                current_canvas.inspector_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+                current_canvas.inspector_content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+                current_canvas.scroll_area.setWidget(current_canvas.inspector_content)
+                
+                current_canvas.inspector_layout.addWidget(current_canvas.scroll_area)
+            
+            # Add inspector to splitter
+            current_canvas.canvas_splitter.addWidget(current_canvas.inspector_frame)
+            current_canvas.canvas_splitter.setSizes([700, 300])  # Adjust initial ratio
+            
+            if block:
+                self.update_inspector_content(block)
+            
+            current_canvas.inspector_frame.show()
+            current_canvas.inspector_frame_visible = True
+
+
+    def hide_inspector_frame(self):
+        """Hide the inspector panel"""
+        current_canvas = self.current_canvas
+        if current_canvas:
+            canvas_splitter = getattr(current_canvas, 'canvas_splitter', None)
+                    
+        if canvas_splitter and current_canvas.inspector_frame:
+            current_canvas.inspector_frame.hide()
+            
+            # Get current canvas and its splitter
+            if canvas_splitter:
+                canvas_splitter.setSizes([1000, 0])  # Hide inspector
+            
+            current_canvas.inspector_frame_visible = False
 
     def update_inspector_content(self, block):
         """Update the content of the inspector panel based on the selected block"""
+        current_canvas = self.current_canvas
+        if current_canvas is None:
+            print("ERROR: No current canvas available")
+            return
         
+        # Get the splitter from the current canvas
+        canvas_splitter = getattr(current_canvas, 'canvas_splitter', None)
+        if canvas_splitter is None:
+            print("ERROR: No canvas_splitter found in current canvas")
+            return
         # Clear ONLY the content layout, NOT the main inspector layout
-        while self.inspector_content_layout.count():
-            item = self.inspector_content_layout.takeAt(0)
+        while current_canvas.inspector_content_layout.count():
+            item = current_canvas.inspector_content_layout.takeAt(0)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
         
         # Remove spacer items
-        for i in range(self.inspector_content_layout.count() - 1, -1, -1):
-            item = self.inspector_content_layout.itemAt(i)
+        for i in range(current_canvas.inspector_content_layout.count() - 1, -1, -1):
+            item = current_canvas.inspector_content_layout.itemAt(i)
             if item and item.spacerItem():
-                self.inspector_content_layout.takeAt(i)
+                current_canvas.inspector_content_layout.takeAt(i)
         
         # Add new content
         title = QLabel(f"Inspector - {block.block_type}")
         title.setStyleSheet("font-weight: bold; font-size: 16px; padding: 5px;")
-        self.inspector_content_layout.addWidget(title)
+        current_canvas.inspector_content_layout.addWidget(title)
         
         position_label = QLabel(f"Position: ({int(block.x())}, {int(block.y())})")
-        self.inspector_content_layout.addWidget(position_label)
+        current_canvas.inspector_content_layout.addWidget(position_label)
         
         size_label = QLabel(f"Size: ({int(block.boundingRect().width())} x {int(block.boundingRect().height())})")
-        self.inspector_content_layout.addWidget(size_label)
+        current_canvas.inspector_content_layout.addWidget(size_label)
         
         self.add_inputs(block)
-        self.inspector_content_layout.addStretch()
+        current_canvas.inspector_content_layout.addStretch()
 
     def add_inputs(self, block):
         """Add input fields for block properties"""
+        current_canvas = self.current_canvas
+        if current_canvas is None:
+            print("ERROR: No current canvas available")
+            return
         
-        for block_id, top_info in Utils.top_infos.items():
-            if top_info.get('widget') == block:
-                block_data = top_info
-                
-                if block_data['type'] in ('Start', 'End'):
-                    return
-                
-                if block_data['type'] == 'Timer':
-                    # Timer block inputs
-                    label = QLabel("Interval (ms):")
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), label)
-                    
-                    interval_input = QLineEdit()
-                    interval_input.setText(block_data.get('sleep_time', '1000'))
-                    interval_input.setPlaceholderText("Interval in ms")
-                    interval_input.textChanged.connect(lambda text, bd=block_data: self.Block_sleep_interval_changed(text, bd))
-                    
-                    self.inspector_content_layout.insertWidget(
-                        self.inspector_content_layout.count(), 
-                        interval_input
-                    )
+        if current_canvas.reference == 'canvas':
+            print(f"Current Utils.main_canvas['blocks']: {Utils.main_canvas['blocks']}")
+            block_data = Utils.main_canvas['blocks'].get(block.block_id)
+        elif current_canvas.reference == 'function':
+            for f_id, f_info in Utils.functions.items():
+                if current_canvas == f_info.get('canvas'):
+                    print(f"Current Utils.functions[{f_id}]['blocks']: {Utils.functions[f_id]['blocks']}")
+                    block_data = Utils.functions[f_id]['blocks'].get(block.block_id)
                     break
-                if block_data['type'] in ('If', 'While', 'For Loop'):
-                    name_label = QLabel("Value 1 Name:")
-                    
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), name_label)
-                    
-                    self.name_1_input = SearchableLineEdit()
-                    self.name_1_input.setText(block_data.get('value_1_name', ''))
-                    self.name_1_input.setPlaceholderText("Value 1 Name")
-                    self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_name_1_changed(text, bd))
-                    
-                    self.insert_items(block, self.name_1_input)
-                    
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), self.name_1_input)
-                    
-                    type_label = QLabel("Operator:")
-                    
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), type_label)
-                    
-                    type_input = QComboBox()
-                    type_input.addItems(["==", "!=", "<", ">", "<=", ">="])
-                    type_input.setCurrentText(block_data.get('operator', '=='))
-                    type_input.currentTextChanged.connect(lambda text, bd=block_data: self.Block_operator_changed(text, bd))
-                    
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), type_input)
-                    
-                    value_label = QLabel("Value 2 name:")
-                    
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), value_label)
-                    
-                    self.name_2_input = SearchableLineEdit()
-                    self.name_2_input.setText(block_data.get('value_2_name', ''))
-                    self.name_2_input.setPlaceholderText("Value 2 Name")
-                    self.name_2_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_2_name_changed(text, bd))
-                    
-                    self.insert_items(block, self.name_2_input)
-                    
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), self.name_2_input)
-                if block_data['type'] == 'Switch':
-                    name_label = QLabel("Value Name:")
-                    
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), name_label)
-                    
-                    self.name_1_input = SearchableLineEdit()
-                    self.name_1_input.setText(block_data.get('value_1_name', ''))
-                    self.name_1_input.setPlaceholderText("Value Name")
-                    self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_name_1_changed(text, bd))
-                    
-                    self.insert_items(block, self.name_1_input)
-                    
-                    self.Label_ON = QLabel("On")
-                    self.Label_OFF = QLabel("Off")
-                    
-                    
-                    
-                    self.switch = CustomSwitch()
-                    self.switch.set_checked(block_data.get('switch_state', False))
-                    self.switch.toggled.connect(lambda state, bd=block_data: self.Block_switch_changed(state, bd))
-                    
-                    row_widget = QWidget()
-                    row_layout = QHBoxLayout(row_widget)
-                    row_layout.setContentsMargins(5, 5, 5, 5)
-                    
-                    row_layout.addWidget(self.Label_OFF)
-                    row_layout.addWidget(self.switch)
-                    row_layout.addWidget(self.Label_ON)
-                    
-                    
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), self.name_1_input)
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), row_widget, alignment=Qt.AlignmentFlag.AlignCenter)
-                if block_data['type'] == 'Button':
-                    name_label = QLabel("Value Name:")
-                    
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), name_label)
-                    
-                    self.name_1_input = SearchableLineEdit()
-                    self.name_1_input.setText(block_data.get('value_1_name', ''))
-                    self.name_1_input.setPlaceholderText("Value Name")
-                    self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_name_1_changed(text, bd))
-                    
-                    self.insert_items(block, self.name_1_input)
-                    
-                    self.inspector_content_layout.insertWidget(self.inspector_content_layout.count(), self.name_1_input)
-                break
+        
+        print(f"Adding inputs for block data: {block_data}")
+        if block_data['type'] in ('Start', 'End'):
+            return
+        
+        if block_data['type'] == 'Timer':
+            # Timer block inputs
+            label = QLabel("Interval (ms):")
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), label)
+            
+            interval_input = QLineEdit()
+            interval_input.setText(block_data.get('sleep_time', '1000'))
+            interval_input.setPlaceholderText("Interval in ms")
+            interval_input.textChanged.connect(lambda text, bd=block_data: self.Block_sleep_interval_changed(text, bd))
+            
+            current_canvas.inspector_content_layout.insertWidget(
+                current_canvas.inspector_content_layout.count(), 
+                interval_input
+            )
+        if block_data['type'] in ('If', 'While', 'For Loop'):
+            name_label = QLabel("Value 1 Name:")
+            
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
+            
+            self.name_1_input = SearchableLineEdit()
+            self.name_1_input.setText(block_data.get('value_1_name', ''))
+            self.name_1_input.setPlaceholderText("Value 1 Name")
+            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_name_1_changed(text, bd))
+            
+            self.insert_items(block, self.name_1_input)
+            
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+            
+            type_label = QLabel("Operator:")
+            
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), type_label)
+            
+            type_input = QComboBox()
+            type_input.addItems(["==", "!=", "<", ">", "<=", ">="])
+            type_input.setCurrentText(block_data.get('operator', '=='))
+            type_input.currentTextChanged.connect(lambda text, bd=block_data: self.Block_operator_changed(text, bd))
+            
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), type_input)
+            
+            value_label = QLabel("Value 2 name:")
+            
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), value_label)
+            
+            self.name_2_input = SearchableLineEdit()
+            self.name_2_input.setText(block_data.get('value_2_name', ''))
+            self.name_2_input.setPlaceholderText("Value 2 Name")
+            self.name_2_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_2_name_changed(text, bd))
+            
+            self.insert_items(block, self.name_2_input)
+            
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_2_input)
+        if block_data['type'] == 'Switch':
+            name_label = QLabel("Value Name:")
+            
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
+            
+            self.name_1_input = SearchableLineEdit()
+            self.name_1_input.setText(block_data.get('value_1_name', ''))
+            self.name_1_input.setPlaceholderText("Value Name")
+            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_name_1_changed(text, bd))
+            
+            self.insert_items(block, self.name_1_input)
+            
+            self.Label_ON = QLabel("On")
+            self.Label_OFF = QLabel("Off")
+            
+            self.switch = CustomSwitch()
+            self.switch.set_checked(block_data.get('switch_state', False))
+            self.switch.toggled.connect(lambda state, bd=block_data: self.Block_switch_changed(state, bd))
+            
+            row_widget = QWidget()
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(5, 5, 5, 5)
+            
+            row_layout.addWidget(self.Label_OFF)
+            row_layout.addWidget(self.switch)
+            row_layout.addWidget(self.Label_ON)
+            
+            
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), row_widget, alignment=Qt.AlignmentFlag.AlignCenter)
+        if block_data['type'] == 'Button':
+            name_label = QLabel("Value Name:")
+            
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
+            
+            self.name_1_input = SearchableLineEdit()
+            self.name_1_input.setText(block_data.get('value_1_name', ''))
+            self.name_1_input.setPlaceholderText("Value Name")
+            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_name_1_changed(text, bd))
+            
+            self.insert_items(block, self.name_1_input)
+            
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
     
     def Block_value_name_1_changed(self, text, block_data):
+        current_canvas = self.current_canvas
+        if current_canvas is None:
+            print("ERROR: No current canvas available")
+            return
+        
+        # Get the splitter from the current canvas
+        canvas_splitter = getattr(current_canvas, 'canvas_splitter', None)
+        if canvas_splitter is None:
+            print("ERROR: No canvas_splitter found in current canvas")
+            return
         block_data['value_1_name'] = text
         for var_id, var_info in Utils.variables.items():
             if var_info['name'] == text:
@@ -1479,7 +1986,7 @@ class MainWindow(QMainWindow):
             if dev_info['name'] == text:
                 block_data['value_1_type'] = 'Device'
                 break
-        if self.last_block.block_type == 'Button':
+        if current_canvas.last_block.block_type == 'Button':
             block_data['value_2_name'] = ''
             block_data['value_2_type'] = 'N/A'
             if len(text) > 6:
@@ -1533,8 +2040,21 @@ class MainWindow(QMainWindow):
             item.update()
     
     def insert_items(self, block, line_edit):
-        if not block.block_id in Utils.top_infos:
+        current_canvas = self.current_canvas
+        if current_canvas is None:
+            print("ERROR: No current canvas available")
             return
+        if current_canvas.reference == 'canvas':
+            print(f"Current Utils.main_canvas['blocks']: {Utils.main_canvas['blocks']}")
+            if not block.block_id in Utils.main_canvas['blocks']:
+                return
+        elif current_canvas.reference == 'function':
+            for f_id, f_info in Utils.functions.items():
+                if current_canvas == f_info.get('canvas'):
+                    print(f"Current Utils.functions[{f_id}]['blocks']: {Utils.functions[f_id]['blocks']}")
+                    if not block.block_id in Utils.functions[f_id]['blocks']:
+                        return
+                    break
         print("Inserting items into combo box")
         if hasattr(line_edit, 'addItems'):
             print("Line edit supports addItems")
@@ -1558,22 +2078,17 @@ class MainWindow(QMainWindow):
             line_edit.addItems(all_items)
             print(f"Added {len(all_items)} items to combo box")
             
-    def hide_inspector_frame(self):
-        """Hide the inspector panel"""
-        if self.inspector_frame:
-            self.inspector_frame.hide()
-            self.inspector_frame_visible = False
     #MARK: - Variable Panel Methods
-    def add_variable_row(self, var_id=None, var_data=None):
+    def add_variable_row(self, var_id=None, var_data=None, canvas_reference=None):
         """Add a new variable row"""
         if var_id is None:
-            var_id = f"var_{self.variable_row_count}"
+            var_id = f"var_{canvas_reference.variable_row_count}"
         self.var_id = var_id
         #print(f"Adding variable row {self.var_id}")
         
-        row_widget = QWidget()
-        row_layout = QHBoxLayout(row_widget)
-        row_layout.setContentsMargins(5, 5, 5, 5)
+        canvas_reference.row_widget = QWidget()
+        canvas_reference.row_layout = QHBoxLayout(canvas_reference.row_widget)
+        canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
  
         name_imput = QLineEdit()
         name_imput.setPlaceholderText("Name")
@@ -1604,27 +2119,27 @@ class MainWindow(QMainWindow):
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
         
-        row_layout.addWidget(name_imput)
-        row_layout.addWidget(type_input)
-        row_layout.addWidget(self.value_var_input)
-        row_layout.addWidget(delete_btn)
+        canvas_reference.row_layout.addWidget(name_imput)
+        canvas_reference.row_layout.addWidget(type_input)
+        canvas_reference.row_layout.addWidget(self.value_var_input)
+        canvas_reference.row_layout.addWidget(delete_btn)
         
-        delete_btn.clicked.connect(lambda _, v_id=var_id, rw=row_widget, t="Variable": self.remove_row(rw, v_id, t))
+        delete_btn.clicked.connect(lambda _, v_id=var_id, rw=canvas_reference.row_widget, t="Variable", r=canvas_reference: self.remove_row(rw, v_id, t, r))
         
         Utils.variables[var_id] = {
             'name': '',
             'type': 'Out',
             'value': '',
-            'widget': row_widget,
+            'widget': canvas_reference.row_widget,
             'name_imput': name_imput,
             'type_input': type_input,
             'value_input': self.value_var_input
         } 
         
-        panel_layout = self.var_layout
-        self.var_layout.insertWidget(self.var_layout.count() - 1, row_widget)
+        panel_layout = canvas_reference.var_layout
+        panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
         
-        self.variable_row_count += 1
+        canvas_reference.variable_row_count += 1
         
         #print(f"Added variable: {self.var_id}")
     
@@ -1645,12 +2160,12 @@ class MainWindow(QMainWindow):
                 print(f"WARNING: varid {varid} not found in Utils.variables")
 
     #MARK: - Devices Panel Methods
-    def add_device_row(self, device_id=None, dev_data=None):
+    def add_device_row(self, device_id=None, dev_data=None, canvas_reference=None):
         """Add a new device row"""
         print(f"Adding device row called with device_id: {device_id}, dev_data: {dev_data}")
         
         if device_id is None:
-            device_id = f"device_{self.devices_row_count}"
+            device_id = f"device_{canvas_reference.devices_row_count}"
         self.device_id = device_id
         print(f"Adding device row {self.device_id}, dev_data: {dev_data}. Current devices: {Utils.devices}")
         
@@ -1664,9 +2179,9 @@ class MainWindow(QMainWindow):
             'value_input': None
         } 
         
-        row_widget = QWidget()
-        row_layout = QHBoxLayout(row_widget)
-        row_layout.setContentsMargins(5, 5, 5, 5)
+        canvas_reference.row_widget = QWidget()
+        canvas_reference.row_layout = QHBoxLayout(canvas_reference.row_widget)
+        canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
  
         name_imput = QLineEdit()
         name_imput.setPlaceholderText("Name")
@@ -1697,19 +2212,19 @@ class MainWindow(QMainWindow):
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
         
-        row_layout.addWidget(name_imput)
-        row_layout.addWidget(type_input)
-        row_layout.addWidget(self.value_dev_input)
-        row_layout.addWidget(delete_btn)
+        canvas_reference.row_layout.addWidget(name_imput)
+        canvas_reference.row_layout.addWidget(type_input)
+        canvas_reference.row_layout.addWidget(self.value_dev_input)
+        canvas_reference.row_layout.addWidget(delete_btn)
         
-        delete_btn.clicked.connect(lambda _, d_id=device_id, rw=row_widget, t="Device": self.remove_row(rw, d_id, t))
+        delete_btn.clicked.connect(lambda _, d_id=device_id, rw=canvas_reference.row_widget, t="Device", r=canvas_reference: self.remove_row(rw, d_id, t, r))
         
-        panel_layout = self.dev_layout
-        self.dev_layout.insertWidget(self.dev_layout.count() - 1, row_widget)
+        panel_layout = canvas_reference.dev_layout
+        panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
         
-        self.devices_row_count += 1
+        canvas_reference.devices_row_count += 1
         
-        Utils.devices[device_id]['widget'] = row_widget
+        Utils.devices[device_id]['widget'] = canvas_reference.row_widget
         Utils.devices[device_id]['name_imput'] = name_imput
         Utils.devices[device_id]['type_input'] = type_input
         Utils.devices[device_id]['value_input'] = self.value_dev_input
@@ -1732,7 +2247,7 @@ class MainWindow(QMainWindow):
                 print(f"WARNING: device_id {device_id} not found in Utils.devices")
     
     #MARK: - Common Methods
-    def remove_row(self, row_widget, var_id, type):
+    def remove_row(self, row_widget, var_id, type, canvas_reference=None):
         """Remove a variable row"""
         print(f"Removing row {var_id} of type {type}")
         if type == "Variable":
@@ -1753,13 +2268,13 @@ class MainWindow(QMainWindow):
                     for var_id in var:
                         Utils.variables[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
             
-            panel_layout = self.var_layout
+            panel_layout = canvas_reference.var_layout
             panel_layout.removeWidget(row_widget)
             
             row_widget.setParent(None)
             row_widget.deleteLater()
             
-            self.variable_row_count -= 1
+            canvas_reference.variable_row_count -= 1
         elif type == "Device":
             if var_id in Utils.dev_items:
                 del Utils.dev_items[var_id]
@@ -1778,13 +2293,13 @@ class MainWindow(QMainWindow):
                     for dev_id in dev:
                         Utils.devices[dev_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
             
-            panel_layout = self.dev_layout
+            panel_layout = canvas_reference.dev_layout
             panel_layout.removeWidget(row_widget)
             
             row_widget.setParent(None)
             row_widget.deleteLater()
             
-            self.devices_row_count -= 1
+            canvas_reference.devices_row_count -= 1
         #print(f"Deleted variable: {var_id}")
     
     def name_changed(self, text, var_id, type):
@@ -1810,13 +2325,6 @@ class MainWindow(QMainWindow):
                 for v_id in id_list:
                     Utils.variables[v_id]['name_imput'].setStyleSheet(border_col)
             print("Utils.variables:", Utils.variables)
-            if self.inspector_frame_visible:
-                print(f"Last block type: {self.last_block.block_type}")
-                if self.last_block.block_type in ('Switch', 'Button'):
-                    self.insert_items(self.last_block, self.name_1_input)
-                else:
-                    self.insert_items(self.last_block, self.name_1_input)
-                    self.insert_items(self.last_block, self.name_2_input)
         
         elif type == "Device":
             Utils.devices[var_id]['name'] = text
@@ -1842,13 +2350,6 @@ class MainWindow(QMainWindow):
                     Utils.devices[d_id]['name_imput'].setStyleSheet(border_col)
             print("Calling refresh_all_blocks from name_changed")
             print(f"Utils.devices: {Utils.devices}")
-            if self.inspector_frame_visible:
-                print(f"Last block type: {self.last_block.block_type}")
-                if self.last_block.block_type in ('Switch', 'Button'):
-                    self.insert_items(self.last_block, self.name_1_input)
-                else:
-                    self.insert_items(self.last_block, self.name_1_input)
-                    self.insert_items(self.last_block, self.name_2_input)
     
     def type_changed(self, imput, id, type):
         #print(f"Updating variable {imput}")
@@ -1996,7 +2497,9 @@ class MainWindow(QMainWindow):
             Utils.project_data.metadata['name'] = text
             if FileManager.save_project(text):
                 print(f"✓ Project saved as '{text}'")
-    
+
+        self.clear_canvas()
+        
     def on_open_file(self):
         """Open saved project"""
         
@@ -2019,46 +2522,66 @@ class MainWindow(QMainWindow):
         """Clear the canvas of all blocks and connections"""
         self.Clear_All_Variables()
         self.Clear_All_Devices()
-        self.current_canvas.path_manager.clear_all_paths()
-        widget_ids_to_remove = list(Utils.top_infos.keys())
-        
-        for block_id in widget_ids_to_remove:
-            if block_id in Utils.top_infos:
-                widget = Utils.top_infos[block_id]['widget']
-                widget.setParent(None)  # Remove from parent
-                widget.deleteLater()     # Schedule for deletion
-        
-        QCoreApplication.processEvents()
-        
-        self.current_canvas.update()
+        for canvas in Utils.canvas_instances.keys():
+            print("Clearing canvas:", canvas)
+            if canvas:
+                canvas.path_manager.clear_all_paths()
+                print("Cleared all paths")
+                widget_ids_to_remove = []
+                if canvas.reference == 'canvas':
+                    widget_ids_to_remove = list(Utils.main_canvas['blocks'].keys())
+                    print(f"Widget IDs to remove from main canvas: {widget_ids_to_remove}")
+                    for block_id in widget_ids_to_remove:
+                        if block_id in Utils.main_canvas['blocks']:
+                            widget = Utils.main_canvas['blocks'][block_id]['widget']
+                            print(f"Removing widget for block_id {block_id}: {widget}")
+                            widget.setParent(None)  # Remove from parent
+                            canvas.scene.removeItem(widget)  # Remove from scene
+                            widget.deleteLater()
+                            Utils.main_canvas['blocks'].pop(block_id, None)
+                elif canvas.reference == 'function':
+                    print("Clearing function canvas")
+                    for f_id, f_info in Utils.functions.items():
+                        if canvas == f_info.get('canvas'):
+                            widget_ids_to_remove = list(Utils.functions[f_id]['blocks'].keys())
+                            print(f"Widget IDs to remove from function {f_id} canvas: {widget_ids_to_remove}")
+                            for block_id in widget_ids_to_remove:
+                                if block_id in Utils.functions[f_id]['blocks']:
+                                    widget = Utils.functions[f_id]['blocks'][block_id]['widget']
+                                    print(f"Removing widget for block_id {block_id}: {widget}")
+                                    widget.setParent(None)  # Remove from parent
+                                    canvas.scene.removeItem(widget)  # Remove from scene
+                                    widget.deleteLater()
+                                    Utils.functions[f_id]['blocks'].pop(block_id, None)
+                
+                QCoreApplication.processEvents()
+                
+                canvas.update()
     
     def on_new_file(self):
         """Create new project"""
-        self.Clear_All_Variables()
-        self.Clear_All_Devices()
-        self.current_canvas.path_manager.clear_all_paths()
-        widget_ids_to_remove = list(Utils.top_infos.keys())
-        
-        for block_id in widget_ids_to_remove:
-            if block_id in Utils.top_infos:
-                widget = Utils.top_infos[block_id]['widget']
-                widget.setParent(None)  # Remove from parent
-                widget.deleteLater()     # Schedule for deletion
+        self.clear_canvas()
         
         FileManager.new_project()
-        
-        QCoreApplication.processEvents()
-        
-        self.current_canvas.update()
     
     def closeEvent(self, event):
         """Handle window close event - prompt to save if there are unsaved changes"""
+        if hasattr(self, 'auto_save_timer') and self.auto_save_timer.isActive():
+            self.auto_save_timer.stop()
         
+        # ✅ Stop execution thread
+        if hasattr(self, 'execution_thread') and self.execution_thread is not None:
+            if self.execution_thread.isRunning():
+                self.execution_thread.stop()
+                self.execution_thread.wait(3000)
+                self.execution_thread.terminate()
         name = Utils.project_data.metadata.get('name', 'Untitled')
         
         if name == 'Untitled':
             print("Closing project 'Untitled'")
             self.on_save_file_as()
+            import gc
+            gc.collect()
             event.accept()
             return
         
@@ -2088,11 +2611,18 @@ class MainWindow(QMainWindow):
                     self.on_save_file_as()
                 else:
                     self.on_save_file()
+                
+                self.clear_canvas()
                 self.close_child_windows()
+                import gc
+                gc.collect()
                 event.accept()
                 
             elif reply == QMessageBox.StandardButton.Discard:
+                self.clear_canvas()
                 self.close_child_windows()
+                import gc
+                gc.collect()
                 event.accept()
                 
             else:  # Cancel
@@ -2100,7 +2630,10 @@ class MainWindow(QMainWindow):
                 return
         else:
             # No unsaved changes
+            self.clear_canvas()
             self.close_child_windows()
+            import gc
+            gc.collect()
             event.accept()
 
     def _build_change_summary(self, comparison: dict) -> str:

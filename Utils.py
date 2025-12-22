@@ -13,6 +13,8 @@ runtime_widgets = {
 
 top_infos = {}
 paths = {}
+variables_panels = {}
+devices_panels = {}
 variables = {}
 devices = {}
 vars_same = {}
@@ -20,7 +22,9 @@ devs_same = {}
 var_items = {}
 dev_items = {}
 scene_paths = {}
-canvas_instances = []
+functions = {}
+main_canvas = {}
+canvas_instances = {}
 
 config = {
     'grid_size': 25,  # Snap-to-grid pixel size

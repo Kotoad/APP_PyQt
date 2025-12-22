@@ -92,17 +92,33 @@ class PathManager:
     def start_connection(self, block, circle_center, circle_type):
         """Start a new connection from a block's output circle"""
         print(f"✓ PathManager.start_connection: {block.block_id} ({circle_type})")
-        
-        for block_id, top_info in Utils.top_infos.items():
-            if top_info.get('widget') == block:
-                self.start_node = {
-                    'widget': block,
-                    'id': block_id,
-                    'pos': circle_center,
-                    'circle_type': circle_type
-                }
-                print(f" → Connection started from {block_id}")
-                break
+        if self.canvas.reference == 'canvas':
+            print(" → Starting from main canvas")
+            for block_id, top_info in Utils.main_canvas['blocks'].items():
+                if top_info.get('widget') == block:
+                    self.start_node = {
+                        'widget': block,
+                        'id': block_id,
+                        'pos': circle_center,
+                        'circle_type': circle_type
+                    }
+                    print(f" → Connection started from {block_id}")
+                    break
+        elif self.canvas.reference == 'function':
+            print(" → Starting from function canvas")
+            for f_id, f_info in Utils.functions.items():
+                if self.canvas == f_info.get('canvas'):
+                    print(f"   In function: {f_id}")
+                    for block_id, top_info in f_info['blocks'].items():
+                        if top_info.get('widget') == block:
+                            self.start_node = {
+                                'widget': block,
+                                'id': block_id,
+                                'pos': circle_center,
+                                'circle_type': circle_type
+                            }
+                            print(f" → Connection started from {block_id} in function {f_id}")
+                            break
     
     def cancel_connection(self):
         """Cancel the current connection"""
@@ -126,36 +142,73 @@ class PathManager:
         print(f"✓ PathManager.finalize_connection: {block.block_id} ({circle_type})")
         
         # Find target block in Utils
-        for block_id, top_info in Utils.top_infos.items():
-            if top_info.get('widget') == block:
-                from_block = self.start_node['widget']
-                to_block = block
-                connection_id = f"{self.start_node['id']}-{block_id}"
-                self.canvas.scene.removeItem(self.preview_item)
-                self.preview_item = None
-                # Create path graphics item
-                path_item = PathGraphicsItem(from_block, to_block, connection_id, self.canvas, circle_type, self.start_node['circle_type'])
-                self.canvas.scene.addItem(path_item)
-                
-                # Store in Utils and scene_paths
-                Utils.paths[connection_id] = {
-                    'from': self.start_node['id'],
-                    'from_circle_type': self.start_node['circle_type'],
-                    'to': block_id,
-                    'to_circle_type': circle_type,
-                    'waypoints': self.preview_points,
-                    'color': QColor(31, 83, 141),
-                    'item': path_item
-                }
-                Utils.scene_paths[connection_id] = path_item
-                
-                # Update block connection info
-                Utils.top_infos[self.start_node['id']]['out_connections'].append(connection_id)
-                Utils.top_infos[block_id]['in_connections'].append(connection_id)
-                
-                print(f"  → Connection created: {connection_id}")
-                break
-        
+        if self.canvas.reference == 'canvas':
+            print(" → Finalizing to main canvas")
+            for block_id, top_info in Utils.main_canvas['blocks'].items():
+                if top_info.get('widget') == block:
+                    from_block = self.start_node['widget']
+                    to_block = block
+                    connection_id = f"{self.start_node['id']}-{block_id}"
+                    self.canvas.scene.removeItem(self.preview_item)
+                    self.preview_item = None
+                    # Create path graphics item
+                    path_item = PathGraphicsItem(from_block, to_block, connection_id, self.canvas, circle_type, self.start_node['circle_type'])
+                    self.canvas.scene.addItem(path_item)
+                    
+                    # Store in Utils and scene_paths
+                    Utils.main_canvas['paths'][connection_id] = {
+                        'from': self.start_node['id'],
+                        'from_circle_type': self.start_node['circle_type'],
+                        'to': block_id,
+                        'to_circle_type': circle_type,
+                        'waypoints': self.preview_points,
+                        'canvas': self.canvas,
+                        'color': QColor(31, 83, 141),
+                        'item': path_item
+                    }
+                    Utils.scene_paths[connection_id] = path_item
+                    
+                    # Update block connection info
+                    Utils.main_canvas['blocks'][self.start_node['id']]['out_connections'].append(connection_id)
+                    Utils.main_canvas['blocks'][block_id]['in_connections'].append(connection_id)
+                    
+                    print(f"  → Connection created: {connection_id}")
+                    break
+        elif self.canvas.reference == 'function':
+            print(" → Finalizing to function canvas")
+            for f_id, f_info in Utils.functions.items():
+                if self.canvas == f_info.get('canvas'):
+                    print(f"   In function: {f_id}")
+                    for block_id, top_info in f_info['blocks'].items():
+                        if top_info.get('widget') == block:
+                            from_block = self.start_node['widget']
+                            to_block = block
+                            connection_id = f"{self.start_node['id']}-{block_id}"
+                            self.canvas.scene.removeItem(self.preview_item)
+                            self.preview_item = None
+                            # Create path graphics item
+                            path_item = PathGraphicsItem(from_block, to_block, connection_id, self.canvas, circle_type, self.start_node['circle_type'])
+                            self.canvas.scene.addItem(path_item)
+                            
+                            # Store in Utils and scene_paths
+                            Utils.functions[f_id]['paths'][connection_id] = {
+                                'from': self.start_node['id'],
+                                'from_circle_type': self.start_node['circle_type'],
+                                'to': block_id,
+                                'to_circle_type': circle_type,
+                                'waypoints': self.preview_points,
+                                'canvas': self.canvas,
+                                'color': QColor(31, 83, 141),
+                                'item': path_item
+                            }
+                            Utils.scene_paths[connection_id] = path_item
+                            
+                            # Update block connection info
+                            Utils.functions[f_id]['blocks'][self.start_node['id']]['out_connections'].append(connection_id)
+                            Utils.functions[f_id]['blocks'][block_id]['in_connections'].append(connection_id)
+                            
+                            print(f"  → Connection created: {connection_id}")
+                            break
         # Reset
         self.preview_points = []
         self.start_node = None

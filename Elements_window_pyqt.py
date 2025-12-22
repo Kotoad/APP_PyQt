@@ -22,7 +22,7 @@ class ElementsWindow(QDialog):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        
+        print(f"Curent canvas in ElementsWindow init: {parent}")
         self.parent_canvas = parent
         
         # Create spawning_elements instance

@@ -75,37 +75,92 @@ class FileManager:
         Converts all runtime data to pure JSON-safe format
         """
         # Build blocks data (WITHOUT widget references)
-        blocks_data = {}
-        for block_id, block_info in Utils.top_infos.items():
-            blocks_data[block_id] = {
-                'type': block_info['type'],
-                'id': block_id,
-                'x': block_info['x'],
-                'y': block_info['y'],
-                'width': block_info['width'],
-                'height': block_info['height'],
-                'value_1_name': block_info.get('value_1_name', ''),
-                'value_1_type': block_info.get('value_1_type', ''),
-                'value_2_name': block_info.get('value_2_name', ''),
-                'value_2_type': block_info.get('value_2_type', ''),
-                'operator': block_info.get('operator', ''),
-                'sleep_time': block_info.get('sleep_time', 0),
-                'switch_state': block_info.get('switch_state', ''),
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
-            }
-        
+        main_canvas = {
+            'blocks': {},
+            'paths': {}
+        }
+        functions = {}
+        for canvas in Utils.canvas_instances:
+            print(f"Processing canvas: {canvas}")
+            if canvas.reference == 'canvas':
+                print("Processing main canvas blocks")
+                for block_id, block_info in Utils.main_canvas['blocks'].items():
+                    main_canvas['blocks'][block_id] = {
+                        'type': block_info['type'],
+                        'id': block_id,
+                        'x': block_info['x'],
+                        'y': block_info['y'],
+                        'width': block_info['width'],
+                        'height': block_info['height'],
+                        'value_1_name': block_info.get('value_1_name', ''),
+                        'value_1_type': block_info.get('value_1_type', ''),
+                        'value_2_name': block_info.get('value_2_name', ''),
+                        'value_2_type': block_info.get('value_2_type', ''),
+                        'operator': block_info.get('operator', ''),
+                        'sleep_time': block_info.get('sleep_time', 0),
+                        'switch_state': block_info.get('switch_state', ''),
+                        'in_connections': block_info.get('in_connections', []),
+                        'out_connections': block_info.get('out_connections', []),
+                    }
+            elif canvas.reference == 'function':
+                print("Processing function canvas blocks")
+                for f_id, f_info in Utils.functions.items():
+                    if canvas == f_info.get('canvas'):
+                        functions[f_id] = {'blocks': {},
+                                           'paths': {}}
+                        for block_id, block_info in f_info['blocks'].items():
+                            print(f"Processing block {block_id} in function {f_id}")
+                            if f_id not in functions:
+                                print(f"Creating new function entry for {f_id}")
+                                functions[f_id] = {'blocks': {}}
+                            functions[f_id]['blocks'][block_id] = {
+                                'type': block_info['type'],
+                                'id': block_id,
+                                'x': block_info['x'],
+                                'y': block_info['y'],
+                                'width': block_info['width'],
+                                'height': block_info['height'],
+                                'value_1_name': block_info.get('value_1_name', ''),
+                                'value_1_type': block_info.get('value_1_type', ''),
+                                'value_2_name': block_info.get('value_2_name', ''),
+                                'value_2_type': block_info.get('value_2_type', ''),
+                                'operator': block_info.get('operator', ''),
+                                'sleep_time': block_info.get('sleep_time', 0),
+                                'switch_state': block_info.get('switch_state', ''),
+                                'in_connections': block_info.get('in_connections', []),
+                                'out_connections': block_info.get('out_connections', []),
+                            }
         # Build connections data (using block IDs, NOT widget references)
-        connections_data = {}
-        for conn_id, conn_info in Utils.paths.items():
-            connections_data[conn_id] = {
-                'from': conn_info['from'],
-                'from_circle_type': conn_info.get('from_circle_type', 'out'),
-                'to': conn_info['to'],
-                'to_circle_type': conn_info.get('to_circle_type', 'in'),
-                'waypoints': conn_info.get('waypoints', []),
-            }
-        
+        for canvas in Utils.canvas_instances:
+            print(f"Processing connections for canvas: {canvas}")
+            if canvas.reference == 'canvas':
+                print("Processing main canvas connections")
+                for conn_id, conn_info in Utils.main_canvas['paths'].items():
+                    print(f"Processing connection {conn_id} on main canvas")
+                    if conn_info.get('canvas') == canvas:
+                        main_canvas['paths'][conn_id] = {
+                            'from': conn_info['from'],
+                            'from_circle_type': conn_info.get('from_circle_type', 'out'),
+                            'to': conn_info['to'],
+                            'to_circle_type': conn_info.get('to_circle_type', 'in'),
+                            'waypoints': conn_info.get('waypoints', []),
+                        }
+            elif canvas.reference == 'function':
+                print("Processing function canvas connections")
+                for f_id, f_info in Utils.functions.items():
+                    if canvas == f_info.get('canvas'):
+                        if f_id not in functions:
+                            functions[f_id] = {'blocks': {}, 'paths': {}}
+                        for conn_id, conn_info in Utils.functions[f_id]['paths'].items():
+                            if conn_info.get('canvas') == canvas:
+                                functions[f_id]['paths'][conn_id] = {
+                                    'from': conn_info['from'],
+                                    'from_circle_type': conn_info.get('from_circle_type', 'out'),
+                                    'to': conn_info['to'],
+                                    'to_circle_type': conn_info.get('to_circle_type', 'in'),
+                                    'waypoints': conn_info.get('waypoints', []),
+                                }
+
         # Build variables data (pure data, no widget references)
         variables_data = {}
         for var_id, var_info in Utils.variables.items():
@@ -140,24 +195,14 @@ class FileManager:
         project_dict = {
             'metadata': metadata,
             'settings': settings,
-            'blocks': blocks_data,
-            'connections': connections_data,
+            'main_canvas': main_canvas,
+            'functions': functions,
             'variables': variables_data,
             'devices': devices_data,
         }
         
         return project_dict
     
-    @classmethod
-    def _get_block_id_from_widget(cls, widget) -> str:
-        """Get block ID from widget reference"""
-        for block_id, block_info in Utils.top_infos.items():
-            print(f"Checking block {block_id} for widget match...")
-            print(f"Block widget: {block_info['id']}, Target widget: {widget}")
-            if block_info['id'] is widget:
-                print(f"Match found: {block_id}")
-                return block_id
-        return "unknown"
     
     # ========================================================================
     # LOAD OPERATIONS
@@ -297,7 +342,9 @@ class FileManager:
     def new_project(cls):
         """Initialize a new empty project"""
         # Clear all data
-        Utils.top_infos.clear()
+        Utils.main_canvas.clear()
+        Utils.canvas_instances.clear()
+        Utils.functions.clear()
         Utils.paths.clear()
         Utils.variables.clear()
         Utils.devices.clear()
@@ -349,7 +396,8 @@ class FileManager:
                 print("  Treating all current data as changes")
                 return {
                     'has_changes': True,
-                    'blocks_changed': len(Utils.top_infos) > 0,
+                    'Main_canvas': len(Utils.main_canvas) > 0,
+                    'functions_changed': len(Utils.functions) > 0,
                     'connections_changed': len(Utils.paths) > 0,
                     'variables_changed': len(Utils.variables) > 0,
                     'devices_changed': len(Utils.devices) > 0,
@@ -368,7 +416,8 @@ class FileManager:
             # Compare each section
             result = {
                 'has_changes': False,
-                'blocks_changed': False,
+                'Main_canvas': False,
+                'functions_changed': False,
                 'connections_changed': False,
                 'variables_changed': False,
                 'devices_changed': False,
@@ -389,7 +438,7 @@ class FileManager:
             )
             if blocks_changed:
                 print("Blocks changes detected.")
-                result['blocks_changed'] = True
+                result['Main_canvas'] = True
                 result['details']['blocks'] = blocks_changed
             
             # Compare connections

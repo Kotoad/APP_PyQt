@@ -7,7 +7,7 @@ import socket
 import threading
 import time
 from typing import Optional, Dict, List
-
+from concurrent.futures import ThreadPoolExecutor
 try:
     import paramiko
     PARAMIKO_AVAILABLE = True
@@ -83,16 +83,23 @@ class RPiAutoDiscovery:
                 pass
         
         # Scan IPs in parallel
-        for i in range(1, min(max_ips + 1, 255)):
-            ip = f"{network_prefix}.{i}"
-            print(f"🔎 Checking IP: {ip}")
-            thread = threading.Thread(target=check_ip, args=(ip,), daemon=True)
-            threads.append(thread)
-            thread.start()
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            futures = []
+            for i in range(1, min(max_ips + 1, 255)):
+                ip = f"{network_prefix}.{i}"
+                futures.append(executor.submit(check_ip, ip))
         
         # Wait for completion
+        # ✅ CRITICAL FIX: Wait for ALL threads to complete
         for thread in threads:
-            thread.join(timeout=10)
+            thread.join()  # No timeout - wait until done
+        
+        # ✅ Clear thread references
+        threads.clear()
+        
+        # ✅ Force garbage collection
+        import gc
+        gc.collect()
         
         print(f"✓ Network scan complete. Found {len(found_devices)} devices.")
         return found_devices
