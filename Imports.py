@@ -94,10 +94,6 @@ def get_Help_Window():
     from Help_window import HelpWindow
     return HelpWindow()
 
-def get_Sidebar_TabView():
-    """Lazy import SidebarTabView - avoid circular import"""
-    from sidebar_tabview import SidebarTabView
-    return SidebarTabView
 # ============================================================================
 # LAZY IMPORTS (Imported only when needed to avoid circular deps)
 # ============================================================================
