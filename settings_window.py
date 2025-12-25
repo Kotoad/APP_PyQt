@@ -70,7 +70,14 @@ class DeviceSettingsWindow(QDialog):
     @classmethod
     def get_instance(cls, parent):
         """Get or create singleton instance"""
-        if cls._instance is None or not cls._instance.isVisible():
+        if cls._instance is not None:
+            try:
+                if cls._instance.isVisible():
+                    return cls._instance
+            except RuntimeError:
+                cls._instance = None
+        
+        if cls._instance is None:
             cls._instance = cls(parent)
         return cls._instance
     

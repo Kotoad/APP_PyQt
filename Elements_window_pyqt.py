@@ -27,22 +27,42 @@ class ElementsWindow(QDialog):
         
         # Create spawning_elements instance
         # This now handles BlockGraphicsItem creation internally
-        self.element_spawner = spawning_elements(self.parent_canvas)
-        self.element_spawner.elements_window = self
         
-        self.is_hidden = False
-        
-        # Store spawner reference on canvas
-        if hasattr(parent, 'spawner'):
-            parent.spawner = self.element_spawner
+        self.is_hidden = True
         
         self.setup_ui()
     
     @classmethod
     def get_instance(cls, parent):
         """Get or create singleton instance"""
-        if cls._instance is None or not cls._instance.isVisible():
+        print(f"ElementsWindow get_instance called with parent: {parent}")
+        if cls._instance is not None:
+            print("ElementsWindow instance exists, checking visibility")
+            try:
+                print(" Checking if instance is hidden")
+                print(f" Instance is hidden: {cls._instance.is_hidden}")
+                if cls._instance.is_hidden:
+                    # ✓ FIX: Update parent_canvas when canvas changes
+                    print(f"Current canvas in ElementsWindow get_instance: {parent}")
+                    print(f"Existing ElementsWindow canvas: {cls._instance.parent_canvas}")
+                    if cls._instance.parent_canvas != parent:
+                        print(f"Updating ElementsWindow canvas")
+                        cls._instance.parent_canvas = parent
+                        print(f"New ElementsWindow canvas set: {cls._instance.parent_canvas}")
+                    return cls._instance
+            except RuntimeError:
+                print("ElementsWindow instance was deleted, creating new one")
+                cls._instance = None
+
+            except Exception as e:
+                print(f"Error checking ElementsWindow instance: {e}")
+                cls._instance = None
+
+        if cls._instance is None:
+            print("Creating new ElementsWindow instance")
+            print(f"New ElementsWindow canvas: {parent}")
             cls._instance = cls(parent)
+        
         return cls._instance
     
     def setup_ui(self):
@@ -201,26 +221,39 @@ class ElementsWindow(QDialog):
         Args:
             element_type: "Start", "End", "Timer", "If", "While", "Switch", etc.
         """
+        
         try:
-            print(f"\n[ElementsWindow] spawn_element called: {element_type}")
+            print(f"ElementsWindow spawn_element called: {element_type}")
             
-            # Emit signal for external listeners
-            self.element_requested.emit(element_type)
+            # Get CURRENT canvas
+            print(f" Parent canvas in ElementsWindow: {self.parent_canvas}, main_window: {getattr(self.parent_canvas, 'main_window', None)}")
+            if self.parent and hasattr(self.parent_canvas, 'main_window'):
+                print(" Getting current canvas from main window")
+                current_canvas = self.parent_canvas.main_window.current_canvas
+            else:
+                current_canvas = self.parent_canvas
             
-            # Start the spawning process via element_spawner
-            # element_spawner.start() will wait for mouse click to place the element
-            self.element_spawner.start(self.parent_canvas, element_type)
+            if current_canvas is None:
+                return
             
-            print(f"  ✓ Element spawn initiated: {element_type}")
+            # ✓ Use CURRENT canvas's spawner, not stored self.element_spawner!
+            if hasattr(current_canvas, 'spawner'):
+                current_canvas.spawner.start(current_canvas, element_type)
+                print(f"Element spawn initiated on canvas {id(current_canvas)}")
+            else:
+                print("ERROR: Canvas has no spawner!")
             
         except Exception as e:
-            print(f"  ✗ Error spawning {element_type}: {e}")
+            print(f"Error spawning {element_type}: {e}")
             import traceback
             traceback.print_exc()
     
     def open(self):
         """Show the window"""
-        if not self.is_hidden:
+        print("ElementsWindow open() called")
+        if self.is_hidden:
+            print(" Showing ElementsWindow")
+            self.is_hidden = False
             self.show()
             self.raise_()
             self.activateWindow()
@@ -228,5 +261,6 @@ class ElementsWindow(QDialog):
     
     def closeEvent(self, event):
         """Handle close event"""
+        print("ElementsWindow closeEvent called")
         self.is_hidden = True
         event.accept()

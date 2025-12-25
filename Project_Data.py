@@ -7,6 +7,7 @@ class ProjectData:
             'paths': {}
         }        # Pure block data (no QWidget refs)
         self.functions = {}          # Pure function data
+        self.canvases = {}          # All canvas data
         self.variables = {}     # Pure variable data
         self.devices = {}       # Pure device data
         self.settings = {}      # App settings (RPI model, etc)
@@ -17,6 +18,7 @@ class ProjectData:
         return {
             'main_canvas': self.main_canvas,
             'functions': self.functions,
+            'canvases': self.canvases,
             'variables': self.variables,
             'devices': self.devices,
             'settings': self.settings,
@@ -30,6 +32,7 @@ class ProjectData:
         project.main_canvas = data.get('main_canvas', {})
         project.functions = data.get('functions', {})
         project.variables = data.get('variables', {})
+        project.canvases = data.get('canvases', {})
         project.devices = data.get('devices', {})
         project.settings = data.get('settings', {})
         project.metadata = data.get('metadata', {})

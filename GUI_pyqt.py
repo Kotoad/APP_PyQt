@@ -1,3 +1,5 @@
+from os import name
+from random import random
 from Imports import (
     sys, QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, threading,
     QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea, QListWidget,
@@ -15,7 +17,7 @@ from PyQt6 import QtGui
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
     get_file_manager, get_path_manager, get_Elements_Window, get_utils,
-    get_Help_Window, get_Sidebar_TabView
+    get_Help_Window
 )
 Utils = get_utils()
 Code_Compiler = get_code_compiler()
@@ -339,10 +341,9 @@ class CustomSwitch(QWidget):
         self._circle_x = 0.0
         self._is_enabled = True
         
-        # Size configuration - YOU CONTROL CIRCLE SIZE HERE!
         self.base_width = width
         self.base_height = height
-        self.circle_diameter = height - 8  # <-- CIRCLE SIZE DEPENDS ON HEIGHT!
+        self.circle_diameter = height - 8 
         self.padding = 4
         self.border_width = 2
         
@@ -714,8 +715,8 @@ class GridCanvas(QGraphicsView):
         super().__init__(parent)
         print(f"Self in GridCanvas init: {self}")
         self.grid_size = grid_size
-        
-        self.spawner = spawningelements(self)
+        elements_window = ElementsWindow.get_instance(self)
+        self.spawner = spawningelements(self, elements_window)
         self.path_manager = PathManager(self)
         self.elements_events = elementevents(self)
         self.file_manager = FileManager()
@@ -796,11 +797,13 @@ class GridCanvas(QGraphicsView):
     
     def keyPressEvent(self, event):
         """Handle keyboard shortcuts"""
+        print(f"[GridCanvas.keyPressEvent] Key: {event.key()}")
         if event.key() == Qt.Key.Key_Home:
             # Reset zoom and pan
             self.resetTransform()
             self.zoom_level = 1.0
             event.accept()
+        print(f"Spawner state: {self.spawner}, element_placed: {getattr(self.spawner, 'element_placed', None)}")
         if self.spawner and self.spawner.element_placed:
             print(f"Key pressed: {event.key()}")
             print(f"Element placed before: {self.spawner.element_placed}")
@@ -821,42 +824,40 @@ class GridCanvas(QGraphicsView):
     
     def mousePressEvent(self, event):
         """Handle mouse press - check for middle-click panning"""
-        print("⚠ GridCanvas.mousePressEvent fired!")
+        print(f"[GridCanvas.mousePressEvent] Button: {event.button()}")
         
+        # Handle middle-click panning
         if event.button() == Qt.MouseButton.MiddleButton:
-            print("Middle mouse button pressed - starting pan")
+            print("[GridCanvas] Middle mouse pressed - starting pan")
             self.middle_mouse_pressed = True
             self.middle_mouse_start = event.pos()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
             event.accept()
-            return  # Skip default processing, just pan
-        if event.button() == Qt.MouseButton.LeftButton:
-            if self.spawner and self.spawner.element_placed:
-                # Place the element at mouse position
-                scene_pos = self.mapToScene(event.position().toPoint())
-                self.spawner.place_element_at(self, scene_pos.x(), scene_pos.y())
-                event.accept()
-                return
+            return
+        
+        # Handle right-click context menu
         if event.button() == Qt.MouseButton.RightButton:
-            print("Right mouse button pressed - checking for context menu")
-            # Right-click: show context menu if over a block or path
+            print("[GridCanvas] Right mouse pressed - checking for context menu")
             scene_pos = self.mapToScene(event.position().toPoint())
-            print(f"Scene position: {scene_pos}")
             items = self.scene.items(scene_pos)
-            print(f"Items under cursor: {items}")
+            print(f"[GridCanvas] Items under cursor: {items}")
+            
             for item in items:
-                print(f"Checking item: {item}")
+                print(f"[GridCanvas] Checking item: {item}")
                 if isinstance(item, BlockGraphicsItem):
-                    print("Showing block context menu")
+                    print(f"[GridCanvas] Showing block context menu")
                     self.show_block_context_menu(item, scene_pos)
                     event.accept()
-                    return
+                    return  # ← Return ONLY if we showed context menu
                 elif isinstance(item, PathGraphicsItem):
-                    print("Showing path context menu")
+                    print(f"[GridCanvas] Showing path context menu")
                     self.show_path_context_menu(item, scene_pos)
                     event.accept()
-                    return
-        # For all other buttons, let parent handle it (sends to scene)
+                    return  # ← Return ONLY if we showed context menu
+            # ← If NO menu shown, fall through to super()
+        
+        # ✅ CRITICAL: Pass all other events to parent so blocks can receive them
+        print(f"[GridCanvas] Passing event to super() for block handling")
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
@@ -1176,7 +1177,11 @@ class MainWindow(QMainWindow):
         self.blockIDs = {}
         self.execution_thread = None
         self.canvas_added = None
-                
+        self.pages = {}
+        self.page_count = 0
+        self.count_w_separator = 0
+        self.canvas_count = 0
+        self.tab_buttons = []  # Track tab buttons
                 
         self.create_menu_bar()
         self.create_canvas_frame()
@@ -1250,10 +1255,10 @@ class MainWindow(QMainWindow):
         compile_action.triggered.connect(self.compile_and_upload)
         
     def create_canvas_frame(self):
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
         
-        main_layout = QHBoxLayout(central_widget)
+        main_layout = QHBoxLayout(self.central_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
@@ -1268,6 +1273,7 @@ class MainWindow(QMainWindow):
             print(f"Error setting mainwindow on canvas: {e}")
         
         Utils.canvas_instances[self.canvas] = {
+            'name': "Canvas",
             'canvas': self.canvas,
             'index': 0,
             'ref': 'canvas'
@@ -1287,32 +1293,18 @@ class MainWindow(QMainWindow):
             return
         if self.current_canvas != self.last_canvas:
             print(f"Sidebar tab changed to index: {index}, widget: {self.current_canvas}")
-            for var_canvas, var_panel in Utils.variables_panels.items():
-                if var_canvas == self.current_canvas:
-                    print("Current tab is a GridCanvas with Variables panel.")
-                    try:
-                        for canvas, info in Utils.canvas_instances.items():
-                            canvas.var_button.hide()
-                            if info['ref'] == 'canvas':
-                                print("Keeping variable button visible for main canvas.")
-                                canvas.var_button.show()
-                            if canvas == self.current_canvas:
-                                canvas.var_button.show()
-                    except Exception as e:
-                        print(f"Error showing/hiding variable buttons: {e}")
-            for dev_canvas, dev_panel in Utils.devices_panels.items():
-                if dev_canvas == self.current_canvas:
-                    print("Current tab is a GridCanvas with Devices panel.")
-                    try:
-                        for canvas, info in Utils.canvas_instances.items():
-                            canvas.dev_button.hide()
-                            if info['ref'] == 'canvas':
-                                print("Keeping variable button visible for main canvas.")
-                                canvas.dev_button.show()
-                            if canvas == self.current_canvas:
-                                canvas.dev_button.show()
-                    except Exception as e:
-                        print(f"Error showing/hiding device buttons: {e}")
+            try:
+                for canvas, info in Utils.canvas_instances.items():
+                    canvas.var_button.hide()
+                    canvas.dev_button.hide()
+                    canvas.separator_container.hide()
+                    if info['ref'] == 'canvas' or canvas == self.current_canvas:
+                        print("Showing variable and device buttons for main or current canvas.")
+                        canvas.var_button.show()
+                        canvas.dev_button.show()
+                        canvas.separator_container.show()
+            except Exception as e:
+                print(f"Error showing/hiding buttons on tab change: {e}")
             self.last_canvas = self.current_canvas
             
     def create_variables_panel(self, canvas_reference=None):
@@ -1435,11 +1427,7 @@ class MainWindow(QMainWindow):
         
         main_layout.addWidget(self.content_area, stretch=1)
         # Storage
-        self.pages = {}
-        self.page_count = 0
-        self.count_w_separator = 0
-        self.canvas_count = 0
-        self.tab_buttons = []  # Track tab buttons
+        
         
         return widget
 
@@ -1482,6 +1470,8 @@ class MainWindow(QMainWindow):
                     'blocks': {},
                     'paths': {}
                 }
+                Utils.variables['function_canvases'][function_id] = {}
+                Utils.devices['function_canvases'][function_id] = {}
             elif reference == "canvas":
                 Utils.main_canvas = {
                     'name': tab_name,
@@ -1507,6 +1497,11 @@ class MainWindow(QMainWindow):
             print(f"Content widget in device tab: {content_widget}")
             self.canvas_added.dev_button = QPushButton(tab_name)
             tab_button = self.canvas_added.dev_button
+        elif reference in ('canvas', 'function'):
+            self.canvas_added = content_widget
+            self.canvas_added.canvas_tab_button = QPushButton(tab_name)
+            tab_button = self.canvas_added.canvas_tab_button
+            self.canvas_added = None
         else:
             tab_button = QPushButton(tab_name)
         tab_button.setStyleSheet("""
@@ -1541,12 +1536,12 @@ class MainWindow(QMainWindow):
             self.count_w_separator+=1
             self.canvas_count+=1
             self.canvas_added = content_widget
-            self.add_separator(ref='reference')
-            self.add_new_canvas_tab_button()
-            self.add_separator()
+            self.add_separator(ref='reference', content_widget=content_widget)
+            self.add_new_canvas_tab_button(content_widget=content_widget)
+            self.add_separator(content_widget=content_widget)
             self.add_variable_tab(content_widget, 'Main')
             self.add_device_tab(content_widget, 'Main')
-            self.add_separator(ref='reference')
+            self.add_separator(ref='reference', content_widget=content_widget)
             self.canvas_added = None
             return tab_index
         elif reference == 'function':
@@ -1557,7 +1552,7 @@ class MainWindow(QMainWindow):
             self.canvas_added = content_widget
             self.add_variable_tab(content_widget, tab_name)
             self.add_device_tab(content_widget, tab_name)
-            self.add_separator(ref='reference')
+            self.add_separator(ref='reference', content_widget=content_widget)
             self.canvas_added = None
             return tab_index
         elif reference in ('variable', 'device'):
@@ -1583,10 +1578,10 @@ class MainWindow(QMainWindow):
         devices_panel = self.create_devices_panel(canvas_reference)
         self.add_tab(name+' devices', devices_panel, reference="device")
     
-    def add_new_canvas_tab_button(self):
+    def add_new_canvas_tab_button(self, content_widget=None):
         """Add a special button to create a new canvas tab"""
-        new_canvas_button = QPushButton("+ New Canvas")
-        new_canvas_button.setStyleSheet("""
+        content_widget.new_canvas_button = QPushButton("+ New Canvas")
+        content_widget.new_canvas_button.setStyleSheet("""
             QPushButton {
                 background-color: #2B2B2B;
                 color: #FFFFFF;
@@ -1603,8 +1598,8 @@ class MainWindow(QMainWindow):
                 border-left: 3px solid #4CAF50;
             
         """)
-        new_canvas_button.clicked.connect(self._on_new_canvas_clicked)
-        self.tab_layout.insertWidget(self.canvas_count, new_canvas_button)
+        content_widget.new_canvas_button.clicked.connect(self._on_new_canvas_clicked)
+        self.tab_layout.insertWidget(self.canvas_count, content_widget.new_canvas_button)
     
     def _on_new_canvas_clicked(self):
         """Handler for new canvas tab button click"""
@@ -1622,42 +1617,47 @@ class MainWindow(QMainWindow):
             new_canvas,
             reference="function",
         )
-        Utils.canvas_instances[new_canvas] = {'canvas': new_canvas,
-                                              'index': new_tab_index,
-                                              'ref': 'function'}
+        Utils.canvas_instances[new_canvas] = {
+            'canvas': new_canvas,
+            'index': new_tab_index,
+            'ref': 'function',
+            'name': name
+        }
         self.tab_changed.emit(new_tab_index)
         print(f"Utils.canvas_instances count: {len(Utils.canvas_instances)}")
         print(f"Utils.canvas_instances: {Utils.canvas_instances}")
         self.set_current_tab(new_tab_index)
     
-    def add_separator(self, ref=None):
+    def add_separator(self, ref=None, content_widget=None):
         """Add a visual separator line with exactly 5px height"""
-        
+        if not hasattr(content_widget, 'separators'):
+            content_widget.separators = []
         # Create a container for the separator
-        separator_container = QFrame()
-        separator_container.setStyleSheet("""
+        content_widget.separator_container = QFrame()
+        content_widget.separator_container.setStyleSheet("""
             QFrame {
                 background-color: transparent;
             }
         """)
-        separator_container.setFixedHeight(5)
+        content_widget.separator_container.setFixedHeight(5)
         
         # Create the actual line
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Plain)
-        separator.setLineWidth(1)
-        separator.setStyleSheet("background-color: #555555;")
+        content_widget.separator = QFrame()
+        content_widget.separator.setFrameShape(QFrame.Shape.HLine)
+        content_widget.separator.setFrameShadow(QFrame.Shadow.Plain)
+        content_widget.separator.setLineWidth(1)
+        content_widget.separator.setStyleSheet("background-color: #555555;")
         
         # Layout for container
-        layout = QVBoxLayout(separator_container)
-        layout.setContentsMargins(0, 2, 0, 2)  # Vertical padding: 2px top + 2px bottom + 1px line = 5px total
-        layout.setSpacing(0)
-        layout.addWidget(separator)
+        content_widget.layout = QVBoxLayout(content_widget.separator_container)
+        content_widget.layout.setContentsMargins(0, 2, 0, 2)  # Vertical padding: 2px top + 2px bottom + 1px line = 5px total
+        content_widget.layout.setSpacing(0)
+        content_widget.layout.addWidget(content_widget.separator)
+        content_widget.separators.append(content_widget.separator_container)
         if ref is None:
-            self.tab_layout.insertWidget(self.canvas_count, separator_container)
+            self.tab_layout.insertWidget(self.canvas_count, content_widget.separator_container)
         else:
-            self.tab_layout.insertWidget(self.count_w_separator, separator_container)
+            self.tab_layout.insertWidget(self.count_w_separator, content_widget.separator_container)
             self.count_w_separator+=1
             
     def set_current_tab(self, tab_index):
@@ -2081,40 +2081,114 @@ class MainWindow(QMainWindow):
     #MARK: - Variable Panel Methods
     def add_variable_row(self, var_id=None, var_data=None, canvas_reference=None):
         """Add a new variable row"""
+        print(f"Adding variable row to canvas_reference: {canvas_reference}")
+        self.id_var_generated = False
         if var_id is None:
-            var_id = f"var_{canvas_reference.variable_row_count}"
-        self.var_id = var_id
-        #print(f"Adding variable row {self.var_id}")
-        
+            while not self.id_var_generated:
+                var_id = f"variable_{str(int(random()*100000))}"
+                print(f"Generated variable_id attempt: {var_id}")
+                for canvas, info in Utils.canvas_instances.items():
+                    if canvas_reference == canvas and info['ref'] == 'canvas':
+                        if var_id not in Utils.variables['main_canvas'].keys():
+                            Utils.variables['main_canvas'][var_id] = {
+                                'name': '',
+                                'type': 'Int',
+                                'value': '',
+                                'widget': None,
+                                'name_imput': None,
+                                'type_input': None,
+                                'value_input': None
+                            }
+                            self.id_var_generated = True
+                            break
+                        else:
+                            var_id = None
+                    elif canvas_reference == canvas and info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                if var_id not in Utils.variables['function_canvases'][function_id].keys():
+                                    Utils.variables['function_canvases'][function_id][var_id] = {
+                                        'name': '',
+                                        'type': 'Int',
+                                        'value': '',
+                                        'widget': None,
+                                        'name_imput': None,
+                                        'type_input': None,
+                                        'value_input': None
+                                    }
+                                    self.id_var_generated = True
+                                    break
+                                else:
+                                    var_id = None
+        else:
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas and info['ref'] == 'canvas':
+                    Utils.variables['main_canvas'][var_id] = {
+                        'name': '',
+                        'type': 'Int',
+                        'value': '',
+                        'widget': None,
+                        'name_imput': None,
+                        'type_input': None,
+                        'value_input': None
+                    }
+                elif canvas_reference == canvas and info['ref'] == 'function':
+                    for function_id, function_info in Utils.functions.items():
+                        if function_info['canvas'] == canvas_reference:
+                            Utils.variables['function_canvases'][function_id][var_id] = {
+                                'name': '',
+                                'type': 'Int',
+                                'value': '',
+                                'widget': None,
+                                'name_imput': None,
+                                'type_input': None,
+                                'value_input': None
+                            }
+        print(f"Utils.variables after adding new variable: {Utils.variables}")
         canvas_reference.row_widget = QWidget()
         canvas_reference.row_layout = QHBoxLayout(canvas_reference.row_widget)
         canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
- 
+
         name_imput = QLineEdit()
         name_imput.setPlaceholderText("Name")
         if var_data and 'name' in var_data:
             name_imput.setText(var_data['name'])
-            Utils.variables[var_id]['name'] = var_data['name']
+            if info['ref'] == 'canvas':
+                Utils.variables['main_canvas'][var_id]['name'] = var_data['name']
+            elif info['ref'] == 'function':
+                for function_id, function_info in Utils.functions.items():
+                    if function_info['canvas'] == canvas_reference:
+                        Utils.variables['function_canvases'][function_id][var_id]['name'] = var_data['name']
         
-        name_imput.textChanged.connect(lambda text, v_id=var_id, t="Variable": self.name_changed(text, v_id, t))
+        name_imput.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.name_changed(text, v_id, t, r))
         
         type_input = QComboBox()
         type_input.addItems(["Int", "Float", "String", "Bool"])
         if var_data and 'type' in var_data:
             type_input.setCurrentText(var_data['type'])
-            Utils.variables[var_id]['type'] = var_data['type']
+            if info['ref'] == 'canvas':
+                Utils.variables['main_canvas'][var_id]['type'] = var_data['type']
+            elif info['ref'] == 'function':
+                for function_id, function_info in Utils.functions.items():
+                    if function_info['canvas'] == canvas_reference:
+                        Utils.variables['function_canvases'][function_id][var_id]['type'] = var_data['type']
         
-        type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable": self.type_changed(text, v_id , t))
+        type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable", r=canvas_reference: self.type_changed(text, v_id , t, r))
         
         self.value_var_input = QLineEdit()
         self.value_var_input.setPlaceholderText("Initial Value")
         if var_data and 'value' in var_data:
             self.value_var_input.setText(var_data['value'])
-            Utils.variables[var_id]['value'] = var_data['value']
+            if info['ref'] == 'canvas':
+                Utils.variables['main_canvas'][var_id]['value'] = var_data['value']
+            elif info['ref'] == 'function':
+                for function_id, function_info in Utils.functions.items():
+                    if function_info['canvas'] == canvas_reference:
+                        Utils.variables['function_canvases'][function_id][var_id]['value'] = var_data['value']
         regex = QRegularExpression(r"^\d*$")
         validator = QRegularExpressionValidator(regex, self)
         self.value_var_input.setValidator(validator)
-        self.value_var_input.textChanged.connect(lambda text, v_id=var_id, t="Variable": self.value_changed(text, v_id, t))
+        self.value_var_input.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.value_changed(text, v_id, t, r))
         
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
@@ -2125,17 +2199,19 @@ class MainWindow(QMainWindow):
         canvas_reference.row_layout.addWidget(delete_btn)
         
         delete_btn.clicked.connect(lambda _, v_id=var_id, rw=canvas_reference.row_widget, t="Variable", r=canvas_reference: self.remove_row(rw, v_id, t, r))
-        
-        Utils.variables[var_id] = {
-            'name': '',
-            'type': 'Out',
-            'value': '',
-            'widget': canvas_reference.row_widget,
-            'name_imput': name_imput,
-            'type_input': type_input,
-            'value_input': self.value_var_input
-        } 
-        
+
+        if info['ref'] == 'canvas':
+            Utils.variables['main_canvas'][var_id]['widget'] = canvas_reference.row_widget
+            Utils.variables['main_canvas'][var_id]['name_imput'] = name_imput
+            Utils.variables['main_canvas'][var_id]['type_input'] = type_input
+            Utils.variables['main_canvas'][var_id]['value_input'] = self.value_var_input
+        elif info['ref'] == 'function':
+            for function_id, function_info in Utils.functions.items():
+                if function_info['canvas'] == canvas_reference:
+                    Utils.variables['function_canvases'][function_id][var_id]['widget'] = canvas_reference.row_widget
+                    Utils.variables['function_canvases'][function_id][var_id]['name_imput'] = name_imput
+                    Utils.variables['function_canvases'][function_id][var_id]['type_input'] = type_input
+                    Utils.variables['function_canvases'][function_id][var_id]['value_input'] = self.value_var_input
         panel_layout = canvas_reference.var_layout
         panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
         
@@ -2145,40 +2221,106 @@ class MainWindow(QMainWindow):
     
     def Clear_All_Variables(self):
         print("Clearing all variables")
-        
+        var_ids_to_remove = []
         # Get a SNAPSHOT of variable IDs BEFORE modifying anything
-        var_ids_to_remove = list(Utils.variables.keys())
+        for canvas, info in Utils.canvas_instances.items():
+            if canvas == info['canvas']:
+                var_ids_to_remove += list(Utils.variables['main_canvas'].keys())
+            elif canvas == info['function']:
+                for function_id, function_info in Utils.functions.items():
+                    var_ids_to_remove += list(Utils.variables['function_canvases'][function_id].keys())
+        print(f"Current Utils.variables before clearing: {Utils.variables}")
         print(f"Variable IDs to remove: {var_ids_to_remove}")
         
         # Now remove them
-        for varid in var_ids_to_remove:
-            if varid in Utils.variables:
+        try:
+            for varid in var_ids_to_remove:
                 print(f"Removing varid: {varid}")
-                rowwidget = Utils.variables[varid]['widget']
-                self.remove_row(rowwidget, varid, 'Variable')
-            else:
-                print(f"WARNING: varid {varid} not found in Utils.variables")
+                for canvas, info in Utils.canvas_instances.items():
+                    if canvas == info['canvas']:
+                        canvas_reference = info['canvas']
+                        rowwidget = Utils.variables['main_canvas'][varid]['widget']
+                        self.remove_row(rowwidget, varid, 'Variable', canvas_reference)
+                    elif canvas == info['canvas']:
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas:
+                                canvas_reference = function_info['canvas']
+                                rowwidget = Utils.variables['function_canvases'][function_id][varid]['widget']
+                                self.remove_row(rowwidget, varid, 'Variable', canvas_reference)
+        except Exception as e:
+            print(f"Error while clearing variables: {e}")
 
     #MARK: - Devices Panel Methods
     def add_device_row(self, device_id=None, dev_data=None, canvas_reference=None):
         """Add a new device row"""
         print(f"Adding device row called with device_id: {device_id}, dev_data: {dev_data}")
-        
+        print(f"Current Utils.devices before adding new device: {Utils.devices}")
+        self.id_dev_generated = False
         if device_id is None:
-            device_id = f"device_{canvas_reference.devices_row_count}"
+            while not self.id_dev_generated:
+                device_id = f"device_{str(int(random()*100000))}"
+                print(f"Generated device_id attempt: {device_id}")
+                for canvas, info in Utils.canvas_instances.items():
+                    if canvas_reference == canvas and info['ref'] == 'canvas':
+                        if device_id not in Utils.devices['main_canvas'].keys():
+                            Utils.devices['main_canvas'][device_id] = {
+                                'name': '',
+                                'type': 'Out',
+                                'value': '',
+                                'widget': None,
+                                'name_imput': None,
+                                'type_input': None,
+                                'value_input': None
+                            }
+                            self.id_dev_generated = True
+                            break
+                        else:
+                            device_id = None
+                    elif canvas_reference == canvas and info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                if device_id not in Utils.devices['function_canvases'][function_id].keys():
+                                    Utils.devices['function_canvases'][function_id][device_id] = {
+                                        'name': '',
+                                        'type': 'Out',
+                                        'value': '',
+                                        'widget': None,
+                                        'name_imput': None,
+                                        'type_input': None,
+                                        'value_input': None
+                                    }
+                                    self.id_dev_generated = True
+                                    break
+                                else:
+                                    device_id = None
+        else:
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas and info['ref'] == 'canvas':
+                    Utils.devices['main_canvas'][device_id] = {
+                        'name': '',
+                        'type': 'Out',
+                        'PIN': '',
+                        'widget': None,
+                        'name_imput': None,
+                        'type_input': None,
+                        'value_input': None
+                    }
+                elif canvas_reference == canvas and info['ref'] == 'function':
+                    for function_id, function_info in Utils.functions.items():
+                        if function_info['canvas'] == canvas_reference:
+                            Utils.devices['function_canvases'][function_id][device_id] = {
+                                'name': '',
+                                'type': 'Out',
+                                'PIN': '',
+                                'widget': None,
+                                'name_imput': None,
+                                'type_input': None,
+                                'value_input': None
+                            }
+        print(f"Generated device_id: {device_id}")
         self.device_id = device_id
         print(f"Adding device row {self.device_id}, dev_data: {dev_data}. Current devices: {Utils.devices}")
-        
-        Utils.devices[device_id] = {
-            'name': '',
-            'type': 'Output',
-            'PIN': None,
-            'widget': None,
-            'name_imput': None,
-            'type_input': None,
-            'value_input': None
-        } 
-        
+
         canvas_reference.row_widget = QWidget()
         canvas_reference.row_layout = QHBoxLayout(canvas_reference.row_widget)
         canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
@@ -2187,27 +2329,42 @@ class MainWindow(QMainWindow):
         name_imput.setPlaceholderText("Name")
         if dev_data and 'name' in dev_data:
             name_imput.setText(dev_data['name'])
-            Utils.devices[device_id]['name'] = dev_data['name']
+            if info['ref'] == 'canvas':
+                Utils.devices['main_canvas'][device_id]['name'] = dev_data['name']
+            elif info['ref'] == 'function':
+                for function_id, function_info in Utils.functions.items():
+                    if function_info['canvas'] == canvas_reference:
+                        Utils.devices['function_canvases'][function_id][device_id]['name'] = dev_data['name']
         
-        name_imput.textChanged.connect(lambda text, d_id=device_id, t="Device": self.name_changed(text, d_id, t))
+        name_imput.textChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference: self.name_changed(text, d_id, t, r))
         
         type_input = QComboBox()
         type_input.addItems(["Output", "Input", "PWM", "Button"])
         if dev_data and 'type' in dev_data:
             type_input.setCurrentText(dev_data['type'])
-            Utils.devices[device_id]['type'] = dev_data['type']
+            if info['ref'] == 'canvas':
+                Utils.devices['main_canvas'][device_id]['type'] = dev_data['type']
+            elif info['ref'] == 'function':
+                for function_id, function_info in Utils.functions.items():
+                    if function_info['canvas'] == canvas_reference:
+                        Utils.devices['function_canvases'][function_id][device_id]['type'] = dev_data['type']
         
-        type_input.currentTextChanged.connect(lambda text, d_id=device_id, t="Device": self.type_changed(text, d_id, t))
+        type_input.currentTextChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference: self.type_changed(text, d_id, t, r))
         
         self.value_dev_input = QLineEdit()
         self.value_dev_input.setPlaceholderText("PIN")
         if dev_data and 'PIN' in dev_data:
             self.value_dev_input.setText(str(dev_data['PIN']))
-            Utils.devices[device_id]['PIN'] = dev_data['PIN']
+            if info['ref'] == 'canvas':
+                Utils.devices['main_canvas'][device_id]['PIN'] = dev_data['PIN']
+            elif info['ref'] == 'function':
+                for function_id, function_info in Utils.functions.items():
+                    if function_info['canvas'] == canvas_reference:
+                        Utils.devices['function_canvases'][function_id][device_id]['PIN'] = dev_data['PIN']
         regex = QRegularExpression(r"^\d*$")
         validator = QRegularExpressionValidator(regex, self)
         self.value_dev_input.setValidator(validator)
-        self.value_dev_input.textChanged.connect(lambda text, d_id=device_id, t="Device": self.value_changed(text, d_id, t))
+        self.value_dev_input.textChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference: self.value_changed(text, d_id, t, r))
         
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
@@ -2223,28 +2380,49 @@ class MainWindow(QMainWindow):
         panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
         
         canvas_reference.devices_row_count += 1
-        
-        Utils.devices[device_id]['widget'] = canvas_reference.row_widget
-        Utils.devices[device_id]['name_imput'] = name_imput
-        Utils.devices[device_id]['type_input'] = type_input
-        Utils.devices[device_id]['value_input'] = self.value_dev_input
-        
+        if info['ref'] == 'canvas':
+            Utils.devices['main_canvas'][device_id]['widget'] = canvas_reference.row_widget
+            Utils.devices['main_canvas'][device_id]['name_imput'] = name_imput
+            Utils.devices['main_canvas'][device_id]['type_input'] = type_input
+            Utils.devices['main_canvas'][device_id]['value_input'] = self.value_dev_input
+        elif info['ref'] == 'function':
+            for function_id, function_info in Utils.functions.items():
+                if function_info['canvas'] == canvas_reference:
+                    Utils.devices['function_canvases'][function_id][device_id]['widget'] = canvas_reference.row_widget
+                    Utils.devices['function_canvases'][function_id][device_id]['name_imput'] = name_imput
+                    Utils.devices['function_canvases'][function_id][device_id]['type_input'] = type_input
+                    Utils.devices['function_canvases'][function_id][device_id]['value_input'] = self.value_dev_input
+            
 
     def Clear_All_Devices(self):
         print("Clearing all devices")
-        
-        # Get a SNAPSHOT of device IDs BEFORE modifying anything
-        device_ids_to_remove = list(Utils.devices.keys())
-        print(f"Device IDs to remove: {device_ids_to_remove}")
-        
+        dev_ids_to_remove = []
+        # Get a SNAPSHOT of variable IDs BEFORE modifying anything
+        for canvas, info in Utils.canvas_instances.items():
+            if canvas == info['canvas']:
+                dev_ids_to_remove += list(Utils.devices['main_canvas'].keys())
+            elif canvas == info['function']:
+                for function_id, function_info in Utils.functions.items():
+                    dev_ids_to_remove += list(Utils.devices['function_canvases'][function_id].keys())
+        print(f"Current Utils.devices before clearing: {Utils.devices}")
+        print(f"Device IDs to remove: {dev_ids_to_remove}")
         # Now remove them
-        for device_id in device_ids_to_remove:
-            if device_id in Utils.devices:
+        try:
+            for device_id in dev_ids_to_remove:
                 print(f"Removing device_id: {device_id}")
-                rowwidget = Utils.devices[device_id]['widget']
-                self.remove_row(rowwidget, device_id, 'Device')
-            else:
-                print(f"WARNING: device_id {device_id} not found in Utils.devices")
+                for canvas, info in Utils.canvas_instances.items():
+                    if canvas == info['canvas']:
+                        canvas_reference = info['canvas']
+                        rowwidget = Utils.devices['main_canvas'][device_id]['widget']
+                        self.remove_row(rowwidget, device_id, 'Device', canvas_reference)
+                    elif canvas == info['function']:
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas:
+                                canvas_reference = function_info['canvas']
+                                rowwidget = Utils.devices['function_canvases'][function_id][device_id]['widget']
+                                self.remove_row(rowwidget, device_id, 'Device', canvas_reference)
+        except Exception as e:
+            print(f"Error while clearing devices: {e}")
     
     #MARK: - Common Methods
     def remove_row(self, row_widget, var_id, type, canvas_reference=None):
@@ -2254,19 +2432,30 @@ class MainWindow(QMainWindow):
             if var_id in Utils.var_items:
                 del Utils.var_items[var_id]
                 
-            if var_id in Utils.variables:
-                #print(f"Deleting {var_id}")
-                del Utils.variables[var_id]
-                for imput, var_ids in Utils.vars_same.items():
-                    if var_id in var_ids:
-                        var_ids.remove(var_id)
-                        #print(f"Vars_same {var_ids}")
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas:
+                    if info['ref'] == 'canvas':
+                        del Utils.variables['main_canvas'][var_id]
+                        for imput, var_ids in Utils.vars_same.items():
+                            if var_id in var_ids:
+                                var_ids.remove(var_id)
+                    elif info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                del Utils.variables['function_canvases'][function_id][var_id]
+                                for imput, var_ids in Utils.vars_same.items():
+                                    if var_id in var_ids:
+                                        var_ids.remove(var_id)
+                                break
             
             for imput2, var in Utils.vars_same.items():
                 #print(f"Var {var}, len var {len(var)}")
                 if len(var) <= 1:
                     for var_id in var:
-                        Utils.variables[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                        if info['ref'] == 'canvas':
+                            Utils.variables['main_canvas'][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                        elif info['ref'] == 'function':
+                            Utils.variables['function_canvases'][function_id][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
             
             panel_layout = canvas_reference.var_layout
             panel_layout.removeWidget(row_widget)
@@ -2279,19 +2468,30 @@ class MainWindow(QMainWindow):
             if var_id in Utils.dev_items:
                 del Utils.dev_items[var_id]
                 
-            if var_id in Utils.devices:
-                #print(f"Deleting {var_id}")
-                del Utils.devices[var_id]
-                for imput, dev_ids in Utils.devs_same.items():
-                    if var_id in dev_ids:
-                        dev_ids.remove(var_id)
-                        #print(f"Devs_same {dev_ids}")
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas:
+                    if info['ref'] == 'canvas':
+                        del Utils.devices['main_canvas'][var_id]
+                        for imput, dev_ids in Utils.devs_same.items():
+                            if var_id in dev_ids:
+                                dev_ids.remove(var_id)
+                    elif info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                del Utils.devices['function_canvases'][function_id][var_id]
+                                for imput, dev_ids in Utils.devs_same.items():
+                                    if var_id in dev_ids:
+                                        dev_ids.remove(var_id)
+                                break
             
             for imput2, dev in Utils.devs_same.items():
                 #print(f"Dev {dev}, len dev {len(dev)}")
                 if len(dev) <= 1:
                     for dev_id in dev:
-                        Utils.devices[dev_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                        if info['ref'] == 'canvas':
+                            Utils.devices['main_canvas'][dev_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                        elif info['ref'] == 'function':
+                            Utils.devices['function_canvases'][function_id][dev_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
             
             panel_layout = canvas_reference.dev_layout
             panel_layout.removeWidget(row_widget)
@@ -2302,67 +2502,125 @@ class MainWindow(QMainWindow):
             canvas_reference.devices_row_count -= 1
         #print(f"Deleted variable: {var_id}")
     
-    def name_changed(self, text, var_id, type):
+    def name_changed(self, text, var_id, type, canvas_reference=None):
         if type == "Variable":
-            Utils.variables[var_id]['name'] = text
-
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas:
+                    if info['ref'] == 'canvas':
+                        Utils.variables['main_canvas'][var_id]['name'] = text
+                        break
+                    elif info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                Utils.variables['function_canvases'][function_id][var_id]['name'] = text
+                                break
+            print(f"Utils.variables before name change: {Utils.variables}")
+            
             if var_id in Utils.var_items:
                 Utils.var_items[var_id] = text
             else:
                 Utils.var_items.setdefault(var_id, text)
             # Step 1: Group all var_ids by their name value
-            Utils.vars_same.clear()
-            Utils.variables[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
-            for v_id, v_info in Utils.variables.items():
-                name = v_info['name_imput'].text().strip()
-                if name:
-                    Utils.vars_same.setdefault(name, []).append(v_id)
+            Utils.vars_same.clear() 
+            if info['ref'] == 'canvas':
+                Utils.variables['main_canvas'][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+            elif info['ref'] == 'function':
+                Utils.variables['function_canvases'][function_id][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+            if info['ref'] == 'canvas':
+                for v_id, v_info in Utils.variables['main_canvas'].items():
+                    name = v_info['name_imput'].text().strip()
+                    if name:
+                        Utils.vars_same.setdefault(name, []).append(v_id)
+            elif info['ref'] == 'function':
+                for v_id, v_info in Utils.variables['function_canvases'][function_id].items():
+                    name = v_info['name_imput'].text().strip()
+                    if name:
+                        Utils.vars_same.setdefault(name, []).append(v_id)
             
             # Step 2: Color red if duplicate
             for name, id_list in Utils.vars_same.items():
                 #print(id_list)
                 border_col = "border-color: #ff0000;" if len(id_list) > 1 else "border-color: #3F3F3F;"
-                for v_id in id_list:
-                    Utils.variables[v_id]['name_imput'].setStyleSheet(border_col)
+                if info['ref'] == 'canvas':
+                    for v_id in id_list:
+                        Utils.variables['main_canvas'][v_id]['name_imput'].setStyleSheet(border_col)
+                elif info['ref'] == 'function':                
+                    for v_id in id_list:
+                        Utils.variables['function_canvases'][function_id][v_id]['name_imput'].setStyleSheet(border_col)
             print("Utils.variables:", Utils.variables)
         
         elif type == "Device":
-            Utils.devices[var_id]['name'] = text
-
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas:
+                    if info['ref'] == 'canvas':
+                        Utils.devices['main_canvas'][var_id]['name'] = text
+                        break
+                    elif info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                Utils.devices['function_canvases'][function_id][var_id]['name'] = text
+                                break
+            print(f"Utils.devices before name change: {Utils.devices}")
+            
             if var_id in Utils.dev_items:
                 Utils.dev_items[var_id] = text
             else:
                 Utils.dev_items.setdefault(var_id, text)
-            print(f"dev_items: {Utils.dev_items}")
-            # Step 1: Group all dev_ids by their name value
-            Utils.devs_same.clear()
-            Utils.devices[var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
-            for d_id, d_info in Utils.devices.items():
-                name = d_info['name_imput'].text().strip()
-                if name:
-                    Utils.devs_same.setdefault(name, []).append(d_id)
+            # Step 1: Group all var_ids by their name value
+            Utils.devs_same.clear() 
+            if info['ref'] == 'canvas':
+                Utils.devices['main_canvas'][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+            elif info['ref'] == 'function':
+                Utils.devices['function_canvases'][function_id][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+            if info['ref'] == 'canvas':
+                for d_id, d_info in Utils.devices['main_canvas'].items():
+                    name = d_info['name_imput'].text().strip()
+                    if name:
+                        Utils.devs_same.setdefault(name, []).append(d_id)
+            elif info['ref'] == 'function':
+                for d_id, d_info in Utils.devices['function_canvases'][function_id].items():
+                    name = d_info['name_imput'].text().strip()
+                    if name:
+                        Utils.devs_same.setdefault(name, []).append(d_id)
             
             # Step 2: Color red if duplicate
             for name, id_list in Utils.devs_same.items():
                 #print(id_list)
                 border_col = "border-color: #ff0000;" if len(id_list) > 1 else "border-color: #3F3F3F;"
-                for d_id in id_list:
-                    Utils.devices[d_id]['name_imput'].setStyleSheet(border_col)
-            print("Calling refresh_all_blocks from name_changed")
-            print(f"Utils.devices: {Utils.devices}")
+                if info['ref'] == 'canvas':
+                    for d_id in id_list:
+                        Utils.devices['main_canvas'][d_id]['name_imput'].setStyleSheet(border_col)
+                elif info['ref'] == 'function':                
+                    for d_id in id_list:
+                        Utils.devices['function_canvases'][function_id][d_id]['name_imput'].setStyleSheet(border_col)
+            print("Utils.devices:", Utils.devices)
     
-    def type_changed(self, imput, id, type):
+    def type_changed(self, imput, id, type, canvas_reference=None):
         #print(f"Updating variable {imput}")
         if type == "Variable":
-            if id in Utils.variables:
-                Utils.variables[id]['type'] = imput
-                print(f"Type {id} value changed to: {imput}")
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas:
+                    if info['ref'] == 'canvas':
+                        Utils.variables['main_canvas'][id]['type'] = imput
+                        break
+                    elif info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                Utils.variables['function_canvases'][function_id][id]['type'] = imput
+                                break
         elif type == "Device":
-            if id in Utils.devices:
-                Utils.devices[id]['type'] = imput
-                print(f"Type {id} value changed to: {imput}")
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas:
+                    if info['ref'] == 'canvas':
+                        Utils.devices['main_canvas'][id]['type'] = imput
+                        break
+                    elif info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                Utils.devices['function_canvases'][function_id][id]['type'] = imput
+                                break
     
-    def value_changed(self, imput, id, type):
+    def value_changed(self, imput, id, type, canvas_reference=None):
         #print(f"Updating variable {imput}")
         
         if type == "Variable":
@@ -2382,9 +2640,17 @@ class MainWindow(QMainWindow):
             except ValueError:
                     # Text is empty or can't convert (shouldn't happen with regex)
                     pass
-            if id in Utils.variables:
-                Utils.variables[id]['value'] = imput
-                print(f"Value {id} value changed to: {imput}")
+            
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas:
+                    if info['ref'] == 'canvas':
+                        Utils.variables['main_canvas'][id]['value'] = imput
+                        break
+                    elif info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                Utils.variables['function_canvases'][function_id][id]['value'] = imput
+                                break
         elif type == "Device":
             try:
                 value = len(imput)
@@ -2402,14 +2668,26 @@ class MainWindow(QMainWindow):
             except ValueError:
                     # Text is empty or can't convert (shouldn't happen with regex)
                     pass
-            if id in Utils.devices:
-                Utils.devices[id]['PIN'] = imput
-                print(f"device {id} PIN changed to: {imput}")   
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas:
+                    if info['ref'] == 'canvas':
+                        Utils.devices['main_canvas'][id]['PIN'] = imput
+                        break
+                    elif info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                Utils.devices['function_canvases'][function_id][id]['PIN'] = imput
+                                break    
     #MARK: - Other Methods
     def open_elements_window(self):
         """Open the elements window"""
+        print("Opening elements window")
         elements_window = ElementsWindow.get_instance(self.current_canvas)
-        elements_window.open()
+        print("Elements window instance:", elements_window)
+        try:
+            elements_window.open()
+        except Exception as e:
+            print(f"Error opening elements window: {e}")
     
     def open_settings_window(self):
         """Open the device settings window"""
@@ -2473,7 +2751,6 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"✗ Auto-save error: {e}")
 
-    
     def on_save_file(self):
         """Save current project"""
         
@@ -2497,8 +2774,6 @@ class MainWindow(QMainWindow):
             Utils.project_data.metadata['name'] = text
             if FileManager.save_project(text):
                 print(f"✓ Project saved as '{text}'")
-
-        self.clear_canvas()
         
     def on_open_file(self):
         """Open saved project"""
@@ -2513,7 +2788,7 @@ class MainWindow(QMainWindow):
             "Select project:", items, 0, False)
         
         if ok and item:
-            self.clear_canvas()
+            self.wipe_canvas()
             if FileManager.load_project(item):
                 self.rebuild_from_data()
                 print(f"✓ Project '{item}' loaded")
@@ -2529,132 +2804,299 @@ class MainWindow(QMainWindow):
                 print("Cleared all paths")
                 widget_ids_to_remove = []
                 if canvas.reference == 'canvas':
-                    widget_ids_to_remove = list(Utils.main_canvas['blocks'].keys())
+                    widget_ids_to_remove += list(Utils.main_canvas['blocks'].keys())
                     print(f"Widget IDs to remove from main canvas: {widget_ids_to_remove}")
-                    for block_id in widget_ids_to_remove:
-                        if block_id in Utils.main_canvas['blocks']:
-                            widget = Utils.main_canvas['blocks'][block_id]['widget']
-                            print(f"Removing widget for block_id {block_id}: {widget}")
-                            widget.setParent(None)  # Remove from parent
-                            canvas.scene.removeItem(widget)  # Remove from scene
-                            widget.deleteLater()
-                            Utils.main_canvas['blocks'].pop(block_id, None)
                 elif canvas.reference == 'function':
                     print("Clearing function canvas")
                     for f_id, f_info in Utils.functions.items():
                         if canvas == f_info.get('canvas'):
-                            widget_ids_to_remove = list(Utils.functions[f_id]['blocks'].keys())
+                            widget_ids_to_remove += list(Utils.functions[f_id]['blocks'].keys())
                             print(f"Widget IDs to remove from function {f_id} canvas: {widget_ids_to_remove}")
-                            for block_id in widget_ids_to_remove:
-                                if block_id in Utils.functions[f_id]['blocks']:
-                                    widget = Utils.functions[f_id]['blocks'][block_id]['widget']
-                                    print(f"Removing widget for block_id {block_id}: {widget}")
-                                    widget.setParent(None)  # Remove from parent
-                                    canvas.scene.removeItem(widget)  # Remove from scene
-                                    widget.deleteLater()
-                                    Utils.functions[f_id]['blocks'].pop(block_id, None)
-                
+                for widget_id in widget_ids_to_remove:
+                    if widget_id in Utils.main_canvas['blocks'].keys():
+                        block_widget = Utils.main_canvas['blocks'][widget_id]['widget']
+                        canvas.remove_block(block_widget)
+                        print(f"Removed block {widget_id} from main canvas")
+                    else:
+                        for f_id, f_info in Utils.functions.items():
+                            if widget_id in Utils.functions[f_id]['blocks'].keys():
+                                block_widget = Utils.functions[f_id]['blocks'][widget_id]['widget']
+                                canvas.remove_block(block_widget)
+                                print(f"Removed block {widget_id} from function {f_id} canvas")
                 QCoreApplication.processEvents()
                 
                 canvas.update()
     
-    def on_new_file(self):
-        """Create new project"""
+    def wipe_canvas(self):
+        self.close_child_windows()
+        
         self.clear_canvas()
         
+        self.delete_canvas_instance()
+        
         FileManager.new_project()
+
+        ElementsWindow._instance = None
+
+        Utils.variables = {
+            'main_canvas': {},
+            'function_canvases': {}
+        }
+        Utils.devices = {
+            'main_canvas': {},
+            'function_canvases': {}
+        }
+        self.help_window_instance = None
+        self.variable_frame = None
+        self.variable_frame_visible = False
+        self.variable_row_count = 1
+        self.Devices_frame = None
+        self.devices_frame_visible = False
+        self.devices_row_count = 1
+        self.last_canvas = None
+        self.blockIDs = {}
+        self.execution_thread = None
+        self.canvas_added = None
+        self.pages = {}
+        self.page_count = 0
+        self.count_w_separator = 0
+        self.canvas_count = 0
+        self.tab_buttons = []  # Track tab buttons
+        
+        self.central_widget.setParent(None)
+        self.central_widget.deleteLater()
+    
+    def on_new_file(self):
+        """Create new project"""
+        self.wipe_canvas()
+        
+        self.create_canvas_frame()
+        
+    def delete_canvas_instance(self):
+        """Delete a canvas instance from tracking"""
+        canvases_to_delete = {}
+        for canvas_key, info in list(Utils.canvas_instances.items()):
+            canvases_to_delete[canvas_key] = info['canvas']
+            if info['ref'] == 'canvas':
+                print(f"Preparing to delete main canvas instance: {canvas_key}")
+                canvas_key.new_canvas_button.setParent(None)
+                canvas_key.new_canvas_button.deleteLater()
+
+        for canvas in canvases_to_delete:
+            del Utils.canvas_instances[canvas]
+            print(f"Deleted canvas instance: {canvas}")
+            canvas.deleteLater()
+            canvas.var_button.setParent(None)
+            canvas.dev_button.setParent(None)
+            canvas.canvas_tab_button.setParent(None)
+            canvas.var_button.deleteLater()
+            canvas.dev_button.deleteLater()
+            canvas.canvas_tab_button.deleteLater()
+            self.remove_excess_separators(canvas)
+    
+    def remove_excess_separators(self, content_widget):
+        """
+        Deletes ALL separators for a canvas if it has more than one.
+        """
+        # Check if the list exists and has more than 1 item
+        print(f"Checking separators for canvas: {content_widget}")
+        print(f"Current separators: {getattr(content_widget, 'separators', None)}")
+        if hasattr(content_widget, 'separators') and len(content_widget.separators) >= 1:
+            print(f"Found {len(content_widget.separators)} separators. Deleting all...")
+            
+            # Iterate through the list and remove each separator
+            for sep in content_widget.separators:
+                sep.setParent(None)
+                sep.deleteLater()
+                
+                # IMPORTANT: Decrement the layout counter to keep indices correct
+                self.count_w_separator -= 1
+
+            # Clear the list and the single reference
+            content_widget.separators.clear()
+            content_widget.separator_container = None
+            
+            print("All separators deleted.")    
     
     def closeEvent(self, event):
         """Handle window close event - prompt to save if there are unsaved changes"""
+        
+        # Stop auto-save timer
         if hasattr(self, 'auto_save_timer') and self.auto_save_timer.isActive():
             self.auto_save_timer.stop()
         
-        # ✅ Stop execution thread
+        # Stop execution thread
         if hasattr(self, 'execution_thread') and self.execution_thread is not None:
             if self.execution_thread.isRunning():
                 self.execution_thread.stop()
                 self.execution_thread.wait(3000)
                 self.execution_thread.terminate()
-        name = Utils.project_data.metadata.get('name', 'Untitled')
         
-        if name == 'Untitled':
-            print("Closing project 'Untitled'")
-            self.on_save_file_as()
-            import gc
-            gc.collect()
-            event.accept()
-            return
+        name = Utils.project_data.metadata.get("name", "Untitled")
         
-        # Save current state to compare file
-        FileManager.save_project(name, is_compare=True)
-        
-        # Compare with last saved version
-        comparison = FileManager.compare_projects(name)
-        
-        if comparison['has_changes']:
-            # Show detailed change summary
-            change_summary = self._build_change_summary(comparison)
+        if name == "Untitled":
+            # Check if untitled project has any content
+            has_content = (
+                len(Utils.main_canvas.get("blocks", {})) > 0 or
+                len(Utils.functions) > 0 or
+                len(Utils.variables.get("main_canvas", {})) > 0 or
+                len(Utils.devices.get("main_canvas", {})) > 0
+            )
             
-            # Show dialog asking if user wants to save
+            if not has_content:
+                # Empty untitled project, just close
+                self.clear_canvas()
+                self.close_child_windows()
+                import gc
+                gc.collect()
+                event.accept()
+                return
+            
+            # Has content but untitled
             reply = QMessageBox.question(
-                self,
-                'Save Project?',
-                f'Do you want to save changes before closing?\n\n{change_summary}',
-                QMessageBox.StandardButton.Save | 
-                QMessageBox.StandardButton.Discard | 
+                self, "Save Project?",
+                f"Save untitled project before closing?",
+                QMessageBox.StandardButton.Save |
+                QMessageBox.StandardButton.Discard |
                 QMessageBox.StandardButton.Cancel,
                 QMessageBox.StandardButton.Save
             )
             
             if reply == QMessageBox.StandardButton.Save:
-                if name == 'Untitled':
-                    self.on_save_file_as()
-                else:
-                    self.on_save_file()
-                
-                self.clear_canvas()
-                self.close_child_windows()
-                import gc
-                gc.collect()
-                event.accept()
-                
-            elif reply == QMessageBox.StandardButton.Discard:
-                self.clear_canvas()
-                self.close_child_windows()
-                import gc
-                gc.collect()
-                event.accept()
-                
-            else:  # Cancel
+                self.on_save_file_as()
+            elif reply != QMessageBox.StandardButton.Discard:
                 event.ignore()
                 return
-        else:
-            # No unsaved changes
-            self.clear_canvas()
-            self.close_child_windows()
-            import gc
-            gc.collect()
-            event.accept()
-
-    def _build_change_summary(self, comparison: dict) -> str:
-        """Build human-readable summary of changes"""
-        summary = []
         
-        if comparison['blocks_changed']:
-            summary.append(f"📦 Blocks modified")
-        if comparison['connections_changed']:
-            summary.append(f"🔗 Connections modified")
-        if comparison['variables_changed']:
-            summary.append(f"📋 Variables modified")
-        if comparison['devices_changed']:
-            summary.append(f"⚙️ Devices modified")
-        if comparison['settings_changed']:
-            summary.append(f"⚙️ Settings modified")
+        else:
+            # Compare with saved version
+            FileManager.save_project(name, is_compare=True)
+            comparison = FileManager.compare_projects(name)
+            print(f"Comparison result for '{name}': {comparison}")
+            print(f"Has changes: {comparison.has_changes}")
+            if comparison.has_changes:
+                print("Unsaved changes detected, prompting user")
+                change_summary = self.build_change_summary(comparison)
+                reply = QMessageBox.question(
+                    self, "Save Project?",
+                    f"Do you want to save changes to '{name}' before closing?\n\n{change_summary}",
+                    QMessageBox.StandardButton.Save |
+                    QMessageBox.StandardButton.Discard |
+                    QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Save
+                )
+                
+                if reply == QMessageBox.StandardButton.Save:
+                    FileManager.save_project(name)
+                elif reply != QMessageBox.StandardButton.Discard:
+                    event.ignore()
+                    return
+        
+        # Cleanup and close
+        self.clear_canvas()
+        self.close_child_windows()
+        import gc
+        gc.collect()
+        event.accept()
+
+    def has_unsaved_changes(self) -> bool:
+        """Check if there are unsaved changes in the project"""
+        name = Utils.project_data.metadata.get("name", "Untitled")
+        
+        if name == "Untitled":
+            # Check if project has content
+            return (
+                len(Utils.main_canvas.get("blocks", {})) > 0 or
+                len(Utils.functions) > 0 or
+                len(Utils.variables.get("main_canvas", {})) > 0 or
+                len(Utils.devices.get("main_canvas", {})) > 0
+            )
+        
+        try:
+            comparison = FileManager.compare_projects(name)
+            return comparison.has_changes
+        except Exception as e:
+            print(f"Error checking for unsaved changes: {e}")
+            return True  # Assume changes if comparison fails
+    
+    def build_change_summary(self, comparison) -> str:
+        """Build detailed human-readable summary from ProjectComparison"""
+        summary = []
+        print(f"Building change summary from comparison: {comparison}")
+        # Main Canvas Changes
+        if comparison.main_canvas_changed:
+            print("Main canvas changes detected")
+            main_details = []
+            if comparison.main_blocks_added:
+                main_details.append(f"  ✓ {len(comparison.main_blocks_added)} block(s) added")
+            if comparison.main_blocks_removed:
+                main_details.append(f"  ✓ {len(comparison.main_blocks_removed)} block(s) removed")
+            if comparison.main_blocks_modified:
+                main_details.append(f"  ✓ {len(comparison.main_blocks_modified)} block(s) modified")
+            if comparison.main_connections_added:
+                main_details.append(f"  ✓ {len(comparison.main_connections_added)} connection(s) added")
+            if comparison.main_connections_removed:
+                main_details.append(f"  ✓ {len(comparison.main_connections_removed)} connection(s) removed")
+            
+            if main_details:
+                summary.append("📋 Main Canvas:")
+                summary.extend(main_details)
+        
+        # Function Canvas Changes
+        if comparison.function_canvases_changed:
+            print("Function canvas changes detected")
+            func_details = []
+            if comparison.function_canvases_added:
+                func_details.append(f"  ✓ {len(comparison.function_canvases_added)} function(s) added")
+            if comparison.function_canvases_removed:
+                func_details.append(f"  ✓ {len(comparison.function_canvases_removed)} function(s) removed")
+            if comparison.function_blocks_modified:
+                func_details.append(f"  ✓ {len(comparison.function_blocks_modified)} function(s) with block changes")
+            if comparison.function_connections_modified:
+                func_details.append(f"  ✓ {len(comparison.function_connections_modified)} function(s) with connection changes")
+            
+            if func_details:
+                summary.append("⚙️ Functions:")
+                summary.extend(func_details)
+        
+        # Variables Changes
+        if comparison.variables_changed:
+            print("Variable changes detected")
+            var_details = []
+            if comparison.variables_added:
+                var_details.append(f"  ✓ {len(comparison.variables_added)} variable(s) added")
+            if comparison.variables_removed:
+                var_details.append(f"  ✓ {len(comparison.variables_removed)} variable(s) removed")
+            if comparison.variables_modified:
+                var_details.append(f"  ✓ {len(comparison.variables_modified)} variable(s) modified")
+            
+            if var_details:
+                summary.append("📊 Variables:")
+                summary.extend(var_details)
+        
+        # Devices Changes
+        if comparison.devices_changed:
+            print("Device changes detected")
+            dev_details = []
+            if comparison.devices_added:
+                dev_details.append(f"  ✓ {len(comparison.devices_added)} device(s) added")
+            if comparison.devices_removed:
+                dev_details.append(f"  ✓ {len(comparison.devices_removed)} device(s) removed")
+            if comparison.devices_modified:
+                dev_details.append(f"  ✓ {len(comparison.devices_modified)} device(s) modified")
+            
+            if dev_details:
+                summary.append("🔌 Devices:")
+                summary.extend(dev_details)
+        
+        # Settings Changes
+        if comparison.settings_changed:
+            summary.append(f"⚡ Settings: {len(comparison.settings_modified)} setting(s) changed")
         
         if not summary:
-            return "No changes detected."
+            return "✓ No changes detected."
         
-        return "Changes detected:\n• " + "\n• ".join(summary)
+        return "Unsaved Changes Detected:\n\n" + "\n".join(summary)
 
     def has_unsaved_changes(self) -> bool:
         """Check if there are unsaved changes in the project"""
@@ -2676,11 +3118,13 @@ class MainWindow(QMainWindow):
         
         # Close Elements window if it exists
         try:
-            elements_window = ElementsWindow.get_instance(self.current_canvas)
-            if elements_window.isVisible():
-                elements_window.close()
+            if ElementsWindow._instance is not None:
+                if ElementsWindow._instance.isVisible():
+                    ElementsWindow._instance.close()
+                ElementsWindow._instance = None
         except:
-            pass
+            # If instance already deleted, just reset
+            ElementsWindow._instance = None
         
         # Close Device Settings window if it exists
         try:
@@ -2957,6 +3401,8 @@ class MainWindow(QMainWindow):
         """
         print("Starting rebuild from saved data...")
         
+        self.rebuild_canvas_instances()
+        
         self._rebuild_settings()
         
         # Rebuild variable panel
@@ -2972,9 +3418,43 @@ class MainWindow(QMainWindow):
         self._rebuild_connections()
         
         
-        
         print("✓ Project rebuild complete")
 
+    def rebuild_canvas_instances(self):
+        """Rebuild canvas instances from project data"""
+        print("Rebuilding canvas instances...")
+        
+        # Recreate main canvas
+        self.create_canvas_frame()
+        print("Main canvas recreated")
+        
+        # Recreate function canvases
+        print(f"Recreating {len(Utils.project_data.canvases)} canvases from project data...")
+        print(f" Canvas data: {Utils.project_data.canvases}")
+        for canvas, canvas_info in Utils.project_data.canvases.items():
+            print(f" Recreating canvas: {canvas_info['name']} (Ref: {canvas_info['ref']})")
+            name = canvas_info['name']
+            if canvas_info['ref'] == 'main_canvas':
+                print(" Skipping main canvas, already created")
+                continue  # Skip main canvas, already created
+            elif canvas_info['ref'] == 'function':
+                print(f" Creating function canvas: {canvas_info['name']}")
+                new_canvas = GridCanvas()
+                new_canvas.main_window = self
+                new_tab_index = self.add_tab(
+                    tab_name=canvas_info['name'],
+                    content_widget=new_canvas,
+                    reference="function",
+                )
+                Utils.canvas_instances[new_canvas] = {
+                    'canvas': new_canvas,
+                    'index': new_tab_index,
+                    'ref': 'function',
+                    'name': name
+                }
+        
+        print("Canvas instances rebuilt")
+    
     def _rebuild_settings(self):
         """Rebuild settings from project_data"""
         print(f"Rebuilding {len(Utils.project_data.settings)} settings...")
@@ -2987,228 +3467,300 @@ class MainWindow(QMainWindow):
 
     def _rebuild_blocks(self):
         """Recreate all block widgets on canvas from project_data"""
-        print(f"Rebuilding {len(Utils.project_data.blocks)} blocks...")
-        # Clear existing blocks from canvas
-        for block_id in list(Utils.top_infos.keys()):
-            if block_id in Utils.top_infos:
-                widget = Utils.top_infos[block_id]['widget']
-                widget.setParent(None)
-                widget.deleteLater()
+        try:
+            for canvas, canvas_info in Utils.canvas_instances.items():
+                if canvas_info['ref'] == 'canvas':
+                    for block_id, block in Utils.project_data.main_canvas['blocks'].items():
+                        self.add_block_from_data(
+                            block_type=block['type'],
+                            x=block['x'],
+                            y=block['y'],
+                            block_id=str(block_id),
+                            canvas=canvas
+                        )
+                            
+                elif canvas_info['ref'] == 'function':
+                    print("Rebuilding blocks for function canvas")
+                    for function_id, function_info in Utils.functions.items():
+                        print(f" Checking function: {function_id}")
+                        if function_info['canvas'] == canvas:
+                            print(f" Found matching canvas for function: {function_id}")
+                            for block_id, block in Utils.project_data.functions[function_id]['blocks'].items():
+                                print(f"  Rebuilding block {block_id} of type {block['type']}")
+                                self.add_block_from_data(
+                                    block_type=block['type'],
+                                    x=block['x'],
+                                    y=block['y'],
+                                    block_id=str(block_id),
+                                    canvas=canvas
+                                )
+            print("✓ Blocks rebuilt on canvas")
+        except Exception as e:
+            print(f"❌ Error rebuilding blocks: {e}")
         
-        Utils.top_infos.clear()
-        
-        # Recreate each block
 
-        for block_id, block_data in Utils.project_data.blocks.items():
-            block_id = str(block_id)
-            print(f" Recreating block {block_id} of type {block_data['type']}...")
-            try:
-                # Create the block widget
-                block_widget = self.add_block_from_data(
-                    block_type=block_data['type'],
-                    x=block_data['x'],
-                    y=block_data['y'],
-                    block_id=block_id
-                )
-                
-                print(f" Utils.top_infos updated with block {block_id}")
-                print(f" Utils.top_infos now has {len(Utils.top_infos)} blocks")
-                print(f" Block data: {Utils.top_infos[block_id]}")
-                print(f"  ✓ Block {block_id} ({block_data['type']}) recreated")
-                
-            except Exception as e:
-                print(f"  ✗ Error recreating block {block_id}: {e}")
-
-    def add_block_from_data(self, block_type, x, y, block_id):
-        
-        
+    def add_block_from_data(self, block_type, x, y, block_id, canvas=None):
         
         """Add a new block to the canvas"""
         block = BlockGraphicsItem(
             x=x, y=y,
             block_id=block_id,
             block_type=block_type,
-            parent_canvas=self.current_canvas
+            parent_canvas=canvas
         )
-        
-        block.value_1_name = Utils.project_data.blocks[block_id].get('value_1_name', "var1")
-        #block.value_1_type = Utils.project_data.blocks[block_id].get('value_1_type', "N/A")
-        block.value_2_name = Utils.project_data.blocks[block_id].get('value_2_name', "var2")
-        #block.value_2_type = Utils.project_data.blocks[block_id].get('value_2_type', "N/A")
-        block.operator = Utils.project_data.blocks[block_id].get('operator', "==")
-        block.switch_state = Utils.project_data.blocks[block_id].get('switch_state', False)
-        block.sleep_time = Utils.project_data.blocks[block_id].get('sleep_time', "1000")
-        
-        self.current_canvas.scene.addItem(block)
+        for canvas_key, canvas_info in Utils.canvas_instances.items():
+            if canvas_info['canvas'] == canvas:
+                break
+        if canvas_info['ref'] == 'canvas':
+            block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
+            #block.value_1_type = Utils.project_data.blocks[block_id].get('value_1_type', "N/A")
+            block.value_2_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2")
+            #block.value_2_type = Utils.project_data.blocks[block_id].get('value_2_type', "N/A")
+            block.operator = Utils.project_data.main_canvas['blocks'][block_id].get('operator', "==")
+            block.switch_state = Utils.project_data.main_canvas['blocks'][block_id].get('switch_state', False)
+            block.sleep_time = Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000")
+        if canvas_info['ref'] == 'function':
+            print("Setting function canvas block properties")
+            for function_id, function_info in Utils.functions.items():
+                print(f" Checking function: {function_id}")
+                if function_info['canvas'] == canvas:
+                    print(f" Found matching canvas for function: {function_id}")
+                    block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
+                    #block.value_1_type = Utils.project_data.blocks[block_id].get('value_1_type', "N/A")
+                    block.value_2_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2")
+                    #block.value_2_type = Utils.project_data.blocks[block_id].get('value_2_type', "N/A")
+                    block.operator = Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', "==")
+                    block.switch_state = Utils.project_data.functions[function_id]['blocks'][block_id].get('switch_state', False)
+                    block.sleep_time = Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000")
+                    break
+                
+        canvas.scene.addItem(block)
         
         # Store in Utils
-        Utils.top_infos[block_id] = {
-            'type': Utils.project_data.blocks[block_id]['type'],
-            'id': block_id,
-            'widget': block,
-            'type': block_type,
-            'width': block.boundingRect().width(),
-            'height': block.boundingRect().height(),
-            'x': x,
-            'y': y,
-            'value_1_name': Utils.project_data.blocks[block_id].get('value_1_name', "var1"),
-            'value_1_type': Utils.project_data.blocks[block_id].get('value_1_type', "N/A"),
-            'value_2_name': Utils.project_data.blocks[block_id].get('value_2_name', "var2"),
-            'value_2_type': Utils.project_data.blocks[block_id].get('value_2_type', "N/A"),
-            'operator': Utils.project_data.blocks[block_id].get('operator', "=="),
-            'switch_state': Utils.project_data.blocks[block_id].get('switch_state', False),
-            'sleep_time': Utils.project_data.blocks[block_id].get('sleep_time', "1000"),
-            'in_connections': Utils.project_data.blocks[block_id].get('in_connections', []),
-            'out_connections': Utils.project_data.blocks[block_id].get('out_connections', [])
-        }
+        if canvas_info['ref'] == 'canvas':
+            Utils.main_canvas['blocks'][block_id] = {
+                'type': Utils.project_data.main_canvas['blocks'][block_id]['type'],
+                'id': block_id,
+                'widget': block,
+                'type': block_type,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
+                'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
+                'value_2_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2"),
+                'value_2_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_type', "N/A"),
+                'operator': Utils.project_data.main_canvas['blocks'][block_id].get('operator', "=="),
+                'switch_state': Utils.project_data.main_canvas['blocks'][block_id].get('switch_state', False),
+                'sleep_time': Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000"),
+                'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
+                'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', [])
+            }
+        if canvas_info['ref'] == 'function':
+            print("Storing function canvas block in Utils")
+            for function_id, function_info in Utils.functions.items():
+                print(f" Checking function: {function_id}")
+                if function_info['canvas'] == canvas:
+                    print(f" Found matching canvas for function: {function_id}")
+                    Utils.functions[function_id]['blocks'][block_id] = {
+                        'type': Utils.project_data.functions[function_id]['blocks'][block_id]['type'],
+                        'id': block_id,
+                        'widget': block,
+                        'type': block_type,
+                        'width': block.boundingRect().width(),
+                        'height': block.boundingRect().height(),
+                        'x': x,
+                        'y': y,
+                        'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
+                        'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
+                        'value_2_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2"),
+                        'value_2_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_type', "N/A"),
+                        'operator': Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', "=="),
+                        'switch_state': Utils.project_data.functions[function_id]['blocks'][block_id].get('switch_state', False),
+                        'sleep_time': Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000"),
+                        'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
+                        'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', [])
+                    }
+                    break
         block.connect_graphics_signals()
         return block
 
     def _rebuild_connections(self):
         """Recreate all connection paths from projectdata"""
-        print(f"Rebuilding {len(Utils.project_data.connections)} connections...")
+        for canvas, canvas_info in Utils.canvas_instances.items():
+            if canvas_info['ref'] == 'canvas':
+                print(f"Rebuilding {len(Utils.project_data.main_canvas['paths'])} connections...")
+                print(f"Utils.top_infos contains: {list(Utils.main_canvas['blocks'].keys())}")
+                print(f"Project connections: {list(Utils.project_data.main_canvas['paths'].keys())}")
+                print(f"Path conections before rebuild: {Utils.project_data.main_canvas['paths']}")
+            
+                for conn_id, conn_data in Utils.project_data.main_canvas['paths'].items():
+                    try:
+                        from_block_id = str(conn_data.get("from"))
+                        to_block_id = str(conn_data.get("to"))
+                        
+                        print(f"Processing connection {conn_id}: {from_block_id} -> {to_block_id}")
+                        
+                        # DEBUG: Check what's actually in Utils.top_infos
+                        print(f"Available block IDs in Utils.top_infos: {list(Utils.main_canvas['blocks'].keys())}")
+                        print(f"Is {from_block_id} in top_infos? {from_block_id in Utils.main_canvas['blocks']}")
+                        print(f"Is {to_block_id} in top_infos? {to_block_id in Utils.main_canvas['blocks']}")
+                        
+                        if from_block_id not in Utils.main_canvas['blocks'] or to_block_id not in Utils.main_canvas['blocks']:
+                            print(f"❌ Connection {conn_id}: Missing block reference!")
+                            print(f"  from_block_id ({from_block_id}) exists: {from_block_id in Utils.main_canvas['blocks']}")
+                            print(f"  to_block_id ({to_block_id}) exists: {to_block_id in Utils.main_canvas['blocks']}")
+                            continue
+                        
+                        from_block = Utils.main_canvas['blocks'][from_block_id]
+                        to_block = Utils.main_canvas['blocks'][to_block_id]
+                        
+                        from_blockwidget = from_block.get("widget")
+                        to_blockwidget = to_block.get("widget")
+                        
+                        path_item = PathGraphicsItem(
+                            from_block=from_blockwidget,
+                            to_block=to_blockwidget,
+                            path_id=conn_id,
+                            parent_canvas=canvas,
+                            to_circle_type=conn_data.get("to_circle_type", "in"),
+                            from_circle_type=conn_data.get("from_circle_type", "out")
+                        )
+                        canvas.scene.addItem(path_item)
+                        # Recreate connection
+                        Utils.main_canvas['paths'][conn_id] = {
+                            'from': from_block_id,
+                            'from_circle_type': conn_data.get("from_circle_type", "out"),
+                            'to': to_block_id,
+                            'to_circle_type': conn_data.get("to_circle_type", "in"),
+                            'waypoints': conn_data.get("waypoints", []),
+                            'canvas': canvas,
+                            'color': QColor(31, 83, 141),
+                            'item': path_item
+                        }
+                        print(f"Recreated path in Utils.main_canvas: {Utils.main_canvas['paths'][conn_id]}")
+                        Utils.scene_paths[conn_id] = path_item
+                        
+                        # Update block connection references
+                        if conn_id not in from_block.get("out_connections", []):
+                            from_block.get("out_connections", []).append(conn_id)
+                        if conn_id not in to_block.get("in_connections", []):
+                            to_block.get("in_connections", []).append(conn_id)
+                        
+                        print(f"✓ Connection {conn_id} recreated")
+                        
+                    except Exception as e:
+                        print(f"❌ Error recreating connection {conn_id}: {e}")
+                        import traceback
+                        traceback.print_exc()
+            elif canvas_info['ref'] == 'function':
+                for function_id, function_info in Utils.functions.items():
+                    print(f" Checking function: {function_id}")
+                    if function_info['canvas'] == canvas:
+                        print(f" Found matching canvas for function: {function_id}")
+                        print(f"Rebuilding {len(Utils.project_data.functions[function_id]['paths'])} connections...")
+                        print(f"Utils.top_infos contains: {list(Utils.functions[function_id]['blocks'].keys())}")
+                        print(f"Project connections: {list(Utils.project_data.functions[function_id]['paths'].keys())}")
+                        print(f"Path conections before rebuild: {Utils.project_data.functions[function_id]['paths']}")
+                    
+                        for conn_id, conn_data in Utils.project_data.functions[function_id]['paths'].items():
+                            try:
+                                from_block_id = str(conn_data.get("from"))
+                                to_block_id = str(conn_data.get("to"))
+                                
+                                print(f"Processing connection {conn_id}: {from_block_id} -> {to_block_id}")
+                                
+                                # DEBUG: Check what's actually in Utils.top_infos
+                                print(f"Available block IDs in Utils.top_infos: {list(Utils.functions[function_id]['blocks'].keys())}")
+                                print(f"Is {from_block_id} in top_infos? {from_block_id in Utils.functions[function_id]['blocks']}")
+                                print(f"Is {to_block_id} in top_infos? {to_block_id in Utils.functions[function_id]['blocks']}")
+                                
+                                if from_block_id not in Utils.functions[function_id]['blocks'] or to_block_id not in Utils.functions[function_id]['blocks']:
+                                    print(f"❌ Connection {conn_id}: Missing block reference!")
+                                    print(f"  from_block_id ({from_block_id}) exists: {from_block_id in Utils.functions[function_id]['blocks']}")
+                                    print(f"  to_block_id ({to_block_id}) exists: {to_block_id in Utils.functions[function_id]['blocks']}")
+                                    continue
+                                
+                                from_block = Utils.functions[function_id]['blocks'][from_block_id]
+                                to_block = Utils.functions[function_id]['blocks'][to_block_id]
+                                
+                                from_blockwidget = from_block.get("widget")
+                                to_blockwidget = to_block.get("widget")
+                                
+                                path_item = PathGraphicsItem(
+                                    from_block=from_blockwidget,
+                                    to_block=to_blockwidget,
+                                    path_id=conn_id,
+                                    parent_canvas=canvas,
+                                    to_circle_type=conn_data.get("to_circle_type", "in"),
+                                    from_circle_type=conn_data.get("from_circle_type", "out")
+                                )
+                                canvas.scene.addItem(path_item)
+                                # Recreate connection
+                                Utils.functions[function_id]['paths'][conn_id] = {
+                                    'from': from_block_id,
+                                    'from_circle_type': conn_data.get("from_circle_type", "out"),
+                                    'to': to_block_id,
+                                    'to_circle_type': conn_data.get("to_circle_type", "in"),
+                                    'waypoints': conn_data.get("waypoints", []),
+                                    'canvas': canvas,
+                                    'color': QColor(31, 83, 141),
+                                    'item': path_item
+                                }
+                                print(f"Recreated path in Utils.functions for {function_id}: {Utils.functions[function_id]['paths'][conn_id]}")
+                                Utils.scene_paths[conn_id] = path_item
+                                
+                                # Update block connection references
+                                if conn_id not in from_block.get("out_connections", []):
+                                    from_block.get("out_connections", []).append(conn_id)
+                                if conn_id not in to_block.get("in_connections", []):
+                                    to_block.get("in_connections", []).append(conn_id)
+                                
+                                print(f"✓ Connection {conn_id} recreated")
+                                
+                            except Exception as e:
+                                print(f"❌ Error recreating connection {conn_id}: {e}")
+                                import traceback
+                                traceback.print_exc()
+                                
+        for canvas, canvas_info in Utils.canvas_instances.items():
+            canvas.scene.update()
+            
         
-        # Don't clear! The blocks should already be in Utils.top_infos from rebuild_blocks()
-        # Utils.paths.clear()  # KEEP THIS
-        self.current_canvas.path_manager.clear_all_paths()
-        
-        print(f"Utils.top_infos contains: {list(Utils.top_infos.keys())}")
-        print(f"Project connections: {list(Utils.project_data.connections.keys())}")
-        print(f"Path conections before rebuild: {Utils.project_data.connections}")
-        for conn_id, conn_data in Utils.project_data.connections.items():
-            try:
-                from_block_id = str(conn_data.get("from"))
-                to_block_id = str(conn_data.get("to"))
-                
-                print(f"Processing connection {conn_id}: {from_block_id} -> {to_block_id}")
-                
-                # DEBUG: Check what's actually in Utils.top_infos
-                print(f"Available block IDs in Utils.top_infos: {list(Utils.top_infos.keys())}")
-                print(f"Is {from_block_id} in top_infos? {from_block_id in Utils.top_infos}")
-                print(f"Is {to_block_id} in top_infos? {to_block_id in Utils.top_infos}")
-                
-                if from_block_id not in Utils.top_infos or to_block_id not in Utils.top_infos:
-                    print(f"❌ Connection {conn_id}: Missing block reference!")
-                    print(f"  from_block_id ({from_block_id}) exists: {from_block_id in Utils.top_infos}")
-                    print(f"  to_block_id ({to_block_id}) exists: {to_block_id in Utils.top_infos}")
-                    continue
-                
-                from_block = Utils.top_infos[from_block_id]
-                to_block = Utils.top_infos[to_block_id]
-                
-                from_blockwidget = from_block.get("widget")
-                to_blockwidget = to_block.get("widget")
-                
-                path_item = PathGraphicsItem(
-                    from_block=from_blockwidget,
-                    to_block=to_blockwidget,
-                    path_id=conn_id,
-                    parent_canvas=self.current_canvas,
-                    to_circle_type=conn_data.get("to_circle_type", "in"),
-                    from_circle_type=conn_data.get("from_circle_type", "out")
-                )
-                self.current_canvas.scene.addItem(path_item)
-                # Recreate connection
-                Utils.paths[conn_id] = {
-                    'from': from_block_id,
-                    'from_circle_type': conn_data.get("from_circle_type", "out"),
-                    'to': to_block_id,
-                    'to_circle_type': conn_data.get("to_circle_type", "in"),
-                    'waypoints': conn_data.get("waypoints", []),
-                    'color': QColor(31, 83, 141),
-                    'item': path_item
-                }
-                Utils.scene_paths[conn_id] = path_item
-                
-                # Update block connection references
-                if conn_id not in from_block.get("out_connections", []):
-                    from_block.get("out_connections", []).append(conn_id)
-                if conn_id not in to_block.get("in_connections", []):
-                    to_block.get("in_connections", []).append(conn_id)
-                
-                print(f"✓ Connection {conn_id} recreated")
-                
-            except Exception as e:
-                print(f"❌ Error recreating connection {conn_id}: {e}")
-                import traceback
-                traceback.print_exc()
-        
-        self.current_canvas.update()
-
     def _rebuild_variables_panel(self):
         """Recreate variables in the side panel"""
         print(f"Rebuilding {len(Utils.project_data.variables)} variables...")
         
-        if not self.variable_frame:
-            self.show_variable_frame()
-        
-        panel_layout = self.var_layout
-        
-        # Clear existing variable rows
-        for var_id in list(Utils.variables.keys()):
-            if var_id in Utils.variables:
-                widget = Utils.variables[var_id].get('widget')
-                if widget:
-                    panel_layout.removeWidget(widget)
-                    widget.setParent(None)
-                    widget.deleteLater()
-        
-        Utils.variables.clear()
-        Utils.var_items.clear()
-        Utils.vars_same.clear()
-        self.variable_row_count = 1
-        
-        # Recreate each variable
-        for var_id, var_data in Utils.project_data.variables.items():
-            try:
-                # Add variable row to UI
-                self.add_variable_row(var_id, var_data)
-                for v_id, v_info in Utils.variables.items():
-                    Utils.var_items[v_id] = v_info['name']
-                print(f"  ✓ Variable {var_id} ({var_data['name']}) recreated")
-                
-            except Exception as e:
-                print(f"  ✗ Error recreating variable {var_id}: {e}")
-        if self.variable_frame:
-            self.hide_variable_frame()
+        for canvas, canvas_info in Utils.canvas_instances.items():
+            print(f" Canvas: {canvas_info['name']} (Ref: {canvas_info['ref']})")
+            if canvas_info['ref'] == 'canvas':
+                print(" Recreating variables for main canvas")
+                for var_id, var_info in list(Utils.project_data.variables['main_canvas'].items()):
+                    print(f"  Recreating variable {var_id} on main canvas")
+                    self.add_variable_row(var_id, var_info, canvas)
+            elif canvas_info['ref'] == 'function':
+                print(f" Recreating variables for function canvas: {canvas_info['name']}")
+                for var_id, var_info in list(Utils.project_data.variables['function_canvases'].items()):
+                    print(f"  Recreating variable {var_id} on function canvas")
+                    self.add_variable_row(var_id, var_info, canvas)
 
     def _rebuild_devices_panel(self):
         """Recreate devices in the side panel"""
         print(f"Rebuilding {len(Utils.project_data.devices)} devices...")
         
-        if not self.Devices_frame:
-            self.show_devices_frame()
-            
-        panel_layout = self.dev_layout
-        
-        # Clear existing device rows
-        for dev_id in list(Utils.devices.keys()):
-            if dev_id in Utils.devices:
-                widget = Utils.devices[dev_id].get('widget')
-                if widget:
-                    panel_layout.removeWidget(widget)
-                    widget.setParent(None)
-                    widget.deleteLater()
-        
-        Utils.devices.clear()
-        Utils.dev_items.clear()
-        Utils.devs_same.clear()
-        self.devices_row_count = 0
-        
-        # Recreate each device
-        for dev_id, dev_data in Utils.project_data.devices.items():
-            try:
-                # Add device row to UI
-                self.add_device_row(dev_id, dev_data)
-                for d_id, d_info in Utils.devices.items():
-                    Utils.dev_items[d_id] = d_info['name']
-                print(f"  ✓ Device {dev_id} ({dev_data['name']}) recreated")
-                
-            except Exception as e:
-                print(f"  ✗ Error recreating device {dev_id}: {e}")
-
-        if self.Devices_frame:
-            self.hide_devices_frame()
+        for canvas, canvas_info in Utils.canvas_instances.items():
+            print(f" Canvas: {canvas_info['name']} (Ref: {canvas_info['ref']})")
+            if canvas_info['ref'] == 'canvas':
+                print(" Recreating devices for main canvas")
+                for dev_id, dev_info in list(Utils.project_data.devices['main_canvas'].items()):
+                    print(f"  Recreating device {dev_id} on main canvas")
+                    self.add_device_row(dev_id, dev_info, canvas)
+            elif canvas_info['ref'] == 'function':
+                print(f" Recreating devices for function canvas: {canvas_info['name']}")
+                for dev_id, dev_info in list(Utils.project_data.devices['function_canvases'].items()):
+                    print(f"  Recreating device {dev_id} on function canvas")
+                    self.add_device_row(dev_id, dev_info, canvas)
         
 def main():
     app = QApplication(sys.argv)

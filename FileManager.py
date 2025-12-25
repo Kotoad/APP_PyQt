@@ -8,8 +8,47 @@ from Imports import (json, os, datetime, Path, get_utils, ProjectData)
 
 Utils = get_utils()
 
-
-
+class ProjectComparison:
+    """Detailed project comparison results"""
+    def __init__(self):
+        self.has_changes = False
+        
+        # Main canvas comparisons
+        self.main_blocks_added = []
+        self.main_blocks_removed = []
+        self.main_blocks_modified = {}  # {block_id: [changed_properties]}
+        
+        self.main_connections_added = []
+        self.main_connections_removed = []
+        self.main_connections_modified = {}
+        
+        # Function canvas comparisons
+        self.function_canvases_added = []  # {fid: function_name}
+        self.function_canvases_removed = []  # {fid: function_name}
+        
+        self.function_blocks_modified = {}  # {fid: {block_id: [properties]}}
+        self.function_connections_modified = {}  # {fid: {changed_count}}
+        
+        # Variables (main + all functions)
+        self.variables_added = []
+        self.variables_removed = []
+        self.variables_modified = {}  # {var_id: {old, new, location}}
+        
+        # Devices (main + all functions)
+        self.devices_added = []
+        self.devices_removed = []
+        self.devices_modified = {}  # {dev_id: {old, new, location}}
+        
+        # Settings
+        self.settings_modified = {}  # {setting_key: {old, new}}
+        
+        # Summary flags
+        self.main_canvas_changed = False
+        self.function_canvases_changed = False
+        self.variables_changed = False
+        self.devices_changed = False
+        self.settings_changed = False
+        
 class FileManager:
     """Manages project file operations with auto-save capabilities"""
     
@@ -149,10 +188,15 @@ class FileManager:
                 print("Processing function canvas connections")
                 for f_id, f_info in Utils.functions.items():
                     if canvas == f_info.get('canvas'):
+                        print(f"Processing connections for function {f_id}")
+                        print(f" Function connections: {Utils.functions[f_id]['paths']}")
                         if f_id not in functions:
+                            print(f"Creating new function entry for connections for {f_id}")
                             functions[f_id] = {'blocks': {}, 'paths': {}}
                         for conn_id, conn_info in Utils.functions[f_id]['paths'].items():
+                            print(f"Conn_info: {conn_info}")
                             if conn_info.get('canvas') == canvas:
+                                print(f"Processing connection {conn_id} in function {f_id}")
                                 functions[f_id]['paths'][conn_id] = {
                                     'from': conn_info['from'],
                                     'from_circle_type': conn_info.get('from_circle_type', 'out'),
@@ -160,24 +204,68 @@ class FileManager:
                                     'to_circle_type': conn_info.get('to_circle_type', 'in'),
                                     'waypoints': conn_info.get('waypoints', []),
                                 }
-
+        print(f"Saved main canvas paths : {main_canvas['paths']}")
+        for function_id, function_info in functions.items():
+            print(f"Saved function {function_id} paths : {function_info['paths']}")       
         # Build variables data (pure data, no widget references)
-        variables_data = {}
-        for var_id, var_info in Utils.variables.items():
-            variables_data[var_id] = {
-                'name': var_info.get('name', ''),
-                'type': var_info.get('type', ''),
-                'value': var_info.get('value', ''),
-            }
+        variables_data = {
+            'main_canvas': {},      
+            'function_canvases': {} 
+        }
+        for canvas in Utils.canvas_instances:
+            print(f"Processing variables for canvas: {canvas}")
+            if canvas.reference == 'canvas':
+                print("Processing main canvas variables")
+                for var_id, var_info in Utils.variables['main_canvas'].items():
+                    print(f" Processing variable {var_id} for main canvas")
+                    print(f"  Var info: {var_info}")
+                    variables_data['main_canvas'][var_id] = {
+                        'name': var_info.get('name', ''),
+                        'type': var_info.get('type', ''),
+                        'value': var_info.get('value', ''),
+                    }
+            elif canvas.reference == 'function':
+                print("Processing function canvas variables")
+                for f_id, f_info in Utils.functions.items():
+                    if canvas == f_info.get('canvas'):
+                        variables_data['function_canvases'][f_id] = {}
+                        print(f" Processing variables for function {f_id}")
+                        for var_id, var_info in Utils.variables['function_canvases'][f_id].items():
+                            variables_data['function_canvases'][f_id][var_id] = {
+                                'name': var_info.get('name', ''),
+                                'type': var_info.get('type', ''),
+                                'value': var_info.get('value', ''),
+                            }
         
         # Build devices data (pure data, no widget references)
-        devices_data = {}
-        for dev_id, dev_info in Utils.devices.items():
-            devices_data[dev_id] = {
-                'name': dev_info.get('name', ''),
-                'type': dev_info.get('type', 'Output'),
-                'PIN': dev_info.get('PIN', None),
-            }
+        devices_data = {
+            'main_canvas': {},      
+            'function_canvases': {} 
+        }
+        for canvas in Utils.canvas_instances:
+            print(f"Processing devices for canvas: {canvas}")
+            if canvas.reference == 'canvas':
+                print("Processing main canvas devices")
+                for dev_id, dev_info in Utils.devices['main_canvas'].items():
+                    print(f" Processing device {dev_id} for main canvas")
+                    print(f"  Device info: {dev_info}")
+                    devices_data['main_canvas'][dev_id] = {
+                        'name': dev_info.get('name', ''),
+                        'type': dev_info.get('type', ''),
+                        'PIN': dev_info.get('PIN', ''),
+                    }
+            elif canvas.reference == 'function':
+                print("Processing function canvas devices")
+                for f_id, f_info in Utils.functions.items():
+                    if canvas == f_info.get('canvas'):
+                        devices_data['function_canvases'][f_id] = {}
+                        print(f" Processing devices for function {f_id}")
+                        for dev_id, dev_info in Utils.devices['function_canvases'][f_id].items():
+                            devices_data['function_canvases'][f_id][dev_id] = {
+                                'name': dev_info.get('name', ''),
+                                'type': dev_info.get('type', ''),
+                                'PIN': dev_info.get('PIN', ''),
+                            }
         metadata = {
             'version': '1.0',
             'name': project_name,
@@ -185,6 +273,15 @@ class FileManager:
                       datetime.now().isoformat()),
             'modified': datetime.now().isoformat(),
         }
+        
+        canvases = {}
+        for canvas, canvas_info in Utils.canvas_instances.items():
+            canvases[str(canvas)] = {
+                'canvas': str(canvas),
+                'ref': canvas_info.get('ref', 'canvas'),
+                'index': canvas_info.get('index', 0),
+                'name': canvas_info.get('name', ''),
+            }
         
         settings = {
             'rpi_model': Utils.app_settings.rpi_model,
@@ -196,6 +293,7 @@ class FileManager:
             'metadata': metadata,
             'settings': settings,
             'main_canvas': main_canvas,
+            'canvases': canvases,
             'functions': functions,
             'variables': variables_data,
             'devices': devices_data,
@@ -270,10 +368,12 @@ class FileManager:
         Utils.project_data.settings = project_dict.get('settings', {})
         
         # Load blocks (pure data only)
-        Utils.project_data.blocks = project_dict.get('blocks', {})
+        Utils.project_data.main_canvas = project_dict.get('main_canvas', {})
+        
+        Utils.project_data.functions = project_dict.get('functions', {})
         
         # Load connections (pure data only)
-        Utils.project_data.connections = project_dict.get('connections', {})
+        Utils.project_data.canvases = project_dict.get('canvases', {})
         
         # Load variables
         Utils.project_data.variables = project_dict.get('variables', {})
@@ -281,8 +381,9 @@ class FileManager:
         # Load devices
         Utils.project_data.devices = project_dict.get('devices', {})
         
-        print(f"✓ Data loaded: {len(Utils.project_data.blocks)} blocks, "
-              f"{len(Utils.project_data.connections)} connections, "
+        print(f"✓ Data loaded: {len(Utils.project_data.main_canvas)} blocks, "
+              f"{len(Utils.project_data.functions)} functions, "
+              f"{len(Utils.project_data.canvases)} connections, "
               f"{len(Utils.project_data.variables)} variables, "
               f"{len(Utils.project_data.devices)} devices, "
               f"Settings: {len(Utils.project_data.settings)}"
@@ -365,298 +466,390 @@ class FileManager:
         print("✓ New project created")
 
     @classmethod
-    def compare_projects(cls, project_name: str) -> dict:
+    def compare_projects(cls, name: str) -> ProjectComparison:
         """
-        Compare current project with saved compare file.
-        Returns a dict with detailed change information.
+        Compare the currently loaded project (Utils.projectdata) against 
+        the last saved version on disk. Handles:
+        - Main canvas blocks & connections
+        - All function canvases blocks & connections
+        - All variables (main + functions)
+        - All devices (main + functions)
+        - Settings
         
+        Args:
+            name: Project name to compare against
+            
         Returns:
-            {
-                'has_changes': bool,
-                'blocks_changed': bool,
-                'connections_changed': bool,
-                'variables_changed': bool,
-                'devices_changed': bool,
-                'settings_changed': bool,
-                'details': {
-                    'blocks': {...},
-                    'connections': {...},
-                    'variables': {...},
-                    'devices': {...},
-                    'settings': {...}
-                }
-            }
+            ProjectComparison object with detailed change info
         """
+        comparison = ProjectComparison()
+        
         try:
-            # Load the compare file
-            compare_path = os.path.join(cls.COMPARE_DIR, project_name + "_TEMP" + cls.PROJECT_EXTENSION)
-            current_path = os.path.join(cls.PROJECTS_DIR, project_name + cls.PROJECT_EXTENSION)
-            if not os.path.exists(compare_path):
-                print(f"⚠ Compare file not found: {compare_path}")
-                print("  Treating all current data as changes")
-                return {
-                    'has_changes': True,
-                    'Main_canvas': len(Utils.main_canvas) > 0,
-                    'functions_changed': len(Utils.functions) > 0,
-                    'connections_changed': len(Utils.paths) > 0,
-                    'variables_changed': len(Utils.variables) > 0,
-                    'devices_changed': len(Utils.devices) > 0,
-                    'settings_changed': False,
-                    'details': {}
-                }
+            # Load the saved project data
+            compare_dict = cls._load_project_dict(name)
+            if not compare_dict:
+                comparison.has_changes = True
+                return comparison
             
-            # Load compare file
-            with open(compare_path, 'r') as f:
-                compare_data = json.load(f)
+            current_data = ProjectData.from_dict(compare_dict)
+            saved_data = Utils.project_data
             
-            # Build current project data
-            with open(current_path, 'r') as f:
-                current_data = json.load(f)
+            # =====================================================
+            # 1. COMPARE MAIN CANVAS BLOCKS & CONNECTIONS
+            # =====================================================
+            cls._compare_main_canvas_blocks(saved_data, current_data, comparison)
+            cls._compare_main_canvas_connections(saved_data, current_data, comparison)
             
-            # Compare each section
-            result = {
-                'has_changes': False,
-                'Main_canvas': False,
-                'functions_changed': False,
-                'connections_changed': False,
-                'variables_changed': False,
-                'devices_changed': False,
-                'settings_changed': False,
-                'details': {
-                    'blocks': [],
-                    'connections': [],
-                    'variables': [],
-                    'devices': [],
-                    'settings': []
-                }
-            }
+            # =====================================================
+            # 2. COMPARE FUNCTION CANVASES
+            # =====================================================
+            cls._compare_function_canvases(saved_data, current_data, comparison)
             
-            # Compare blocks
-            blocks_changed = cls._compare_blocks(
-                current_data.get('blocks', {}),
-                compare_data.get('blocks', {})
+            # =====================================================
+            # 3. COMPARE VARIABLES (main + all functions)
+            # =====================================================
+            cls._compare_variables_all(saved_data, current_data, comparison)
+            
+            # =====================================================
+            # 4. COMPARE DEVICES (main + all functions)
+            # =====================================================
+            cls._compare_devices_all(saved_data, current_data, comparison)
+            
+            # =====================================================
+            # 5. COMPARE SETTINGS
+            # =====================================================
+            cls._compare_settings(saved_data, current_data, comparison)
+            
+            # Final tally
+            comparison.has_changes = (
+                comparison.main_canvas_changed or
+                comparison.function_canvases_changed or
+                comparison.variables_changed or
+                comparison.devices_changed or
+                comparison.settings_changed
             )
-            if blocks_changed:
-                print("Blocks changes detected.")
-                result['Main_canvas'] = True
-                result['details']['blocks'] = blocks_changed
             
-            # Compare connections
-            connections_changed = cls._compare_connections(
-                current_data.get('connections', {}),
-                compare_data.get('connections', {})
-            )
-            if connections_changed:
-                print("Connections changes detected.")
-                result['connections_changed'] = True
-                result['details']['connections'] = connections_changed
+            return comparison
             
-            # Compare variables
-            variables_changed = cls._compare_variables(
-                current_data.get('variables', {}),
-                compare_data.get('variables', {})
-            )
-            if variables_changed:
-                print("Variables changes detected.")
-                result['variables_changed'] = True
-                result['details']['variables'] = variables_changed
-            
-            # Compare devices
-            devices_changed = cls._compare_devices(
-                current_data.get('devices', {}),
-                compare_data.get('devices', {})
-            )
-            if devices_changed:
-                print("Devices changes detected.")
-                result['devices_changed'] = True
-                result['details']['devices'] = devices_changed
-            
-            # Compare settings
-            settings_changed = cls._compare_settings(
-                current_data.get('settings', {}),
-                compare_data.get('settings', {})
-            )
-            if settings_changed:
-                print("Settings changes detected.")
-                result['settings_changed'] = True
-                result['details']['settings'] = settings_changed
-            
-            # Overall has_changes
-            result['has_changes'] = (
-                result['blocks_changed'] or 
-                result['connections_changed'] or 
-                result['variables_changed'] or 
-                result['devices_changed'] or 
-                result['settings_changed']
-            )
-            os.remove(compare_path)  # Clean up temp compare file
-            
-            return result
-            
-        except json.JSONDecodeError as e:
-            print(f"✗ Error reading compare file: {e}")
-            return {'has_changes': True, 'error': str(e)}
         except Exception as e:
-            print(f"✗ Error comparing projects: {e}")
-            return {'has_changes': True, 'error': str(e)}
-
+            print(f"Comparison error: {e}")
+            import traceback
+            traceback.print_exc()
+            c = ProjectComparison()
+            c.has_changes = True
+            return c
+    
+    # =========================================================================
+    # MAIN CANVAS COMPARISONS
+    # =========================================================================
+    
+    @staticmethod
+    def _compare_main_canvas_blocks(saved_data, current_data, comparison):
+        """Compare blocks in main canvas"""
+        saved_blocks = saved_data.main_canvas.get("blocks", {})
+        current_blocks = current_data.main_canvas.get("blocks", {})
+        
+        # Find added blocks
+        for bid, c_block in current_blocks.items():
+            if bid not in saved_blocks:
+                comparison.main_blocks_added.append(bid)
+                comparison.main_canvas_changed = True
+            else:
+                # Check for modifications
+                s_block = saved_blocks[bid]
+                modified_props = []
+                
+                # Properties to check
+                check_props = [
+                    'value1name', 'value1type', 'value2name', 'value2type',
+                    'operator', 'switchstate', 'sleeptime', 'x', 'y', 'width', 'height'
+                ]
+                
+                for prop in check_props:
+                    if str(c_block.get(prop, "")) != str(s_block.get(prop, "")):
+                        modified_props.append(prop)
+                
+                # Check connections
+                c_in = set(c_block.get('inconnections', []))
+                s_in = set(s_block.get('inconnections', []))
+                c_out = set(c_block.get('outconnections', []))
+                s_out = set(s_block.get('outconnections', []))
+                
+                if c_in != s_in or c_out != s_out:
+                    modified_props.append('connections')
+                
+                if modified_props:
+                    comparison.main_blocks_modified[bid] = modified_props
+                    comparison.main_canvas_changed = True
+        
+        # Find removed blocks
+        for bid in saved_blocks:
+            if bid not in current_blocks:
+                comparison.main_blocks_removed.append(bid)
+                comparison.main_canvas_changed = True
+    
+    @staticmethod
+    def _compare_main_canvas_connections(saved_data, current_data, comparison):
+        """Compare connections/paths in main canvas"""
+        saved_paths = saved_data.main_canvas.get("paths", {})
+        current_paths = current_data.main_canvas.get("paths", {})
+        print(f"Comparing main canvas connections: saved {saved_paths}, current {current_paths}")
+        for connid, c_conn in current_paths.items():
+            if connid not in saved_paths:
+                print(f" Connection {connid} added")
+                comparison.main_connections_added.append(connid)
+                comparison.main_canvas_changed = True
+            else:
+                # Check if connection properties changed
+                s_conn = saved_paths[connid]
+                if c_conn != s_conn:
+                    print(f" Connection {connid} modified")
+                    comparison.main_connections_modified[connid] = True
+                    comparison.main_canvas_changed = True
+        
+        for connid in saved_paths:
+            if connid not in current_paths:
+                print(f" Connection {connid} removed")
+                comparison.main_connections_removed.append(connid)
+                comparison.main_canvas_changed = True
+    
+    # =========================================================================
+    # FUNCTION CANVAS COMPARISONS
+    # =========================================================================
+    
+    @staticmethod
+    def _compare_function_canvases(saved_data, current_data, comparison):
+        """Compare all function canvases"""
+        saved_funcs = saved_data.functions
+        current_funcs = current_data.functions
+        
+        # Find added function canvases
+        for fid, func_info in current_funcs.items():
+            if fid not in saved_funcs:
+                comparison.function_canvases_added.append({
+                    'fid': fid,
+                    'name': func_info.get('name', f'Function_{fid}')
+                })
+                comparison.function_canvases_changed = True
+            else:
+                # Compare blocks in this function
+                FileManager._compare_function_blocks(
+                    fid, saved_funcs, current_funcs, comparison
+                )
+                # Compare connections in this function
+                FileManager._compare_function_connections(
+                    fid, saved_funcs, current_funcs, comparison
+                )
+        
+        # Find removed function canvases
+        for fid, func_info in saved_funcs.items():
+            if fid not in current_funcs:
+                comparison.function_canvases_removed.append({
+                    'fid': fid,
+                    'name': func_info.get('name', f'Function_{fid}')
+                })
+                comparison.function_canvases_changed = True
+    
+    @staticmethod
+    def _compare_function_blocks(fid, saved_funcs, current_funcs, comparison):
+        """Compare blocks within a specific function"""
+        saved_blocks = saved_funcs[fid].get("blocks", {})
+        current_blocks = current_funcs[fid].get("blocks", {})
+        
+        modified_in_func = {}
+        
+        # Check current blocks
+        for bid, c_block in current_blocks.items():
+            if bid in saved_blocks:
+                s_block = saved_blocks[bid]
+                modified_props = []
+                
+                check_props = [
+                    'value1name', 'value1type', 'value2name', 'value2type',
+                    'operator', 'switchstate', 'sleeptime', 'x', 'y', 'width', 'height'
+                ]
+                
+                for prop in check_props:
+                    if str(c_block.get(prop, "")) != str(s_block.get(prop, "")):
+                        modified_props.append(prop)
+                
+                if modified_props:
+                    modified_in_func[bid] = modified_props
+        
+        if modified_in_func:
+            comparison.function_blocks_modified[fid] = modified_in_func
+            comparison.function_canvases_changed = True
+    
+    @staticmethod
+    def _compare_function_connections(fid, saved_funcs, current_funcs, comparison):
+        """Compare connections within a specific function"""
+        saved_paths = saved_funcs[fid].get("paths", {})
+        current_paths = current_funcs[fid].get("paths", {})
+        
+        if set(saved_paths.keys()) != set(current_paths.keys()):
+            comparison.function_connections_modified[fid] = True
+            comparison.function_canvases_changed = True
+        else:
+            # Check if any connection data changed
+            for connid in saved_paths:
+                if connid in current_paths:
+                    if saved_paths[connid] != current_paths[connid]:
+                        comparison.function_connections_modified[fid] = True
+                        comparison.function_canvases_changed = True
+                        break
+    
+    # =========================================================================
+    # VARIABLES COMPARISON (main + all functions)
+    # =========================================================================
+    
+    @staticmethod
+    def _compare_variables_all(saved_data, current_data, comparison):
+        """Compare variables in main canvas and all functions"""
+        
+        # Compare main canvas variables
+        saved_main_vars = saved_data.variables.get("maincanvas", {})
+        current_main_vars = current_data.variables.get("maincanvas", {})
+        
+        FileManager._compare_variable_group(
+            saved_main_vars, current_main_vars,
+            "maincanvas", comparison
+        )
+        
+        # Compare function canvas variables
+        saved_func_vars = saved_data.variables.get("functioncanvases", {})
+        current_func_vars = current_data.variables.get("functioncanvases", {})
+        
+        for fid in set(list(saved_func_vars.keys()) + list(current_func_vars.keys())):
+            saved_fvars = saved_func_vars.get(fid, {})
+            current_fvars = current_func_vars.get(fid, {})
+            
+            FileManager._compare_variable_group(
+                saved_fvars, current_fvars,
+                f"function_{fid}", comparison
+            )
+    
+    @staticmethod
+    def _compare_variable_group(saved_vars, current_vars, location, comparison):
+        """Compare a group of variables (main or function)"""
+        
+        # Find added
+        for vid, c_var in current_vars.items():
+            if vid not in saved_vars:
+                comparison.variables_added.append(vid)
+                comparison.variables_changed = True
+            else:
+                # Check for modifications
+                s_var = saved_vars[vid]
+                if c_var != s_var:
+                    comparison.variables_modified[vid] = {
+                        'old': s_var,
+                        'new': c_var,
+                        'location': location
+                    }
+                    comparison.variables_changed = True
+        
+        # Find removed
+        for vid in saved_vars:
+            if vid not in current_vars:
+                comparison.variables_removed.append(vid)
+                comparison.variables_changed = True
+    
+    # =========================================================================
+    # DEVICES COMPARISON (main + all functions)
+    # =========================================================================
+    
+    @staticmethod
+    def _compare_devices_all(saved_data, current_data, comparison):
+        """Compare devices in main canvas and all functions"""
+        
+        # Compare main canvas devices
+        saved_main_devs = saved_data.devices.get("maincanvas", {})
+        current_main_devs = current_data.devices.get("maincanvas", {})
+        
+        FileManager._compare_device_group(
+            saved_main_devs, current_main_devs,
+            "maincanvas", comparison
+        )
+        
+        # Compare function canvas devices
+        saved_func_devs = saved_data.devices.get("functioncanvases", {})
+        current_func_devs = current_data.devices.get("functioncanvases", {})
+        
+        for fid in set(list(saved_func_devs.keys()) + list(current_func_devs.keys())):
+            saved_fdevs = saved_func_devs.get(fid, {})
+            current_fdevs = current_func_devs.get(fid, {})
+            
+            FileManager._compare_device_group(
+                saved_fdevs, current_fdevs,
+                f"function_{fid}", comparison
+            )
+    
+    @staticmethod
+    def _compare_device_group(saved_devs, current_devs, location, comparison):
+        """Compare a group of devices (main or function)"""
+        
+        # Find added
+        for did, c_dev in current_devs.items():
+            if did not in saved_devs:
+                comparison.devices_added.append(did)
+                comparison.devices_changed = True
+            else:
+                # Check for modifications
+                s_dev = saved_devs[did]
+                if c_dev != s_dev:
+                    comparison.devices_modified[did] = {
+                        'old': s_dev,
+                        'new': c_dev,
+                        'location': location
+                    }
+                    comparison.devices_changed = True
+        
+        # Find removed
+        for did in saved_devs:
+            if did not in current_devs:
+                comparison.devices_removed.append(did)
+                comparison.devices_changed = True
+    
+    # =========================================================================
+    # SETTINGS COMPARISON
+    # =========================================================================
+    
+    @staticmethod
+    def _compare_settings(saved_data, current_data, comparison):
+        """Compare application settings"""
+        saved_settings = saved_data.settings
+        current_settings = current_data.settings
+        
+        all_keys = set(list(saved_settings.keys()) + list(current_settings.keys()))
+        
+        for key in all_keys:
+            s_val = saved_settings.get(key)
+            c_val = current_settings.get(key)
+            
+            if s_val != c_val:
+                comparison.settings_modified[key] = {
+                    'old': s_val,
+                    'new': c_val
+                }
+                comparison.settings_changed = True
+    
+    # =========================================================================
+    # HELPER METHODS
+    # =========================================================================
+    
     @classmethod
-    def _compare_blocks(cls, current: dict, saved: dict) -> list:
-        """Compare block data - returns list of changes"""
-        changes = []
-        print("Comparing blocks...")
-        # Check for new blocks
-        for block_id in current:
-            print(f"Checking block: {block_id}")
-            if block_id not in saved:
-                print(f"New block detected: {block_id}")
-                changes.append(f"✓ New block: {block_id}")
-        
-        # Check for deleted blocks
-        for block_id in saved:
-            print(f"Checking saved block: {block_id}")
-            if block_id not in current:
-                print(f"Deleted block detected: {block_id}")
-                changes.append(f"✗ Deleted block: {block_id}")
-        
-        # Check for modified blocks
-        for block_id in current:
-            print(f"Checking for modifications in block: {block_id}")
-            if block_id in saved:
-                print(f"Comparing current {current[block_id]} and saved {saved[block_id]} for block: {block_id}")
-                if current[block_id] != saved[block_id]:
-                    print(f"Modifications detected in block: {block_id}")
-                    changes.append(f"⊕ Modified block: {block_id}")
-                    # Detail the changes
-                    for key in current[block_id]:
-                        if current[block_id].get(key) != saved[block_id].get(key):
-                            changes.append(f"    {key}: {saved[block_id].get(key)} → {current[block_id].get(key)}")
-        
-        return changes
-
-    @classmethod
-    def _compare_connections(cls, current: dict, saved: dict) -> list:
-        """Compare connection data - returns list of changes"""
-        changes = []
-        print("Comparing connections...")
-        # Check for new connections
-        for conn_id in current:
-            print(f"Checking connection: {conn_id}")
-            if conn_id not in saved:
-                print(f"New connection detected: {conn_id}")
-                changes.append(f"✓ New connection: {conn_id}")
-        
-        # Check for deleted connections
-        for conn_id in saved:
-            print(f"Checking saved connection: {conn_id}")
-            if conn_id not in current:
-                print(f"Deleted connection detected: {conn_id}")
-                changes.append(f"✗ Deleted connection: {conn_id}")
-        
-        # Check for modified connections
-        for conn_id in current:
-            print(f"Checking for modifications in connection: {conn_id}")
-            if conn_id in saved:
-                print(f"Comparing current and saved data for connection: {conn_id}")
-                if current[conn_id] != saved[conn_id]:
-                    print(f"Modifications detected in connection: {conn_id}")
-                    changes.append(f"⊕ Modified connection: {conn_id}")
-        
-        return changes
-
-    @classmethod
-    def _compare_variables(cls, current: dict, saved: dict) -> list:
-        """Compare variables data - returns list of changes"""
-        changes = []
-        
-        # Check for new variables
-        for var_id in current:
-            print(f"Checking variable: {var_id}")
-            if var_id not in saved:
-                var_name = current[var_id].get('name', 'Unknown')
-                print(f"New variable detected: {var_name}")
-                changes.append(f"✓ New variable: {var_name}")
-        
-        # Check for deleted variables
-        for var_id in saved:
-            print(f"Checking saved variable: {var_id}")
-            if var_id not in current:
-                var_name = saved[var_id].get('name', 'Unknown')
-                print(f"Deleted variable detected: {var_name}")
-                changes.append(f"✗ Deleted variable: {var_name}")
-        
-        # Check for modified variables
-        for var_id in current:
-            print(f"Checking for modifications in variable: {var_id}")
-            if var_id in saved:
-                print(f"Comparing current and saved data for variable: {var_id}")
-                if current[var_id] != saved[var_id]:
-                    print(f"Modifications detected in variable: {var_id}")
-                    var_name = current[var_id].get('name', var_id)
-                    changes.append(f"⊕ Modified variable: {var_name}")
-                    for key in ['value', 'type']:
-                        if current[var_id].get(key) != saved[var_id].get(key):
-                            changes.append(f"    {key}: {saved[var_id].get(key)} → {current[var_id].get(key)}")
-        
-        return changes
-
-    @classmethod
-    def _compare_devices(cls, current: dict, saved: dict) -> list:
-        """Compare devices data - returns list of changes"""
-        changes = []
-        print("Comparing devices...")
-        # Check for new devices
-        for dev_id in current:
-            print(f"Checking device: {dev_id}")
-            if dev_id not in saved:
-                print(f"New device detected: {dev_id}")
-                dev_name = current[dev_id].get('name', 'Unknown')
-                changes.append(f"✓ New device: {dev_name}")
-        
-        # Check for deleted devices
-        for dev_id in saved:
-            print(f"Checking saved device: {dev_id}")
-            if dev_id not in current:
-                print(f"Deleted device detected: {dev_id}")
-                dev_name = saved[dev_id].get('name', 'Unknown')
-                changes.append(f"✗ Deleted device: {dev_name}")
-        
-        # Check for modified devices
-        for dev_id in current:
-            print(f"Checking for modifications in device: {dev_id}")
-            if dev_id in saved:
-                print(f"Comparing current and saved data for device: {dev_id}")
-                if current[dev_id] != saved[dev_id]:
-                    print(f"Modifications detected in device: {dev_id}")
-                    dev_name = current[dev_id].get('name', dev_id)
-                    changes.append(f"⊕ Modified device: {dev_name}")
-                    for key in ['pin', 'type']:
-                        if current[dev_id].get(key) != saved[dev_id].get(key):
-                            changes.append(f"    {key}: {saved[dev_id].get(key)} → {current[dev_id].get(key)}")
-        
-        return changes
-
-    @classmethod
-    def _compare_settings(cls, current: dict, saved: dict) -> list:
-        """Compare settings data - returns list of changes"""
-        changes = []
-        print("Comparing settings...")
-        for key in current:
-            print(f"Checking setting: {key}")
-            if key not in saved:
-                print(f"New setting detected: {key}")
-                changes.append(f"✓ New setting: {key}")
-            elif current[key] != saved[key]:
-                print(f"Modification detected in setting: {key}")
-                changes.append(f"⊕ {key}: {saved[key]} → {current[key]}")
-        
-        for key in saved:
-            print(f"Checking saved setting: {key}")
-            if key not in current:
-                print(f"Removed setting detected: {key}")
-                changes.append(f"✗ Removed setting: {key}")
-        
-        return changes
+    def _load_project_dict(cls, name: str) -> dict:
+        """Load project as dictionary without populating Utils"""
+        try:
+            filepath = os.path.join(cls.COMPARE_DIR, f"{name}_TEMP{cls.PROJECT_EXTENSION}")
+            if not os.path.exists(filepath):
+                return None
+            
+            with open(filepath, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading project dict: {e}")
+            return None
 
     
 

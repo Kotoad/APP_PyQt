@@ -15,8 +15,15 @@ top_infos = {}
 paths = {}
 variables_panels = {}
 devices_panels = {}
-variables = {}
-devices = {}
+variables = {
+    'main_canvas': {},      
+    'function_canvases': {} 
+}
+
+devices = {
+    'main_canvas': {},      
+    'function_canvases': {} 
+}
 vars_same = {}
 devs_same = {}
 var_items = {}

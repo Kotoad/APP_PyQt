@@ -388,28 +388,31 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
     
 class spawning_elements:
     """Handles spawning and placing elements on the canvas"""
-    def __init__(self, parent):
+    def __init__(self, parent, elements_window=None):
         self.placing_active = False
         self.perm_stop = False
         self.element_placed = False
         self.parent = parent
-        self.elements_window = None
+        self.elements_window = elements_window
         self.element_spawner = Element_spawn()
 
     def start(self, parent, element_type):
         """Start placing an element"""
         self.type = element_type
         self.perm_stop = False
+        self.parent = parent
+        self.placing_active = True
+        self.element_placed = False
         print("Start placement")
-
+        print(f"parent: {parent}, element_type: {element_type}")
         if self.elements_window and self.elements_window.isVisible():
             self.elements_window.is_hidden = True
             self.elements_window.hide()
 
-        print(f"Before: {self.parent.mousePressEvent}")
+        print(f"Before: {parent.mousePressEvent}")
         self.old_mousePressEvent = parent.mousePressEvent
         parent.mousePressEvent = self.on_mouse_press
-        print(f"After: {self.parent.mousePressEvent}")
+        print(f"After: {parent.mousePressEvent}")
         parent.setFocus()
         print(f"Canvas enabled: {parent.isEnabled()}")
         parent.raise_()
@@ -438,6 +441,7 @@ class spawning_elements:
             self.element_spawner.custom_shape_spawn(parent, self.type, event)
             self.placing_active = False
             self.element_placed = True
+            print(f"Element placed: {self.type}, at {event.pos()}, Placement active: {self.placing_active}, Element placed: {self.element_placed}")
 
     def stop_placing(self, parent):
         """Stop placement mode"""
@@ -447,9 +451,10 @@ class spawning_elements:
         self.element_placed = False
 
         parent.mousePressEvent = self.old_mousePressEvent
-
+        print("Restored original mousePressEvent")
         if self.elements_window:
-            self.elements_window.is_hidden = False
+            print("Re-opening ElementsWindow")
+            self.elements_window.is_hidden = True
             self.elements_window.open()
 
 
@@ -488,5 +493,5 @@ class Element_spawn:
         scene_pos = parent.mapToScene(event.pos())
         x, y = scene_pos.x(), scene_pos.y()
 
-        block_graphics = parent.add_block(element_type, x, y, block_id)
+        parent.add_block(element_type, x, y, block_id)
         print(f"Spawned {element_type} at ({x}, {y})")
