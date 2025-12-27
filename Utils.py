@@ -13,8 +13,6 @@ runtime_widgets = {
 
 top_infos = {}
 paths = {}
-variables_panels = {}
-devices_panels = {}
 variables = {
     'main_canvas': {},      
     'function_canvases': {} 

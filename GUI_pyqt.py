@@ -1341,7 +1341,6 @@ class MainWindow(QMainWindow):
         canvas_reference.widget.setStyleSheet("""
             QWidget { background-color: #2B2B2B; }
         """)
-        Utils.variables_panels[canvas_reference] = canvas_reference.widget
         return canvas_reference.widget
 
     def create_devices_panel(self, canvas_reference=None):
@@ -1380,9 +1379,46 @@ class MainWindow(QMainWindow):
         canvas_reference.widget.setStyleSheet("""
             QWidget { background-color: #2B2B2B; }
         """)
-        Utils.devices_panels[canvas_reference] = canvas_reference.widget
         return canvas_reference.widget
+    
+    def create_internal_vars_panel(self, canvas_reference=None):
+        """Create Internal Variables panel"""
+        canvas_reference.internal_vars_row_count = 0
+        canvas_reference.widget = QWidget()
+        canvas_reference.layout = QVBoxLayout(canvas_reference.widget)
+        canvas_reference.layout.setContentsMargins(10, 10, 10, 10)
         
+        header = QLabel("Internal Variables")
+        header.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
+        canvas_reference.layout.addWidget(header)
+        
+        add_btn = QPushButton("Add Internal Variable")
+        add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1F538D;
+                color: white;
+                padding: 8px;
+                border-radius: 4px;
+            }
+        """)
+        add_btn.clicked.connect(lambda: self.add_internal_variable_row(None, None, canvas_reference))
+        canvas_reference.layout.addWidget(add_btn)
+        
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        canvas_reference.internal_content = QWidget()
+        canvas_reference.internal_layout = QVBoxLayout(canvas_reference.internal_content)
+        canvas_reference.internal_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        canvas_reference.internal_layout.addStretch()
+        scroll.setWidget(canvas_reference.internal_content)
+        canvas_reference.layout.addWidget(scroll)
+
+        canvas_reference.widget.setStyleSheet("""
+            QWidget { background-color: #2B2B2B; }
+        """)
+
+        return canvas_reference.widget
+
     def create_sidebar(self):
         """Initialize sidebar and content areas"""
         widget = QWidget()
@@ -1502,6 +1538,11 @@ class MainWindow(QMainWindow):
             print(f"Content widget in device tab: {content_widget}")
             self.canvas_added.dev_button = QPushButton(tab_name)
             tab_button = self.canvas_added.dev_button
+        elif reference == 'internal_variable':
+            print("Adding Internal Variable tab button")
+            print(f"Content widget in internal variable tab: {content_widget}")
+            self.canvas_added.internal_var_button = QPushButton(tab_name)
+            tab_button = self.canvas_added.internal_var_button
         elif reference in ('canvas', 'function'):
             self.canvas_added = content_widget
             self.canvas_added.canvas_tab_button = QPushButton(tab_name)
@@ -1555,12 +1596,11 @@ class MainWindow(QMainWindow):
             self.count_w_separator+=1
             self.canvas_count+=1
             self.canvas_added = content_widget
-            self.add_variable_tab(content_widget, tab_name)
-            self.add_device_tab(content_widget, tab_name)
+            self.add_internal_variable_tab(content_widget, tab_name)
             self.add_separator(ref='reference', content_widget=content_widget)
             self.canvas_added = None
             return tab_index
-        elif reference in ('variable', 'device'):
+        elif reference in ('variable', 'device', 'internal_variable'):
             self.tab_layout.insertWidget(self.count_w_separator, tab_button)
             self.page_count+=1
             self.count_w_separator+=1
@@ -1583,6 +1623,12 @@ class MainWindow(QMainWindow):
         devices_panel = self.create_devices_panel(canvas_reference)
         self.add_tab(name+' devices', devices_panel, reference="device")
     
+    def add_internal_variable_tab(self, canvas_reference, name):
+        """Add an Internal Variables tab to the sidebar"""
+        print("Adding Internal Variables tab")
+        internal_vars_panel = self.create_internal_vars_panel(canvas_reference)
+        self.add_tab(name+' internal variables', internal_vars_panel, reference="internal_variable")
+
     def add_new_canvas_tab_button(self, content_widget=None):
         """Add a special button to create a new canvas tab"""
         content_widget.new_canvas_button = QPushButton("+ New Canvas")
@@ -2115,7 +2161,148 @@ class MainWindow(QMainWindow):
             print(f"Inserting items into combo box: {all_items}")
             line_edit.addItems(all_items)
             print(f"Added {len(all_items)} items to combo box")
-            
+
+    #MARK: - Internal Variable Panel Methods
+    def add_internal_variable_row(self, var_id=None, var_data=None, canvas_reference=None):
+        """Add a new internal variable row"""
+        print(f"Adding variable row to canvas_reference: {canvas_reference}")
+        self.id_var_generated = False
+        if var_id is None:
+            while not self.id_var_generated:
+                var_id = f"variable_{str(int(random()*100000))}"
+                print(f"Generated variable_id attempt: {var_id}")
+                for canvas, info in Utils.canvas_instances.items():
+                    if canvas_reference == canvas and info['ref'] == 'canvas':
+                        if var_id not in Utils.variables['main_canvas'].keys():
+                            Utils.variables['main_canvas'][var_id] = {
+                                'name': '',
+                                'type': 'Int',
+                                'value': '',
+                                'widget': None,
+                                'name_imput': None,
+                                'type_input': None,
+                                'value_input': None
+                            }
+                            self.id_var_generated = True
+                            break
+                        else:
+                            var_id = None
+                    elif canvas_reference == canvas and info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                if var_id not in Utils.variables['function_canvases'][function_id].keys():
+                                    Utils.variables['function_canvases'][function_id][var_id] = {
+                                        'name': '',
+                                        'type': 'Int',
+                                        'value': '',
+                                        'widget': None,
+                                        'name_imput': None,
+                                        'type_input': None,
+                                        'value_input': None
+                                    }
+                                    self.id_var_generated = True
+                                    break
+                                else:
+                                    var_id = None
+        else:
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas and info['ref'] == 'canvas':
+                    Utils.variables['main_canvas'][var_id] = {
+                        'name': '',
+                        'type': 'Int',
+                        'value': '',
+                        'widget': None,
+                        'name_imput': None,
+                        'type_input': None,
+                        'value_input': None
+                    }
+                elif canvas_reference == canvas and info['ref'] == 'function':
+                    for function_id, function_info in Utils.functions.items():
+                        if function_info['canvas'] == canvas_reference:
+                            Utils.variables['function_canvases'][function_id][var_id] = {
+                                'name': '',
+                                'type': 'Int',
+                                'value': '',
+                                'widget': None,
+                                'name_imput': None,
+                                'type_input': None,
+                                'value_input': None
+                            }
+        print(f"Utils.variables after adding new variable: {Utils.variables}")
+        canvas_reference.row_widget = QWidget()
+        canvas_reference.row_layout = QHBoxLayout(canvas_reference.row_widget)
+        canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
+
+        name_imput = QLineEdit()
+        name_imput.setPlaceholderText("Name")
+        if var_data and 'name' in var_data:
+            name_imput.setText(var_data['name'])
+            if info['ref'] == 'canvas':
+                Utils.variables['main_canvas'][var_id]['name'] = var_data['name']
+            elif info['ref'] == 'function':
+                for function_id, function_info in Utils.functions.items():
+                    if function_info['canvas'] == canvas_reference:
+                        Utils.variables['function_canvases'][function_id][var_id]['name'] = var_data['name']
+        
+        name_imput.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.name_changed(text, v_id, t, r))
+        
+        type_input = QComboBox()
+        type_input.addItems(["Int", "Float", "String", "Bool"])
+        if var_data and 'type' in var_data:
+            type_input.setCurrentText(var_data['type'])
+            if info['ref'] == 'canvas':
+                Utils.variables['main_canvas'][var_id]['type'] = var_data['type']
+            elif info['ref'] == 'function':
+                for function_id, function_info in Utils.functions.items():
+                    if function_info['canvas'] == canvas_reference:
+                        Utils.variables['function_canvases'][function_id][var_id]['type'] = var_data['type']
+        
+        type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable", r=canvas_reference: self.type_changed(text, v_id , t, r))
+        
+        self.value_var_input = QLineEdit()
+        self.value_var_input.setPlaceholderText("Initial Value")
+        if var_data and 'value' in var_data:
+            self.value_var_input.setText(var_data['value'])
+            if info['ref'] == 'canvas':
+                Utils.variables['main_canvas'][var_id]['value'] = var_data['value']
+            elif info['ref'] == 'function':
+                for function_id, function_info in Utils.functions.items():
+                    if function_info['canvas'] == canvas_reference:
+                        Utils.variables['function_canvases'][function_id][var_id]['value'] = var_data['value']
+        regex = QRegularExpression(r"^\d*$")
+        validator = QRegularExpressionValidator(regex, self)
+        self.value_var_input.setValidator(validator)
+        self.value_var_input.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.value_changed(text, v_id, t, r))
+        
+        delete_btn = QPushButton("×")
+        delete_btn.setFixedWidth(30)
+        
+        canvas_reference.row_layout.addWidget(name_imput)
+        canvas_reference.row_layout.addWidget(type_input)
+        canvas_reference.row_layout.addWidget(self.value_var_input)
+        canvas_reference.row_layout.addWidget(delete_btn)
+        
+        delete_btn.clicked.connect(lambda _, v_id=var_id, rw=canvas_reference.row_widget, t="Variable", r=canvas_reference: self.remove_row(rw, v_id, t, r))
+
+        if info['ref'] == 'canvas':
+            Utils.variables['main_canvas'][var_id]['widget'] = canvas_reference.row_widget
+            Utils.variables['main_canvas'][var_id]['name_imput'] = name_imput
+            Utils.variables['main_canvas'][var_id]['type_input'] = type_input
+            Utils.variables['main_canvas'][var_id]['value_input'] = self.value_var_input
+        elif info['ref'] == 'function':
+            for function_id, function_info in Utils.functions.items():
+                if function_info['canvas'] == canvas_reference:
+                    Utils.variables['function_canvases'][function_id][var_id]['widget'] = canvas_reference.row_widget
+                    Utils.variables['function_canvases'][function_id][var_id]['name_imput'] = name_imput
+                    Utils.variables['function_canvases'][function_id][var_id]['type_input'] = type_input
+                    Utils.variables['function_canvases'][function_id][var_id]['value_input'] = self.value_var_input
+        panel_layout = canvas_reference.internal_layout
+        panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
+        
+        canvas_reference.variable_row_count += 1
+        
+        #print(f"Added variable: {self.var_id}")
+
     #MARK: - Variable Panel Methods
     def add_variable_row(self, var_id=None, var_data=None, canvas_reference=None):
         """Add a new variable row"""
