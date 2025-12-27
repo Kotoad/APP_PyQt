@@ -62,6 +62,8 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         print(f"✓ BlockGraphicsItem created: {block_id} ({block_type}) at ({x}, {y})")
 
     def _setup_dimensions(self):
+        v_count = 0
+        d_count = 0
         """Set block dimensions based on type"""
         if self.block_type in ["If", "While"]:
             self.width = 100
@@ -75,6 +77,18 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         elif self.block_type == "Button":
             self.width = 100
             self.height = 54
+        elif self.block_type.startswith("Function_"):
+            func = self.block_type.split("Function_")[1]
+            for f_id, f_info in Utils.variables['function_canvases'][self.block_type].items():
+                v_count += 1
+            for f_id, f_info in Utils.devices['function_canvases'][self.block_type].items():
+                d_count += 1
+            self.width = 140
+            if v_count >= d_count:
+                count = v_count
+            else:
+                count = d_count
+            self.height = 15 + (count * 20)
         else:  # Start, End, or default
             self.width = 100
             self.height = 36
@@ -90,6 +104,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             "Switch": QColor("#87CEEB"),    # Sky blue
             "Button": QColor("#D3D3D3"),    # Light gray
             "While_true": QColor("#87CEEB"),     # Sky blue
+            
         }
         return colors.get(self.block_type, QColor("#FFD700"))  # Default yellow
 
@@ -99,6 +114,9 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
 
     def paint(self, painter, option, widget):
         """Paint the block using QPainter"""
+
+        self._setup_dimensions()
+
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         
@@ -125,6 +143,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
 
     def _draw_text(self, painter):
         """Draw block label text"""
+        print("Drawing text for block:", self.block_type)
         painter.setPen(QPen(QColor("black")))
         font = QFont("Arial", 10, QFont.Weight.Normal)
         painter.setFont(font)
@@ -159,6 +178,25 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             painter.drawText(QRectF(self.radius, 0, self.width, self.height), Qt.AlignmentFlag.AlignCenter, device_text)
             painter.drawText(ON_rect, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight, "ON")
             painter.drawText(OFF_rect, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight, "OFF")
+        elif self.block_type.startswith("Function_"):
+            name_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(name_rect, Qt.AlignmentFlag.AlignHCenter, text)
+
+            # Draw variable/device list
+            small_font = QFont("Arial", 8)
+            painter.setFont(small_font)
+            y_offset = 20
+            for v_id, v_info in Utils.variables['function_canvases'][self.block_type].items():
+                var_text = f"{v_info['name']}"
+                var_rect = QRectF(self.radius + 10, y_offset, self.width - 20, 15)
+                painter.drawText(var_rect, Qt.AlignmentFlag.AlignLeft, var_text)
+                y_offset += 20
+            y_offset = 20
+            for d_id, d_info in Utils.devices['function_canvases'][self.block_type].items():
+                dev_text = f"{d_info['name']}"
+                dev_rect = QRectF(self.radius + 10, y_offset, self.width - 20, 15)
+                painter.drawText(dev_rect, Qt.AlignmentFlag.AlignRight, dev_text)
+                y_offset += 20
         else:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)

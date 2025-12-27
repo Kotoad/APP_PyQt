@@ -2,7 +2,9 @@ from Imports import (QWidget, QDialog, QVBoxLayout, QHBoxLayout,
 QPushButton, QLabel, QFrame, QTabWidget, Qt, QFont,
 pyqtSignal)
 
-from Imports import get_spawn_elements
+from Imports import get_spawn_elements, get_utils
+
+Utils = get_utils()
 
 # Get the spawning_elements class and other exported items
 spawning_elements = get_spawn_elements()[1]
@@ -29,7 +31,9 @@ class ElementsWindow(QDialog):
         # This now handles BlockGraphicsItem creation internally
         
         self.is_hidden = True
-        
+        self.f_tab = None
+        self.now_created = False
+
         self.setup_ui()
     
     @classmethod
@@ -127,6 +131,7 @@ class ElementsWindow(QDialog):
         self.create_shapes_tab()
         self.create_logic_tab()
         self.create_io_tab()
+        self.create_functions_tab()
     
     def mousePressEvent(self, event):
         """Debug: Track if elements window gets mouse press"""
@@ -214,6 +219,56 @@ class ElementsWindow(QDialog):
         layout.addStretch()
         self.tab_widget.addTab(tab, "I/O")
     
+    def create_functions_tab(self):
+        """Create functions tab"""
+        print("Creating Functions tab in ElementsWindow")
+        print(F" Self f_tab: {self.f_tab if hasattr(self, 'f_tab') else 'Not defined'}")
+        
+        if self.f_tab is not None and self.layout.count() > 0:
+            while self.layout.count():
+                child = self.layout.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+
+            for i in range(self.layout.count() - 1, -1, -1):
+                item = self.layout.itemAt(i)
+                if item and item.spacerItem():
+                    self.layout.takeAt(i)
+
+        if self.f_tab is None:
+            self.f_tab = QWidget()
+            self.layout = QVBoxLayout(self.f_tab)
+            self.layout.setSpacing(5)
+            self.now_created = True
+            # Title
+            title = QLabel("Functions")
+            title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+            title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.layout.addWidget(title)
+            self.layout.addSpacing(10)
+            
+        
+
+        function_elements = []
+            # Buttons - MAPPED TO SPAWNING ELEMENTS
+        for f, f_info in Utils.functions.items():
+            print(f"Function available: {f} with info {f_info}")
+            function_elements.append(f_info['name'])
+        print(f"Function elements collected: {function_elements}")
+        for element in function_elements:
+            btn = QPushButton(element)
+            for f_id, f_info in Utils.functions.items():
+                if f_info['name'] == element:
+                    element = f_id
+                    break
+            btn.clicked.connect(lambda checked, e=element: self.spawn_element(e))
+            self.layout.addWidget(btn)
+        self.layout.addStretch()
+
+        if self.now_created:
+            print("Adding Functions tab to ElementsWindow")
+            self.tab_widget.addTab(self.f_tab, "Functions")
+
     def spawn_element(self, element_type):
         """
         Spawn a shape/logic/IO element
@@ -254,6 +309,7 @@ class ElementsWindow(QDialog):
         if self.is_hidden:
             print(" Showing ElementsWindow")
             self.is_hidden = False
+            self.create_functions_tab() 
             self.show()
             self.raise_()
             self.activateWindow()

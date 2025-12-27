@@ -916,10 +916,9 @@ class GridCanvas(QGraphicsView):
             print(f"Canvas reference in add_block: {self.reference}")
         # Store in Utils
         info = {
-            'type': block_type,
+            'type': block_type.split('_')[0],
             'id': block_id,
             'widget': block,
-            'type': block_type,
             'width': block.boundingRect().width(),
             'height': block.boundingRect().height(),
             'x': x,
@@ -1088,22 +1087,22 @@ class MainWindow(QMainWindow):
         try:
             index = self.get_current_tab_index()
             for canvas, info in Utils.canvas_instances.items():
-                print(f"Canvas in Utils.canvas_instances: {canvas}, info: {info}")
+                #print(f"Canvas in Utils.canvas_instances: {canvas}, info: {info}")
                 if info['index'] == index:
-                    print(f"✓ Found current canvas in Utils.canvas_instances: {canvas}")
+                    #print(f"✓ Found current canvas in Utils.canvas_instances: {canvas}")
                     widget = info['canvas']
-            print(f"Current sidebar tab index: {index}, widget: {widget}")
+            #print(f"Current sidebar tab index: {index}, widget: {widget}")
             
             # Check if it's a GridCanvas instance
             if isinstance(widget, GridCanvas):
-                print("✓ Current canvas found.")
+                #print("✓ Current canvas found.")
                 return widget
         except Exception as e:
             print(f"⚠️ Error getting current canvas: {e}")
         
         # Fallback to main canvas if property fails
         if hasattr(self, 'canvas') and self.canvas is not None:
-            print("✓ Using main canvas as fallback.")
+            #print("✓ Using main canvas as fallback.")
             return self.canvas
         
         print("❌ No canvas available.")
@@ -1431,7 +1430,7 @@ class MainWindow(QMainWindow):
         
         return widget
 
-    def add_tab(self, tab_name, content_widget=None, icon=None, reference=None):
+    def add_tab(self, tab_name, content_widget=None, icon=None, reference=None, function_id=None):
         """
         Add a tab to the sidebar
         
@@ -1462,16 +1461,22 @@ class MainWindow(QMainWindow):
             content_widget.last_inspector_block = None
             content_widget.reference = reference
             if reference == "function":
-                function_id = 'function_'+str(len(Utils.functions)+1)
-                Utils.functions[function_id] = {
+                if not function_id:
+                    print("Generating new function ID")
+                    self.function_id = 'Function_'+str(int(random()*100000))
+                    print(f"Generated function ID: {self.function_id}")
+                else:
+                    self.function_id = function_id
+                print(f"Function ID for tab '{tab_name}': {self.function_id}")
+                Utils.functions[self.function_id] = {
                     'name': tab_name,
-                    'id': function_id,
+                    'id': self.function_id,
                     'canvas': content_widget,
                     'blocks': {},
                     'paths': {}
                 }
-                Utils.variables['function_canvases'][function_id] = {}
-                Utils.devices['function_canvases'][function_id] = {}
+                Utils.variables['function_canvases'][self.function_id] = {}
+                Utils.devices['function_canvases'][self.function_id] = {}
             elif reference == "canvas":
                 Utils.main_canvas = {
                     'name': tab_name,
@@ -1620,6 +1625,7 @@ class MainWindow(QMainWindow):
         Utils.canvas_instances[new_canvas] = {
             'canvas': new_canvas,
             'index': new_tab_index,
+            'id': self.function_id,
             'ref': 'function',
             'name': name
         }
@@ -1965,9 +1971,37 @@ class MainWindow(QMainWindow):
             self.insert_items(block, self.name_1_input)
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
-    
+        if block_data['type'] == 'Function':
+            var_label = QLabel("Imput variables")
+
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), var_label)
+            
+            for canvas, canvas_info in Utils.canvas_instances.items():
+                if canvas_info['canvas'] == current_canvas:
+                    break
+            print(f"Function canvas ID: {canvas}")
+            for var_id, var_info in Utils.variables['function_canvases'][canvas_info['id']].items():
+                var_name_label = QLabel(f"- {var_info['name']}")
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), var_name_label)
+            
+            separator = QFrame()
+            separator.setFrameShape(QFrame.Shape.HLine)
+            separator.setFrameShadow(QFrame.Shadow.Plain)
+            separator.setLineWidth(1)
+            separator.setStyleSheet("background-color: #555555;")
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), separator)
+
+            dev_label = QLabel("Imput devices")
+
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), dev_label)
+
+            for dev_id, dev_info in Utils.devices['function_canvases'][canvas_info['id']].items():
+                dev_name_label = QLabel(f"- {dev_info['name']}")
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), dev_name_label)
+            
     def Block_value_name_1_changed(self, text, block_data):
         current_canvas = self.current_canvas
+        print("Updating vlaue 1 name")
         if current_canvas is None:
             print("ERROR: No current canvas available")
             return
@@ -2001,6 +2035,7 @@ class MainWindow(QMainWindow):
             item.update()
     
     def Block_operator_changed(self, text, block_data):
+        print("Updating operator")
         block_data['operator'] = text
         item = block_data['widget']
         if item:    
@@ -2008,6 +2043,7 @@ class MainWindow(QMainWindow):
             item.update()
     
     def Block_value_2_name_changed(self, text, block_data):
+        print("Updating vlaue 2 name") 
         block_data['value_2_name'] = text
         for var_id, var_info in Utils.variables.items():
             if var_info['name'] == text:
@@ -2033,6 +2069,7 @@ class MainWindow(QMainWindow):
             item.update()
     
     def Block_sleep_interval_changed(self, text, block_data):
+        print("Updating sleep interval")
         block_data['sleep_time'] = text
         item = block_data['widget']
         if item:
@@ -2040,6 +2077,7 @@ class MainWindow(QMainWindow):
             item.update()
     
     def insert_items(self, block, line_edit):
+        print("Inserting items into line edit")
         current_canvas = self.current_canvas
         if current_canvas is None:
             print("ERROR: No current canvas available")
@@ -2503,6 +2541,7 @@ class MainWindow(QMainWindow):
         #print(f"Deleted variable: {var_id}")
     
     def name_changed(self, text, var_id, type, canvas_reference=None):
+        print(f"Name changed to {text} for {type} with id {var_id}")
         if type == "Variable":
             for canvas, info in Utils.canvas_instances.items():
                 if canvas_reference == canvas:
@@ -3429,7 +3468,7 @@ class MainWindow(QMainWindow):
         print("Main canvas recreated")
         
         # Recreate function canvases
-        print(f"Recreating {len(Utils.project_data.canvases)} canvases from project data...")
+        print(f"Recreating {len(Utils.project_data.canvases)-1} function canvases from project data...")
         print(f" Canvas data: {Utils.project_data.canvases}")
         for canvas, canvas_info in Utils.project_data.canvases.items():
             print(f" Recreating canvas: {canvas_info['name']} (Ref: {canvas_info['ref']})")
@@ -3445,12 +3484,14 @@ class MainWindow(QMainWindow):
                     tab_name=canvas_info['name'],
                     content_widget=new_canvas,
                     reference="function",
+                    function_id=canvas_info['id']
                 )
                 Utils.canvas_instances[new_canvas] = {
                     'canvas': new_canvas,
                     'index': new_tab_index,
                     'ref': 'function',
-                    'name': name
+                    'name': name,
+                    'id': canvas_info['id']
                 }
         
         print("Canvas instances rebuilt")
@@ -3492,21 +3533,21 @@ class MainWindow(QMainWindow):
                                     x=block['x'],
                                     y=block['y'],
                                     block_id=str(block_id),
-                                    canvas=canvas
+                                    canvas=canvas,
                                 )
             print("✓ Blocks rebuilt on canvas")
         except Exception as e:
             print(f"❌ Error rebuilding blocks: {e}")
         
 
-    def add_block_from_data(self, block_type, x, y, block_id, canvas=None):
+    def add_block_from_data(self, block_type, x, y, block_id, canvas=None, function_id=None):
         
         """Add a new block to the canvas"""
         block = BlockGraphicsItem(
             x=x, y=y,
             block_id=block_id,
             block_type=block_type,
-            parent_canvas=canvas
+            parent_canvas=canvas,
         )
         for canvas_key, canvas_info in Utils.canvas_instances.items():
             if canvas_info['canvas'] == canvas:
@@ -3539,10 +3580,9 @@ class MainWindow(QMainWindow):
         # Store in Utils
         if canvas_info['ref'] == 'canvas':
             Utils.main_canvas['blocks'][block_id] = {
-                'type': Utils.project_data.main_canvas['blocks'][block_id]['type'],
+                'type': Utils.project_data.main_canvas['blocks'][block_id]['type'].split('_')[0],
                 'id': block_id,
                 'widget': block,
-                'type': block_type,
                 'width': block.boundingRect().width(),
                 'height': block.boundingRect().height(),
                 'x': x,
@@ -3564,10 +3604,9 @@ class MainWindow(QMainWindow):
                 if function_info['canvas'] == canvas:
                     print(f" Found matching canvas for function: {function_id}")
                     Utils.functions[function_id]['blocks'][block_id] = {
-                        'type': Utils.project_data.functions[function_id]['blocks'][block_id]['type'],
+                        'type': Utils.project_data.functions[function_id]['blocks'][block_id]['type'].split('_')[0],
                         'id': block_id,
                         'widget': block,
-                        'type': block_type,
                         'width': block.boundingRect().width(),
                         'height': block.boundingRect().height(),
                         'x': x,
@@ -3731,7 +3770,7 @@ class MainWindow(QMainWindow):
     def _rebuild_variables_panel(self):
         """Recreate variables in the side panel"""
         print(f"Rebuilding {len(Utils.project_data.variables)} variables...")
-        
+        print(f" Project variables data: {Utils.project_data.variables}")
         for canvas, canvas_info in Utils.canvas_instances.items():
             print(f" Canvas: {canvas_info['name']} (Ref: {canvas_info['ref']})")
             if canvas_info['ref'] == 'canvas':
@@ -3741,7 +3780,7 @@ class MainWindow(QMainWindow):
                     self.add_variable_row(var_id, var_info, canvas)
             elif canvas_info['ref'] == 'function':
                 print(f" Recreating variables for function canvas: {canvas_info['name']}")
-                for var_id, var_info in list(Utils.project_data.variables['function_canvases'].items()):
+                for var_id, var_info in list(Utils.project_data.variables['function_canvases'][canvas_info['id']].items()):
                     print(f"  Recreating variable {var_id} on function canvas")
                     self.add_variable_row(var_id, var_info, canvas)
 
@@ -3758,7 +3797,7 @@ class MainWindow(QMainWindow):
                     self.add_device_row(dev_id, dev_info, canvas)
             elif canvas_info['ref'] == 'function':
                 print(f" Recreating devices for function canvas: {canvas_info['name']}")
-                for dev_id, dev_info in list(Utils.project_data.devices['function_canvases'].items()):
+                for dev_id, dev_info in list(Utils.project_data.devices['function_canvases'][canvas_info['id']].items()):
                     print(f"  Recreating device {dev_id} on function canvas")
                     self.add_device_row(dev_id, dev_info, canvas)
         

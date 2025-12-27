@@ -279,6 +279,7 @@ class FileManager:
             canvases[str(canvas)] = {
                 'canvas': str(canvas),
                 'ref': canvas_info.get('ref', 'canvas'),
+                'id': canvas_info.get('id', ''),
                 'index': canvas_info.get('index', 0),
                 'name': canvas_info.get('name', ''),
             }
