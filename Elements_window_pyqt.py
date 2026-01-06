@@ -257,10 +257,7 @@ class ElementsWindow(QDialog):
         print(f"Function elements collected: {function_elements}")
         for element in function_elements:
             btn = QPushButton(element)
-            for f_id, f_info in Utils.functions.items():
-                if f_info['name'] == element:
-                    element = f_id
-                    break
+            element = "Function_" + element
             btn.clicked.connect(lambda checked, e=element: self.spawn_element(e))
             self.layout.addWidget(btn)
         self.layout.addStretch()

@@ -37,6 +37,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         self.block_id = block_id
         self.block_type = block_type
         self.canvas = parent_canvas
+        self.canvas_id = None
         
         self.value_1_name = "var1"
         self.operator = "=="
@@ -79,9 +80,15 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             self.height = 54
         elif self.block_type.startswith("Function_"):
             func = self.block_type.split("Function_")[1]
-            for f_id, f_info in Utils.variables['function_canvases'][self.block_type].items():
+            print(f"Utils.variables['function_canvases']: {Utils.variables['function_canvases']}")
+            for canvas, canvas_info in Utils.canvas_instances.items():
+                if canvas_info.get('ref') == 'function' and canvas_info.get('name') == func:
+                    self.canvas_id = canvas_info.get('id')
+                    break
+            print(f"Calculating dimensions for function block: {func} in canvas {self.canvas_id}")
+            for f_id, f_info in Utils.variables['function_canvases'][self.canvas_id].items():
                 v_count += 1
-            for f_id, f_info in Utils.devices['function_canvases'][self.block_type].items():
+            for f_id, f_info in Utils.devices['function_canvases'][self.canvas_id].items():
                 d_count += 1
             self.width = 140
             if v_count >= d_count:
@@ -179,6 +186,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             painter.drawText(ON_rect, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight, "ON")
             painter.drawText(OFF_rect, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight, "OFF")
         elif self.block_type.startswith("Function_"):
+            print(f"Drawing function block text for: {self.block_type}")
             name_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(name_rect, Qt.AlignmentFlag.AlignHCenter, text)
 
@@ -186,13 +194,15 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             small_font = QFont("Arial", 8)
             painter.setFont(small_font)
             y_offset = 20
-            for v_id, v_info in Utils.variables['function_canvases'][self.block_type].items():
+            for v_id, v_info in Utils.variables['function_canvases'][self.canvas_id].items():
+                print(f"   Drawing variable: {v_info['name']}")
                 var_text = f"{v_info['name']}"
                 var_rect = QRectF(self.radius + 10, y_offset, self.width - 20, 15)
                 painter.drawText(var_rect, Qt.AlignmentFlag.AlignLeft, var_text)
                 y_offset += 20
             y_offset = 20
-            for d_id, d_info in Utils.devices['function_canvases'][self.block_type].items():
+            for d_id, d_info in Utils.devices['function_canvases'][self.canvas_id].items():
+                print(f"   Drawing device: {d_info['name']}")
                 dev_text = f"{d_info['name']}"
                 dev_rect = QRectF(self.radius + 10, y_offset, self.width - 20, 15)
                 painter.drawText(dev_rect, Qt.AlignmentFlag.AlignRight, dev_text)
@@ -527,6 +537,7 @@ class Element_spawn:
 
     def custom_shape_spawn(self, parent, element_type, event):
         """Spawn a custom shape at the clicked position"""
+        print(f"Spawning element: {element_type}")
         block_id = f"{element_type}_{int(time.time() * 1000)}"
         scene_pos = parent.mapToScene(event.pos())
         x, y = scene_pos.x(), scene_pos.y()

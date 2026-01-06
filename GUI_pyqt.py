@@ -898,6 +898,7 @@ class GridCanvas(QGraphicsView):
     
     def add_block(self, block_type, x, y, block_id):
         """Add a new block to the canvas"""
+        print(f"Adding block of type {block_type} at ({x}, {y}) with ID {block_id} to canvas {self}")
         block = BlockGraphicsItem(
             x=x, y=y,
             block_id=block_id,
@@ -915,7 +916,85 @@ class GridCanvas(QGraphicsView):
         if hasattr(self, 'reference') and self.reference:
             print(f"Canvas reference in add_block: {self.reference}")
         # Store in Utils
-        info = {
+        if block_type in ('If', 'While', 'Button'):
+            info = {
+                'type': block_type.split('_')[0],
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'value_1_name': "var1",
+                'value_1_type': "N/A",
+                'value_2_name': "var2",
+                'value_2_type': "N/A",
+                'operator': "==",
+                'in_connections': [],
+                'out_connections': [],
+                'canvas': self
+            }
+        elif block_type == 'Timer':
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'sleep_time': "1000",
+                'in_connections': [],
+                'out_connections': [],
+                'canvas': self
+            }
+        elif block_type == 'Switch':
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'value_1_name': "switch",
+                'switch_state': False,
+                'in_connections': [],
+                'out_connections': [],
+                'canvas': self
+            }
+        elif block_type in ('Start', 'End', 'While_true'):
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'in_connections': [],
+                'out_connections': [],
+                'canvas': self
+            }
+        elif block_type.startswith('Function_'):
+            info = {
+                'type': 'Function',
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'function_name': block_type.split('_')[1],
+                'ref_vars': [],
+                'main_vars': [],
+                'ref_devs': [],
+                'main_devs': [],
+                'in_connections': [],
+                'out_connections': [],
+                'canvas': self
+            }
+        """info = {
             'type': block_type.split('_')[0],
             'id': block_id,
             'widget': block,
@@ -933,7 +1012,7 @@ class GridCanvas(QGraphicsView):
             'in_connections': [],
             'out_connections': [],
             'canvas': self
-        }
+        }"""
         if self.reference == 'canvas':
             Utils.main_canvas['blocks'].setdefault(block_id, info)
         elif self.reference == 'function':
@@ -1383,7 +1462,9 @@ class MainWindow(QMainWindow):
     
     def create_internal_vars_panel(self, canvas_reference=None):
         """Create Internal Variables panel"""
-        canvas_reference.internal_vars_row_count = 0
+        canvas_reference.internal_vars_rows_count = 0
+        canvas_reference.internal_devs_rows_count = 0
+        canvas_reference.internal_rows_count = 0
         canvas_reference.widget = QWidget()
         canvas_reference.layout = QVBoxLayout(canvas_reference.widget)
         canvas_reference.layout.setContentsMargins(10, 10, 10, 10)
@@ -1391,9 +1472,15 @@ class MainWindow(QMainWindow):
         header = QLabel("Internal Variables")
         header.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
         canvas_reference.layout.addWidget(header)
-        
-        add_btn = QPushButton("Add Internal Variable")
-        add_btn.setStyleSheet("""
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        canvas_reference.internal_content = QWidget()
+        canvas_reference.internal_layout = QVBoxLayout(canvas_reference.internal_content)
+        canvas_reference.internal_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        canvas_reference.internal_layout.addStretch()
+        add_internal_var_btn = QPushButton("Add Internal Variable")
+        add_internal_var_btn.setStyleSheet("""
             QPushButton {
                 background-color: #1F538D;
                 color: white;
@@ -1401,15 +1488,21 @@ class MainWindow(QMainWindow):
                 border-radius: 4px;
             }
         """)
-        add_btn.clicked.connect(lambda: self.add_internal_variable_row(None, None, canvas_reference))
-        canvas_reference.layout.addWidget(add_btn)
+        add_internal_var_btn.clicked.connect(lambda: self.add_internal_variable_row(None, None, canvas_reference))
+        canvas_reference.internal_layout.insertWidget(canvas_reference.internal_layout.count() - 1, add_internal_var_btn)
         
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        canvas_reference.internal_content = QWidget()
-        canvas_reference.internal_layout = QVBoxLayout(canvas_reference.internal_content)
-        canvas_reference.internal_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        canvas_reference.internal_layout.addStretch()
+        add_internal_dev_btn = QPushButton("Add Internal Device")
+        add_internal_dev_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #1F538D;
+                color: white;
+                padding: 8px;
+                border-radius: 4px;
+            }
+        """)
+    
+        add_internal_dev_btn.clicked.connect(lambda: self.add_internal_device_row(None, None, canvas_reference))
+        canvas_reference.internal_layout.insertWidget(canvas_reference.internal_layout.count() - 1, add_internal_dev_btn)
         scroll.setWidget(canvas_reference.internal_content)
         canvas_reference.layout.addWidget(scroll)
 
@@ -2018,17 +2111,37 @@ class MainWindow(QMainWindow):
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
         if block_data['type'] == 'Function':
-            var_label = QLabel("Imput variables")
-
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), var_label)
             
-            for canvas, canvas_info in Utils.canvas_instances.items():
-                if canvas_info['canvas'] == current_canvas:
+            var_label = QLabel("Input variables")
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), var_label)
+
+            for canv, canv_info in Utils.canvas_instances.items():
+                if canv_info.get('ref') == 'function' and canv_info.get('name') == block_data.get('name'):
                     break
-            print(f"Function canvas ID: {canvas}")
-            for var_id, var_info in Utils.variables['function_canvases'][canvas_info['id']].items():
-                var_name_label = QLabel(f"- {var_info['name']}")
-                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), var_name_label)
+            print(f"Function canvas info: {canv_info}")
+            
+            for var_id, var_info in Utils.variables['function_canvases'][canv_info['id']].items():
+                line_widget = QWidget()
+                line_layout = QHBoxLayout(line_widget)
+                line_layout.setContentsMargins(0, 0, 0, 0)
+                
+                ref_var_combo = SearchableLineEdit()
+                ref_var_combo.setText(var_info['name'])
+                ref_var_combo.setPlaceholderText("Variable Name")
+
+                main_var_combo = SearchableLineEdit()
+                main_var_combo.setPlaceholderText("Linked Variable Name")
+
+
+                self.insert_items(block, ref_var_combo, type='variable_f')
+                self.insert_items(block, main_var_combo, type='variable_m')
+                line_layout.addWidget(ref_var_combo)
+                line_layout.addWidget(main_var_combo) 
+
+                ref_var_combo.textChanged.connect(lambda text, bd=block_data, t='variable_f': self.function_variable_changed(text, bd, t))
+                main_var_combo.textChanged.connect(lambda text, bd=block_data, t='variable_m': self.function_variable_changed(text, bd, t))
+
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), line_widget)
             
             separator = QFrame()
             separator.setFrameShape(QFrame.Shape.HLine)
@@ -2041,10 +2154,57 @@ class MainWindow(QMainWindow):
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), dev_label)
 
-            for dev_id, dev_info in Utils.devices['function_canvases'][canvas_info['id']].items():
-                dev_name_label = QLabel(f"- {dev_info['name']}")
-                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), dev_name_label)
-            
+            for dev_id, dev_info in Utils.devices['function_canvases'][canv_info['id']].items():
+                line_widget = QWidget()
+                line_layout = QHBoxLayout(line_widget)
+                line_layout.setContentsMargins(0, 0, 0, 0)
+                
+                ref_dev_combo = SearchableLineEdit()
+                ref_dev_combo.setText(dev_info['name'])
+                ref_dev_combo.setPlaceholderText("Device Name")
+
+                main_dev_combo = SearchableLineEdit()
+                main_dev_combo.setPlaceholderText("Linked Device Name")
+
+                self.insert_items(block, ref_dev_combo, type='device_f')
+                self.insert_items(block, main_dev_combo, type='device_m')
+                line_layout.addWidget(ref_dev_combo)
+                line_layout.addWidget(main_dev_combo)
+
+                ref_dev_combo.textChanged.connect(lambda text, bd=block_data, t='device_f': self.function_device_changed(text, bd, t))
+                main_dev_combo.textChanged.connect(lambda text, bd=block_data, t='device_m': self.function_device_changed(text, bd, t))
+
+
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), line_widget)
+
+    def function_variable_changed(self, text, block_data, type=None):
+        print(f"Function variable changed to: {text}, type: {type}")
+        # Implement the logic to update function variable mapping in block_data
+        # This is a placeholder implementation
+        if type == 'variable_f':
+            if 'ref_vars' not in block_data:
+                block_data['ref_vars'] = []
+            block_data['ref_vars'].append(text)
+        elif type == 'variable_m':
+            if 'main_vars' not in block_data:
+                block_data['main_vars'] = []
+            block_data['main_vars'].append(text)
+        print(f"Updated block_data: {block_data}")
+
+    def function_device_changed(self, text, block_data, type=None):
+        print(f"Function device changed to: {text}, type: {type}")
+        # Implement the logic to update function device mapping in block_data
+        # This is a placeholder implementation
+        if type == 'device_f':
+            if 'ref_devs' not in block_data:
+                block_data['ref_devs'] = []
+            block_data['ref_devs'].append(text)
+        elif type == 'device_m':
+            if 'main_devs' not in block_data:
+                block_data['main_devs'] = []
+            block_data['main_devs'].append(text)
+        print(f"Updated block_data: {block_data}")
+
     def Block_value_name_1_changed(self, text, block_data):
         current_canvas = self.current_canvas
         print("Updating vlaue 1 name")
@@ -2052,13 +2212,9 @@ class MainWindow(QMainWindow):
             print("ERROR: No current canvas available")
             return
         
-        # Get the splitter from the current canvas
-        canvas_splitter = getattr(current_canvas, 'canvas_splitter', None)
-        if canvas_splitter is None:
-            print("ERROR: No canvas_splitter found in current canvas")
-            return
         block_data['value_1_name'] = text
         for var_id, var_info in Utils.variables.items():
+            print(f"Checking variable: {var_info}")
             if var_info['name'] == text:
                 block_data['value_1_type'] = 'Variable'
                 break
@@ -2067,26 +2223,18 @@ class MainWindow(QMainWindow):
                 block_data['value_1_type'] = 'Device'
                 break
         if current_canvas.last_block.block_type == 'Button':
-            block_data['value_2_name'] = ''
-            block_data['value_2_type'] = 'N/A'
             if len(text) > 6:
                 text = text[:4] + "..."
-            item = block_data['widget']
         else:
             if len(text) > 5:
                 text = text[:3] + "..."
-            item = block_data['widget']
-        if item:
-            item.value_1_name = text
-            item.update()
+        block_data['value_1_name'] = text
+        block_data['widget'].update()
     
     def Block_operator_changed(self, text, block_data):
         print("Updating operator")
-        block_data['operator'] = text
-        item = block_data['widget']
-        if item:    
-            item.operator = text
-            item.update()
+        block_data['operator'] = text    
+        block_data['widget'].update()
     
     def Block_value_2_name_changed(self, text, block_data):
         print("Updating vlaue 2 name") 
@@ -2101,28 +2249,21 @@ class MainWindow(QMainWindow):
                 break
         if len(text) > 5:
             text = text[:3] + "..."
-        item = block_data['widget']
-        if item:
-            item.value_2_name = text
-            item.update()
+        block_data['value_2_name'] = text
+        block_data['widget'].update()
     
     def Block_switch_changed(self, state, block_data):
         block_data['switch_state'] = state
         print(f"Switch state changed to: {state}")
-        item = block_data['widget']
-        if item:
-            item.switch_state = state
-            item.update()
+        block_data['switch_state'] = state
+        block_data['widget'].update()
     
     def Block_sleep_interval_changed(self, text, block_data):
         print("Updating sleep interval")
         block_data['sleep_time'] = text
-        item = block_data['widget']
-        if item:
-            item.sleep_time = text
-            item.update()
-    
-    def insert_items(self, block, line_edit):
+        block_data['widget'].update()
+            
+    def insert_items(self, block, line_edit, type=None):
         print("Inserting items into line edit")
         current_canvas = self.current_canvas
         if current_canvas is None:
@@ -2149,6 +2290,27 @@ class MainWindow(QMainWindow):
                 for id, text in Utils.dev_items.items():
                     print(f"Added device item into Switch/Button: {text}")
                     all_items.append(text)
+            elif block.block_type.startswith('Function_'):
+                for canvas, info in Utils.canvas_instances.items():
+                    if info['ref'] == 'function' and info['name'] == block.block_type.split('_')[1]:
+                        function_id = info['id']
+                        break
+                if type == 'variable_f':
+                    for v_id, v_info in Utils.variables['function_canvases'][function_id].items():
+                        all_items.append(v_info['name'])
+                        print(f"Added function variable item: {v_info['name']}")
+                elif type == 'variable_m':
+                    for v_id, v_info in Utils.variables['main_canvas'].items():
+                        all_items.append(v_info['name'])
+                        print(f"Added main variable item: {v_info['name']}")
+                elif type == 'device_f':
+                    for d_id, d_info in Utils.devices['function_canvases'][function_id].items():
+                        all_items.append(d_info['name'])
+                        print(f"Added function device item: {d_info['name']}")
+                elif type == 'device_m':
+                    for d_id, d_info in Utils.devices['main_canvas'].items():
+                        all_items.append(d_info['name'])
+                        print(f"Added main device item: {d_info['name']}")
             else:
                 for id, text in Utils.var_items.items():
                     all_items.append(text)
@@ -2173,20 +2335,7 @@ class MainWindow(QMainWindow):
                 print(f"Generated variable_id attempt: {var_id}")
                 for canvas, info in Utils.canvas_instances.items():
                     if canvas_reference == canvas and info['ref'] == 'canvas':
-                        if var_id not in Utils.variables['main_canvas'].keys():
-                            Utils.variables['main_canvas'][var_id] = {
-                                'name': '',
-                                'type': 'Int',
-                                'value': '',
-                                'widget': None,
-                                'name_imput': None,
-                                'type_input': None,
-                                'value_input': None
-                            }
-                            self.id_var_generated = True
-                            break
-                        else:
-                            var_id = None
+                        print(f"Checking main_canvas for var_id: {var_id}")
                     elif canvas_reference == canvas and info['ref'] == 'function':
                         for function_id, function_info in Utils.functions.items():
                             if function_info['canvas'] == canvas_reference:
@@ -2194,40 +2343,32 @@ class MainWindow(QMainWindow):
                                     Utils.variables['function_canvases'][function_id][var_id] = {
                                         'name': '',
                                         'type': 'Int',
-                                        'value': '',
                                         'widget': None,
                                         'name_imput': None,
                                         'type_input': None,
-                                        'value_input': None
                                     }
                                     self.id_var_generated = True
                                     break
                                 else:
                                     var_id = None
+                    else:
+                        print("Error: Canvas reference not found in Utils.canvas_instances")
         else:
             for canvas, info in Utils.canvas_instances.items():
                 if canvas_reference == canvas and info['ref'] == 'canvas':
-                    Utils.variables['main_canvas'][var_id] = {
-                        'name': '',
-                        'type': 'Int',
-                        'value': '',
-                        'widget': None,
-                        'name_imput': None,
-                        'type_input': None,
-                        'value_input': None
-                    }
+                    print(f"Adding predefined var_id to main_canvas: {var_id}")
                 elif canvas_reference == canvas and info['ref'] == 'function':
                     for function_id, function_info in Utils.functions.items():
                         if function_info['canvas'] == canvas_reference:
                             Utils.variables['function_canvases'][function_id][var_id] = {
                                 'name': '',
                                 'type': 'Int',
-                                'value': '',
                                 'widget': None,
                                 'name_imput': None,
                                 'type_input': None,
-                                'value_input': None
                             }
+                else:
+                    print("Error: Canvas reference not found in Utils.canvas_instances")
         print(f"Utils.variables after adding new variable: {Utils.variables}")
         canvas_reference.row_widget = QWidget()
         canvas_reference.row_layout = QHBoxLayout(canvas_reference.row_widget)
@@ -2259,27 +2400,11 @@ class MainWindow(QMainWindow):
         
         type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable", r=canvas_reference: self.type_changed(text, v_id , t, r))
         
-        self.value_var_input = QLineEdit()
-        self.value_var_input.setPlaceholderText("Initial Value")
-        if var_data and 'value' in var_data:
-            self.value_var_input.setText(var_data['value'])
-            if info['ref'] == 'canvas':
-                Utils.variables['main_canvas'][var_id]['value'] = var_data['value']
-            elif info['ref'] == 'function':
-                for function_id, function_info in Utils.functions.items():
-                    if function_info['canvas'] == canvas_reference:
-                        Utils.variables['function_canvases'][function_id][var_id]['value'] = var_data['value']
-        regex = QRegularExpression(r"^\d*$")
-        validator = QRegularExpressionValidator(regex, self)
-        self.value_var_input.setValidator(validator)
-        self.value_var_input.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.value_changed(text, v_id, t, r))
-        
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
         
         canvas_reference.row_layout.addWidget(name_imput)
         canvas_reference.row_layout.addWidget(type_input)
-        canvas_reference.row_layout.addWidget(self.value_var_input)
         canvas_reference.row_layout.addWidget(delete_btn)
         
         delete_btn.clicked.connect(lambda _, v_id=var_id, rw=canvas_reference.row_widget, t="Variable", r=canvas_reference: self.remove_row(rw, v_id, t, r))
@@ -2288,21 +2413,117 @@ class MainWindow(QMainWindow):
             Utils.variables['main_canvas'][var_id]['widget'] = canvas_reference.row_widget
             Utils.variables['main_canvas'][var_id]['name_imput'] = name_imput
             Utils.variables['main_canvas'][var_id]['type_input'] = type_input
-            Utils.variables['main_canvas'][var_id]['value_input'] = self.value_var_input
         elif info['ref'] == 'function':
             for function_id, function_info in Utils.functions.items():
                 if function_info['canvas'] == canvas_reference:
                     Utils.variables['function_canvases'][function_id][var_id]['widget'] = canvas_reference.row_widget
                     Utils.variables['function_canvases'][function_id][var_id]['name_imput'] = name_imput
                     Utils.variables['function_canvases'][function_id][var_id]['type_input'] = type_input
-                    Utils.variables['function_canvases'][function_id][var_id]['value_input'] = self.value_var_input
+        panel_layout = canvas_reference.internal_layout
+        panel_layout.insertWidget(panel_layout.count() - 2 - canvas_reference.internal_devs_rows_count, canvas_reference.row_widget)
+        
+        canvas_reference.internal_vars_rows_count += 1
+        canvas_reference.internal_rows_count += 1
+
+        #print(f"Added variable: {self.var_id}")
+    def add_internal_device_row(self, dev_id=None, dev_data=None, canvas_reference=None):
+        print(f"Adding variable row to canvas_reference: {canvas_reference}")
+        self.id_dev_generated = False
+        if dev_id is None:
+            while not self.id_dev_generated:
+                dev_id = f"device_{str(int(random()*100000))}"
+                print(f"Generated device_id attempt: {dev_id}")
+                for canvas, info in Utils.canvas_instances.items():
+                    if canvas_reference == canvas and info['ref'] == 'canvas':
+                        print(f"Checking main_canvas for dev_id: {dev_id}")
+                    elif canvas_reference == canvas and info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                if dev_id not in Utils.devices['function_canvases'][function_id].keys():
+                                    Utils.devices['function_canvases'][function_id][dev_id] = {
+                                        'name': '',
+                                        'type': 'Out',
+                                        'widget': None,
+                                        'name_imput': None,
+                                        'type_input': None,
+                                    }
+                                    self.id_dev_generated = True
+                                    break
+                                else:
+                                    dev_id = None
+                    else:
+                        print("Error: Canvas reference not found in Utils.canvas_instances")
+        else:
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas and info['ref'] == 'canvas':
+                    print(f"Adding predefined dev_id to main_canvas: {dev_id}")
+                elif canvas_reference == canvas and info['ref'] == 'function':
+                    for function_id, function_info in Utils.functions.items():
+                        if function_info['canvas'] == canvas_reference:
+                            Utils.devices['function_canvases'][function_id][dev_id] = {
+                                'name': '',
+                                'type': 'Out',
+                                'widget': None,
+                                'name_imput': None,
+                                'type_input': None,
+                            }
+                else:
+                    print("Error: Canvas reference not found in Utils.canvas_instances")
+        print(f"Utils.devices after adding new device: {Utils.devices}")
+        canvas_reference.row_widget = QWidget()
+        canvas_reference.row_layout = QHBoxLayout(canvas_reference.row_widget)
+        canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
+
+        name_imput = QLineEdit()
+        name_imput.setPlaceholderText("Name")
+        if dev_data and 'name' in dev_data:
+            name_imput.setText(dev_data['name'])
+            if info['ref'] == 'canvas':
+                Utils.devices['main_canvas'][dev_id]['name'] = dev_data['name']
+            elif info['ref'] == 'function':
+                for function_id, function_info in Utils.functions.items():
+                    if function_info['canvas'] == canvas_reference:
+                        Utils.devices['function_canvases'][function_id][dev_id]['name'] = dev_data['name']
+        
+        name_imput.textChanged.connect(lambda text, v_id=dev_id, t="Device", r=canvas_reference: self.name_changed(text, v_id, t, r))
+        
+        type_input = QComboBox()
+        type_input.addItems(["Out", "In", "Button"])
+        if dev_data and 'type' in dev_data:
+            type_input.setCurrentText(dev_data['type'])
+            if info['ref'] == 'canvas':
+                Utils.devices['main_canvas'][dev_id]['type'] = dev_data['type']
+            elif info['ref'] == 'function':
+                for function_id, function_info in Utils.functions.items():
+                    if function_info['canvas'] == canvas_reference:
+                        Utils.devices['function_canvases'][function_id][dev_id]['type'] = dev_data['type']
+        
+        type_input.currentTextChanged.connect(lambda  text, v_id=dev_id, t="Device", r=canvas_reference: self.type_changed(text, v_id , t, r))
+        
+        delete_btn = QPushButton("×")
+        delete_btn.setFixedWidth(30)
+        
+        canvas_reference.row_layout.addWidget(name_imput)
+        canvas_reference.row_layout.addWidget(type_input)
+        canvas_reference.row_layout.addWidget(delete_btn)
+        
+        delete_btn.clicked.connect(lambda _, v_id=dev_id, rw=canvas_reference.row_widget, t="Device", r=canvas_reference: self.remove_row(rw, v_id, t, r))
+
+        if info['ref'] == 'canvas':
+            Utils.devices['main_canvas'][dev_id]['widget'] = canvas_reference.row_widget
+            Utils.devices['main_canvas'][dev_id]['name_imput'] = name_imput
+            Utils.devices['main_canvas'][dev_id]['type_input'] = type_input
+        elif info['ref'] == 'function':
+            for function_id, function_info in Utils.functions.items():
+                if function_info['canvas'] == canvas_reference:
+                    Utils.devices['function_canvases'][function_id][dev_id]['widget'] = canvas_reference.row_widget
+                    Utils.devices['function_canvases'][function_id][dev_id]['name_imput'] = name_imput
+                    Utils.devices['function_canvases'][function_id][dev_id]['type_input'] = type_input
         panel_layout = canvas_reference.internal_layout
         panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
         
-        canvas_reference.variable_row_count += 1
-        
-        #print(f"Added variable: {self.var_id}")
-
+        canvas_reference.internal_devs_rows_count += 1
+        canvas_reference.internal_rows_count += 1
     #MARK: - Variable Panel Methods
     def add_variable_row(self, var_id=None, var_data=None, canvas_reference=None):
         """Add a new variable row"""
