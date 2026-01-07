@@ -957,7 +957,7 @@ class GridCanvas(QGraphicsView):
                 'height': block.boundingRect().height(),
                 'x': x,
                 'y': y,
-                'value_1_name': "switch",
+                'value_1_name': "var1",
                 'switch_state': False,
                 'in_connections': [],
                 'out_connections': [],
@@ -2213,16 +2213,27 @@ class MainWindow(QMainWindow):
             return
         
         block_data['value_1_name'] = text
-        for var_id, var_info in Utils.variables.items():
+        if current_canvas.reference == 'canvas':
+            print(f"Current Utils.main_canvas['blocks']: {Utils.main_canvas['blocks']}")
+            variables = Utils.variables['main_canvas']
+            devices = Utils.devices['main_canvas']
+        elif current_canvas.reference == 'function':
+            for f_id, f_info in Utils.functions.items():
+                if current_canvas == f_info.get('canvas'):
+                    print(f"Current Utils.functions[{f_id}]['blocks']: {Utils.functions[f_id]['blocks']}")
+                    variables = Utils.variables['function_canvases'][f_id]
+                    devices = Utils.devices['function_canvases'][f_id]
+                    break
+        for var_id, var_info in variables.items():
             print(f"Checking variable: {var_info}")
             if var_info['name'] == text:
                 block_data['value_1_type'] = 'Variable'
                 break
-        for dev_id, dev_info in Utils.devices.items():
+        for dev_id, dev_info in devices.items():
             if dev_info['name'] == text:
                 block_data['value_1_type'] = 'Device'
                 break
-        if current_canvas.last_block.block_type == 'Button':
+        if block_data['type'] == 'Button':
             if len(text) > 6:
                 text = text[:4] + "..."
         else:
@@ -2239,11 +2250,28 @@ class MainWindow(QMainWindow):
     def Block_value_2_name_changed(self, text, block_data):
         print("Updating vlaue 2 name") 
         block_data['value_2_name'] = text
-        for var_id, var_info in Utils.variables.items():
+        current_canvas = self.current_canvas
+        if current_canvas is None:
+            print("ERROR: No current canvas available")
+            return
+
+        if current_canvas.reference == 'canvas':
+            print(f"Current Utils.main_canvas['blocks']: {Utils.main_canvas['blocks']}")
+            variables = Utils.variables['main_canvas']
+            devices = Utils.devices['main_canvas']
+        elif current_canvas.reference == 'function':
+            for f_id, f_info in Utils.functions.items():
+                if current_canvas == f_info.get('canvas'):
+                    print(f"Current Utils.functions[{f_id}]['blocks']: {Utils.functions[f_id]['blocks']}")
+                    variables = Utils.variables['function_canvases'][f_id]
+                    devices = Utils.devices['function_canvases'][f_id]
+                    break
+
+        for var_id, var_info in variables.items():
             if var_info['name'] == text:
                 block_data['value_2_type'] = 'Variable'
                 break
-        for dev_id, dev_info in Utils.devices.items():
+        for dev_id, dev_info in devices.items():
             if dev_info['name'] == text:
                 block_data['value_2_type'] = 'Device'
                 break
@@ -2262,7 +2290,7 @@ class MainWindow(QMainWindow):
         print("Updating sleep interval")
         block_data['sleep_time'] = text
         block_data['widget'].update()
-            
+
     def insert_items(self, block, line_edit, type=None):
         print("Inserting items into line edit")
         current_canvas = self.current_canvas

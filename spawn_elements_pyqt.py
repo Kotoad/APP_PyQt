@@ -11,8 +11,9 @@ QStandardItemModel, QListWidget, QEvent, ctypes, sys, time,
 QGraphicsPixmapItem, QGraphicsItem, QPointF)
 from PIL import Image, ImageDraw, ImageFont
 import random
-from Imports import get_utils, get_gui
+from Imports import get_utils, get_gui, get_State_Machine
 Utils = get_utils()
+State_machine = get_State_Machine()[1]
 
 class BlockSignals(QObject):
     """Signal container for block interactions"""
@@ -27,6 +28,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         super().__init__()
         
         self.signals = BlockSignals()
+        self.state_machine = State_machine()
         if main_window is not None:
             self.main_window = main_window
         elif hasattr(parent_canvas, 'main_window'):
@@ -80,12 +82,12 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             self.height = 54
         elif self.block_type.startswith("Function_"):
             func = self.block_type.split("Function_")[1]
-            print(f"Utils.variables['function_canvases']: {Utils.variables['function_canvases']}")
+            #print(f"Utils.variables['function_canvases']: {Utils.variables['function_canvases']}")
             for canvas, canvas_info in Utils.canvas_instances.items():
                 if canvas_info.get('ref') == 'function' and canvas_info.get('name') == func:
                     self.canvas_id = canvas_info.get('id')
                     break
-            print(f"Calculating dimensions for function block: {func} in canvas {self.canvas_id}")
+            #print(f"Calculating dimensions for function block: {func} in canvas {self.canvas_id}")
             for f_id, f_info in Utils.variables['function_canvases'][self.canvas_id].items():
                 v_count += 1
             for f_id, f_info in Utils.devices['function_canvases'][self.canvas_id].items():
@@ -150,7 +152,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
 
     def _draw_text(self, painter):
         """Draw block label text"""
-        print("Drawing text for block:", self.block_type)
+        #print("Drawing text for block:", self.block_type)
         painter.setPen(QPen(QColor("black")))
         font = QFont("Arial", 10, QFont.Weight.Normal)
         painter.setFont(font)
@@ -186,7 +188,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             painter.drawText(ON_rect, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight, "ON")
             painter.drawText(OFF_rect, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight, "OFF")
         elif self.block_type.startswith("Function_"):
-            print(f"Drawing function block text for: {self.block_type}")
+            #print(f"Drawing function block text for: {self.block_type}")
             name_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(name_rect, Qt.AlignmentFlag.AlignHCenter, text)
 
@@ -195,14 +197,14 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             painter.setFont(small_font)
             y_offset = 20
             for v_id, v_info in Utils.variables['function_canvases'][self.canvas_id].items():
-                print(f"   Drawing variable: {v_info['name']}")
+                #print(f"   Drawing variable: {v_info['name']}")
                 var_text = f"{v_info['name']}"
                 var_rect = QRectF(self.radius + 10, y_offset, self.width - 20, 15)
                 painter.drawText(var_rect, Qt.AlignmentFlag.AlignLeft, var_text)
                 y_offset += 20
             y_offset = 20
             for d_id, d_info in Utils.devices['function_canvases'][self.canvas_id].items():
-                print(f"   Drawing device: {d_info['name']}")
+                #print(f"   Drawing device: {d_info['name']}")
                 dev_text = f"{d_info['name']}"
                 dev_rect = QRectF(self.radius + 10, y_offset, self.width - 20, 15)
                 painter.drawText(dev_rect, Qt.AlignmentFlag.AlignRight, dev_text)
@@ -310,25 +312,27 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
     def itemChange(self, change, value):
         """Handle position/selection changes"""
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
-            pos = self.pos()
-            if self.canvas.reference == 'canvas':
-                if self.block_id in Utils.main_canvas['blocks']:
-                    Utils.main_canvas['blocks'][self.block_id]['x'] = pos.x()
-                    Utils.main_canvas['blocks'][self.block_id]['y'] = pos.y()
-            else:
-                for f_id, f_info in Utils.functions.items():
-                    if self.canvas == f_info.get('canvas'):
-                        if self.block_id in f_info['blocks']:
-                            f_info['blocks'][self.block_id]['x'] = pos.x()
-                            f_info['blocks'][self.block_id]['y'] = pos.y()
-                            break
-            
-            # Update connected paths
-            if hasattr(self.canvas, 'path_manager'):
-                self.canvas.path_manager.update_paths_for_widget(self)
-            if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
-                if self.canvas.last_inspector_block and self.canvas.last_inspector_block.block_id == self.block_id:
-                    self.main_window.update_inspector_content(self.canvas.last_inspector_block)
+            if self.state_machine.on_moving_item():
+                print(f"Block {self.block_id} moved to {value}")
+                pos = self.pos()
+                if self.canvas.reference == 'canvas':
+                    if self.block_id in Utils.main_canvas['blocks']:
+                        Utils.main_canvas['blocks'][self.block_id]['x'] = pos.x()
+                        Utils.main_canvas['blocks'][self.block_id]['y'] = pos.y()
+                else:
+                    for f_id, f_info in Utils.functions.items():
+                        if self.canvas == f_info.get('canvas'):
+                            if self.block_id in f_info['blocks']:
+                                f_info['blocks'][self.block_id]['x'] = pos.x()
+                                f_info['blocks'][self.block_id]['y'] = pos.y()
+                                break
+                
+                # Update connected paths
+                if hasattr(self.canvas, 'path_manager'):
+                    self.canvas.path_manager.update_paths_for_widget(self)
+                if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
+                    if self.canvas.last_inspector_block and self.canvas.last_inspector_block.block_id == self.block_id:
+                        self.main_window.update_inspector_content(self.canvas.last_inspector_block)
         
         return super().itemChange(change, value)
 
@@ -357,6 +361,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
     def mouseReleaseEvent(self, event):
         """Handle block deselection"""
         self.setSelected(False)
+        self.state_machine.on_idle()
         super().mouseReleaseEvent(event)
 
     def _get_circle_center(self, circle_type):
@@ -443,6 +448,7 @@ class spawning_elements:
         self.parent = parent
         self.elements_window = elements_window
         self.element_spawner = Element_spawn()
+        self.state_machine = State_machine()
 
     def start(self, parent, element_type):
         """Start placing an element"""
@@ -497,7 +503,9 @@ class spawning_elements:
         self.perm_stop = True
         self.placing_active = False
         self.element_placed = False
-
+        print("Current state before idle:", self.state_machine.current_state())
+        self.state_machine.on_idle()
+        print("Current state after idle:", self.state_machine.current_state())
         parent.mousePressEvent = self.old_mousePressEvent
         print("Restored original mousePressEvent")
         if self.elements_window:
@@ -513,6 +521,7 @@ class Elements_events(QObject):
         self.canvas = canvas
         self.path_manager = canvas.path_manager if hasattr(canvas, 'path_manager') else None
         self.inspector_frame_visible = canvas.inspector_frame_visible if hasattr(canvas, 'inspector_frame_visible') else None
+        self.state_machine = State_machine()
         print(f"Instantiating ElementsEvents for canvas: {canvas}")
         print(f" → inspector_panel: {self.inspector_frame_visible}")
         print("✓ ElementsEvents initialized")
@@ -522,13 +531,15 @@ class Elements_events(QObject):
         """Handle input circle clicks"""
         print(f"✓ on_input_clicked: {block.block_id} ({circle_type})")
         if self.path_manager:
-            self.path_manager.finalize_connection(block, circle_center, circle_type)
+            if self.state_machine.on_idle():    
+                self.path_manager.finalize_connection(block, circle_center, circle_type)
 
     def on_output_clicked(self, block, circle_center, circle_type):
         """Handle output circle clicks"""
         print(f"✓ on_output_clicked: {block.block_id} ({circle_type})")
         if self.path_manager:
-            self.path_manager.start_connection(block, circle_center, circle_type)
+            if self.state_machine.on_adding_path():
+                self.path_manager.start_connection(block, circle_center, circle_type)
 
 
 class Element_spawn:

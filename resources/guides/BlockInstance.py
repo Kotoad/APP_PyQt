@@ -6,7 +6,7 @@ Handles serialization to/from ProjectData
 
 from dataclasses import dataclass, field
 from typing import Dict, Any, List
-from BlockDefinitions import BlockLibrary, BlockTypeDef
+from resources.guides.BlockDefinitions import BlockLibrary, BlockTypeDef
 
 
 @dataclass

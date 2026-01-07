@@ -5,8 +5,8 @@ Complete working example showing how to use BlockDefinitions and BlockInstance
 Copy these patterns to update your existing code
 """
 
-from BlockDefinitions import BlockLibrary, InputType
-from BlockInstance import BlockInstance
+from resources.guides.BlockDefinitions import BlockLibrary, InputType
+from resources.guides.BlockInstance import BlockInstance
 
 # ============================================================================
 # EXAMPLE 1: Creating a new block programmatically

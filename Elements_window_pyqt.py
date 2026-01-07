@@ -2,6 +2,8 @@ from Imports import (QWidget, QDialog, QVBoxLayout, QHBoxLayout,
 QPushButton, QLabel, QFrame, QTabWidget, Qt, QFont,
 pyqtSignal)
 
+from state_machine import CanvasStateMachine
+
 from Imports import get_spawn_elements, get_utils
 
 Utils = get_utils()
@@ -26,7 +28,7 @@ class ElementsWindow(QDialog):
         super().__init__(parent)
         print(f"Curent canvas in ElementsWindow init: {parent}")
         self.parent_canvas = parent
-        
+        self.state_machine = CanvasStateMachine()
         # Create spawning_elements instance
         # This now handles BlockGraphicsItem creation internally
         
@@ -290,8 +292,14 @@ class ElementsWindow(QDialog):
             
             # ✓ Use CURRENT canvas's spawner, not stored self.element_spawner!
             if hasattr(current_canvas, 'spawner'):
-                current_canvas.spawner.start(current_canvas, element_type)
-                print(f"Element spawn initiated on canvas {id(current_canvas)}")
+                print("Current state of canvas before spawning:", self.state_machine.current_state())
+                if self.state_machine.on_adding_block():
+                    print("Current state of canvas before spawning:", self.state_machine.current_state())
+                    print(" Canvas state changed to ADDING_BLOCK")
+                    current_canvas.spawner.start(current_canvas, element_type)
+                    print(f"Element spawn initiated on canvas {id(current_canvas)}")
+                else:
+                    print("Canvas cannot add block right now.")
             else:
                 print("ERROR: Canvas has no spawner!")
             
