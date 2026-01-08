@@ -99,7 +99,7 @@ class FileManager:
             with open(filename, 'w') as f:
                 json.dump(project_dict, f, indent=2)
             
-            print(f"✓ Project saved: {filename}")
+            #print(f"✓ Project saved: {filename}")
             return True
             
         except Exception as e:
@@ -120,9 +120,9 @@ class FileManager:
         }
         functions = {}
         for canvas in Utils.canvas_instances:
-            print(f"Processing canvas: {canvas}")
+            #print(f"Processing canvas: {canvas}")
             if canvas.reference == 'canvas':
-                print("Processing main canvas blocks")
+                #print("Processing main canvas blocks")
                 for block_id, block_info in Utils.main_canvas['blocks'].items():
                     main_canvas['blocks'][block_id] = {
                         'type': block_info['type'],
@@ -142,15 +142,15 @@ class FileManager:
                         'out_connections': block_info.get('out_connections', []),
                     }
             elif canvas.reference == 'function':
-                print("Processing function canvas blocks")
+                #print("Processing function canvas blocks")
                 for f_id, f_info in Utils.functions.items():
                     if canvas == f_info.get('canvas'):
                         functions[f_id] = {'blocks': {},
                                            'paths': {}}
                         for block_id, block_info in f_info['blocks'].items():
-                            print(f"Processing block {block_id} in function {f_id}")
+                            #print(f"Processing block {block_id} in function {f_id}")
                             if f_id not in functions:
-                                print(f"Creating new function entry for {f_id}")
+                                #print(f"Creating new function entry for {f_id}")
                                 functions[f_id] = {'blocks': {}}
                             functions[f_id]['blocks'][block_id] = {
                                 'type': block_info['type'],
@@ -171,11 +171,11 @@ class FileManager:
                             }
         # Build connections data (using block IDs, NOT widget references)
         for canvas in Utils.canvas_instances:
-            print(f"Processing connections for canvas: {canvas}")
+            #print(f"Processing connections for canvas: {canvas}")
             if canvas.reference == 'canvas':
-                print("Processing main canvas connections")
+                #print("Processing main canvas connections")
                 for conn_id, conn_info in Utils.main_canvas['paths'].items():
-                    print(f"Processing connection {conn_id} on main canvas")
+                    #print(f"Processing connection {conn_id} on main canvas")
                     if conn_info.get('canvas') == canvas:
                         main_canvas['paths'][conn_id] = {
                             'from': conn_info['from'],
@@ -185,18 +185,18 @@ class FileManager:
                             'waypoints': conn_info.get('waypoints', []),
                         }
             elif canvas.reference == 'function':
-                print("Processing function canvas connections")
+                #print("Processing function canvas connections")
                 for f_id, f_info in Utils.functions.items():
                     if canvas == f_info.get('canvas'):
-                        print(f"Processing connections for function {f_id}")
-                        print(f" Function connections: {Utils.functions[f_id]['paths']}")
+                        #print(f"Processing connections for function {f_id}")
+                        #print(f" Function connections: {Utils.functions[f_id]['paths']}")
                         if f_id not in functions:
-                            print(f"Creating new function entry for connections for {f_id}")
+                            #print(f"Creating new function entry for connections for {f_id}")
                             functions[f_id] = {'blocks': {}, 'paths': {}}
                         for conn_id, conn_info in Utils.functions[f_id]['paths'].items():
-                            print(f"Conn_info: {conn_info}")
+                            #print(f"Conn_info: {conn_info}")
                             if conn_info.get('canvas') == canvas:
-                                print(f"Processing connection {conn_id} in function {f_id}")
+                                #print(f"Processing connection {conn_id} in function {f_id}")
                                 functions[f_id]['paths'][conn_id] = {
                                     'from': conn_info['from'],
                                     'from_circle_type': conn_info.get('from_circle_type', 'out'),
@@ -204,32 +204,32 @@ class FileManager:
                                     'to_circle_type': conn_info.get('to_circle_type', 'in'),
                                     'waypoints': conn_info.get('waypoints', []),
                                 }
-        print(f"Saved main canvas paths : {main_canvas['paths']}")
-        for function_id, function_info in functions.items():
-            print(f"Saved function {function_id} paths : {function_info['paths']}")       
+        #print(f"Saved main canvas paths : {main_canvas['paths']}")
+        #for function_id, function_info in functions.items():
+            #print(f"Saved function {function_id} paths : {function_info['paths']}")       
         # Build variables data (pure data, no widget references)
         variables_data = {
             'main_canvas': {},      
             'function_canvases': {} 
         }
         for canvas in Utils.canvas_instances:
-            print(f"Processing variables for canvas: {canvas}")
+            #print(f"Processing variables for canvas: {canvas}")
             if canvas.reference == 'canvas':
-                print("Processing main canvas variables")
+                #print("Processing main canvas variables")
                 for var_id, var_info in Utils.variables['main_canvas'].items():
-                    print(f" Processing variable {var_id} for main canvas")
-                    print(f"  Var info: {var_info}")
+                    #print(f" Processing variable {var_id} for main canvas")
+                    #print(f"  Var info: {var_info}")
                     variables_data['main_canvas'][var_id] = {
                         'name': var_info.get('name', ''),
                         'type': var_info.get('type', ''),
                         'value': var_info.get('value', ''),
                     }
             elif canvas.reference == 'function':
-                print("Processing function canvas variables")
+                #print("Processing function canvas variables")
                 for f_id, f_info in Utils.functions.items():
                     if canvas == f_info.get('canvas'):
                         variables_data['function_canvases'][f_id] = {}
-                        print(f" Processing variables for function {f_id}")
+                        #print(f" Processing variables for function {f_id}")
                         for var_id, var_info in Utils.variables['function_canvases'][f_id].items():
                             variables_data['function_canvases'][f_id][var_id] = {
                                 'name': var_info.get('name', ''),
@@ -243,23 +243,23 @@ class FileManager:
             'function_canvases': {} 
         }
         for canvas in Utils.canvas_instances:
-            print(f"Processing devices for canvas: {canvas}")
+            #print(f"Processing devices for canvas: {canvas}")
             if canvas.reference == 'canvas':
-                print("Processing main canvas devices")
+                #print("Processing main canvas devices")
                 for dev_id, dev_info in Utils.devices['main_canvas'].items():
-                    print(f" Processing device {dev_id} for main canvas")
-                    print(f"  Device info: {dev_info}")
+                    #print(f" Processing device {dev_id} for main canvas")
+                    #print(f"  Device info: {dev_info}")
                     devices_data['main_canvas'][dev_id] = {
                         'name': dev_info.get('name', ''),
                         'type': dev_info.get('type', ''),
                         'PIN': dev_info.get('PIN', ''),
                     }
             elif canvas.reference == 'function':
-                print("Processing function canvas devices")
+                #print("Processing function canvas devices")
                 for f_id, f_info in Utils.functions.items():
                     if canvas == f_info.get('canvas'):
                         devices_data['function_canvases'][f_id] = {}
-                        print(f" Processing devices for function {f_id}")
+                        #print(f" Processing devices for function {f_id}")
                         for dev_id, dev_info in Utils.devices['function_canvases'][f_id].items():
                             devices_data['function_canvases'][f_id][dev_id] = {
                                 'name': dev_info.get('name', ''),
@@ -340,7 +340,7 @@ class FileManager:
             # Populate Utils with loaded data (PURE DATA ONLY)
             cls._populate_utils_from_save(project_dict)
             
-            print(f"✓ Project loaded: {filename}")
+            #print(f"✓ Project loaded: {filename}")
             return True
             
         except json.JSONDecodeError as e:
@@ -382,14 +382,14 @@ class FileManager:
         # Load devices
         Utils.project_data.devices = project_dict.get('devices', {})
         
-        print(f"✓ Data loaded: {len(Utils.project_data.main_canvas)} blocks, "
-              f"{len(Utils.project_data.functions)} functions, "
-              f"{len(Utils.project_data.canvases)} connections, "
-              f"{len(Utils.project_data.variables)} variables, "
-              f"{len(Utils.project_data.devices)} devices, "
-              f"Settings: {len(Utils.project_data.settings)}"
-              f"Metadata: {len(Utils.project_data.metadata)}"
-              )
+        #print(f"✓ Data loaded: {len(Utils.project_data.main_canvas)} blocks, "
+        #      f"{len(Utils.project_data.functions)} functions, "
+        #      f"{len(Utils.project_data.canvases)} connections, "
+        #      f"{len(Utils.project_data.variables)} variables, "
+        #      f"{len(Utils.project_data.devices)} devices, "
+        #      f"Settings: {len(Utils.project_data.settings)}"
+        #      f"Metadata: {len(Utils.project_data.metadata)}"
+        #      )
     
     # ========================================================================
     # UTILITY OPERATIONS
@@ -421,7 +421,7 @@ class FileManager:
             filepath = os.path.join(cls.PROJECTS_DIR, project_name + cls.PROJECT_EXTENSION)
             if os.path.exists(filepath):
                 os.remove(filepath)
-                print(f"✓ Project deleted: {project_name}")
+                #print(f"✓ Project deleted: {project_name}")
                 return True
             else:
                 print(f"✗ Project not found: {project_name}")
@@ -464,7 +464,7 @@ class FileManager:
             'modified': datetime.now().isoformat(),
         }
         
-        print("✓ New project created")
+        #print("✓ New project created")
 
     @classmethod
     def compare_projects(cls, name: str) -> ProjectComparison:
@@ -594,23 +594,23 @@ class FileManager:
         """Compare connections/paths in main canvas"""
         saved_paths = saved_data.main_canvas.get("paths", {})
         current_paths = current_data.main_canvas.get("paths", {})
-        print(f"Comparing main canvas connections: saved {saved_paths}, current {current_paths}")
+        #print(f"Comparing main canvas connections: saved {saved_paths}, current {current_paths}")
         for connid, c_conn in current_paths.items():
             if connid not in saved_paths:
-                print(f" Connection {connid} added")
+                #print(f" Connection {connid} added")
                 comparison.main_connections_added.append(connid)
                 comparison.main_canvas_changed = True
             else:
                 # Check if connection properties changed
                 s_conn = saved_paths[connid]
                 if c_conn != s_conn:
-                    print(f" Connection {connid} modified")
+                    #print(f" Connection {connid} modified")
                     comparison.main_connections_modified[connid] = True
                     comparison.main_canvas_changed = True
         
         for connid in saved_paths:
             if connid not in current_paths:
-                print(f" Connection {connid} removed")
+                #print(f" Connection {connid} removed")
                 comparison.main_connections_removed.append(connid)
                 comparison.main_canvas_changed = True
     

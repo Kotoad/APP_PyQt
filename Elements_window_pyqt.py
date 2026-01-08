@@ -2,12 +2,11 @@ from Imports import (QWidget, QDialog, QVBoxLayout, QHBoxLayout,
 QPushButton, QLabel, QFrame, QTabWidget, Qt, QFont,
 pyqtSignal)
 
-from state_machine import CanvasStateMachine
-
+from Imports import get_State_Manager
 from Imports import get_spawn_elements, get_utils
 
 Utils = get_utils()
-
+State_manager = get_State_Manager()
 # Get the spawning_elements class and other exported items
 spawning_elements = get_spawn_elements()[1]
 
@@ -26,9 +25,9 @@ class ElementsWindow(QDialog):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        print(f"Curent canvas in ElementsWindow init: {parent}")
+        #print(f"Curent canvas in ElementsWindow init: {parent}")
         self.parent_canvas = parent
-        self.state_machine = CanvasStateMachine()
+        self.state_manager = State_manager.get_instance()
         # Create spawning_elements instance
         # This now handles BlockGraphicsItem creation internally
         
@@ -41,32 +40,32 @@ class ElementsWindow(QDialog):
     @classmethod
     def get_instance(cls, parent):
         """Get or create singleton instance"""
-        print(f"ElementsWindow get_instance called with parent: {parent}")
+        #print(f"ElementsWindow get_instance called with parent: {parent}")
         if cls._instance is not None:
-            print("ElementsWindow instance exists, checking visibility")
+            #print("ElementsWindow instance exists, checking visibility")
             try:
-                print(" Checking if instance is hidden")
-                print(f" Instance is hidden: {cls._instance.is_hidden}")
+                #print(" Checking if instance is hidden")
+                #print(f" Instance is hidden: {cls._instance.is_hidden}")
                 if cls._instance.is_hidden:
                     # ✓ FIX: Update parent_canvas when canvas changes
-                    print(f"Current canvas in ElementsWindow get_instance: {parent}")
-                    print(f"Existing ElementsWindow canvas: {cls._instance.parent_canvas}")
+                    #print(f"Current canvas in ElementsWindow get_instance: {parent}")
+                    #print(f"Existing ElementsWindow canvas: {cls._instance.parent_canvas}")
                     if cls._instance.parent_canvas != parent:
-                        print(f"Updating ElementsWindow canvas")
+                        #print(f"Updating ElementsWindow canvas")
                         cls._instance.parent_canvas = parent
-                        print(f"New ElementsWindow canvas set: {cls._instance.parent_canvas}")
+                        #print(f"New ElementsWindow canvas set: {cls._instance.parent_canvas}")
                     return cls._instance
             except RuntimeError:
-                print("ElementsWindow instance was deleted, creating new one")
+                #print("ElementsWindow instance was deleted, creating new one")
                 cls._instance = None
 
             except Exception as e:
-                print(f"Error checking ElementsWindow instance: {e}")
+                #print(f"Error checking ElementsWindow instance: {e}")
                 cls._instance = None
 
         if cls._instance is None:
-            print("Creating new ElementsWindow instance")
-            print(f"New ElementsWindow canvas: {parent}")
+            #print("Creating new ElementsWindow instance")
+            #print(f"New ElementsWindow canvas: {parent}")
             cls._instance = cls(parent)
         
         return cls._instance
@@ -75,7 +74,7 @@ class ElementsWindow(QDialog):
         """Setup the UI"""
         self.setWindowTitle("Add Element")
         self.resize(550, 400)
-        self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowFlags(Qt.WindowType.Window)
         
         # Style
         self.setStyleSheet("""
@@ -223,8 +222,8 @@ class ElementsWindow(QDialog):
     
     def create_functions_tab(self):
         """Create functions tab"""
-        print("Creating Functions tab in ElementsWindow")
-        print(F" Self f_tab: {self.f_tab if hasattr(self, 'f_tab') else 'Not defined'}")
+        #print("Creating Functions tab in ElementsWindow")
+        #print(F" Self f_tab: {self.f_tab if hasattr(self, 'f_tab') else 'Not defined'}")
         
         if self.f_tab is not None and self.layout.count() > 0:
             while self.layout.count():
@@ -254,9 +253,9 @@ class ElementsWindow(QDialog):
         function_elements = []
             # Buttons - MAPPED TO SPAWNING ELEMENTS
         for f, f_info in Utils.functions.items():
-            print(f"Function available: {f} with info {f_info}")
+            #print(f"Function available: {f} with info {f_info}")
             function_elements.append(f_info['name'])
-        print(f"Function elements collected: {function_elements}")
+        #print(f"Function elements collected: {function_elements}")
         for element in function_elements:
             btn = QPushButton(element)
             element = "Function_" + element
@@ -265,7 +264,7 @@ class ElementsWindow(QDialog):
         self.layout.addStretch()
 
         if self.now_created:
-            print("Adding Functions tab to ElementsWindow")
+            #print("Adding Functions tab to ElementsWindow")
             self.tab_widget.addTab(self.f_tab, "Functions")
 
     def spawn_element(self, element_type):
@@ -277,12 +276,12 @@ class ElementsWindow(QDialog):
         """
         
         try:
-            print(f"ElementsWindow spawn_element called: {element_type}")
+            #print(f"ElementsWindow spawn_element called: {element_type}")
             
             # Get CURRENT canvas
-            print(f" Parent canvas in ElementsWindow: {self.parent_canvas}, main_window: {getattr(self.parent_canvas, 'main_window', None)}")
+            #print(f" Parent canvas in ElementsWindow: {self.parent_canvas}, main_window: {getattr(self.parent_canvas, 'main_window', None)}")
             if self.parent and hasattr(self.parent_canvas, 'main_window'):
-                print(" Getting current canvas from main window")
+                #print(" Getting current canvas from main window")
                 current_canvas = self.parent_canvas.main_window.current_canvas
             else:
                 current_canvas = self.parent_canvas
@@ -292,12 +291,11 @@ class ElementsWindow(QDialog):
             
             # ✓ Use CURRENT canvas's spawner, not stored self.element_spawner!
             if hasattr(current_canvas, 'spawner'):
-                print("Current state of canvas before spawning:", self.state_machine.current_state())
-                if self.state_machine.on_adding_block():
-                    print("Current state of canvas before spawning:", self.state_machine.current_state())
-                    print(" Canvas state changed to ADDING_BLOCK")
+                print("Current state of canvas before spawning:", self.state_manager.canvas_state.current_state())
+                if self.state_manager.canvas_state.on_adding_block():
+                    print("Current state of canvas before spawning:", self.state_manager.canvas_state.current_state())
                     current_canvas.spawner.start(current_canvas, element_type)
-                    print(f"Element spawn initiated on canvas {id(current_canvas)}")
+                    #print(f"Element spawn initiated on canvas {id(current_canvas)}")
                 else:
                     print("Canvas cannot add block right now.")
             else:
@@ -322,6 +320,7 @@ class ElementsWindow(QDialog):
     
     def closeEvent(self, event):
         """Handle close event"""
-        print("ElementsWindow closeEvent called")
+        #print("ElementsWindow closeEvent called")
         self.is_hidden = True
+        self.state_manager.app_state.on_elements_dialog_close()
         event.accept()

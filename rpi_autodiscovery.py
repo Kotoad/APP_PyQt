@@ -27,22 +27,22 @@ class RPiAutoDiscovery:
     @staticmethod
     def scan_network_for_rpi(network_prefix: None = None, max_ips: int = 254) -> List[Dict]:
         """Scan network for Raspberry Pi devices"""
-        print("🔍 Starting network scan for Raspberry Pi devices...")
-        print(f"Network prefix provided: '{network_prefix}'")
+        #print("🔍 Starting network scan for Raspberry Pi devices...")
+        #print(f"Network prefix provided: '{network_prefix}'")
         if network_prefix is None:
             print("⚠️ network_prefix is None, defaulting to empty string")
             network_prefix = ""
             try:
                 # Get local IP to determine network
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                print("🌐 Determining local IP address...")
+                #print("🌐 Determining local IP address...")
                 s.connect(("8.8.8.8", 80))
                 local_ip = s.getsockname()[0]
-                print(f"✓ Local IP detected: {local_ip}")
+                #print(f"✓ Local IP detected: {local_ip}")
                 s.close()
                 # Extract first 3 octets
                 network_prefix = '.'.join(local_ip.split('.')[:-1])
-                print(f"📡 Auto-detected network: {network_prefix}.0/24")
+                #print(f"📡 Auto-detected network: {network_prefix}.0/24")
             except:
                 print("⚠️ Could not determine local IP. Using default network prefix.")
                 network_prefix = "192.168.1"  # Fallback
@@ -50,7 +50,7 @@ class RPiAutoDiscovery:
         found_devices = []
         threads = []
         
-        print(f"🔍 Scanning network {network_prefix}.1-{max_ips} for Raspberry Pi...")
+        #print(f"🔍 Scanning network {network_prefix}.1-{max_ips} for Raspberry Pi...")
         
         def check_ip(ip_address):
             """Check single IP for Raspberry Pi"""
@@ -75,9 +75,11 @@ class RPiAutoDiscovery:
                     })
                     
                     if is_rpi:
-                        print(f"✓ Found Raspberry Pi: {hostname} ({ip_address})")
+                        #print(f"✓ Found Raspberry Pi: {hostname} ({ip_address})")
+                        pass
                     else:
-                        print(f"  Found device: {hostname} ({ip_address})")
+                        #print(f"  Found device: {hostname} ({ip_address})")
+                        pass
             
             except Exception:
                 pass
@@ -101,17 +103,17 @@ class RPiAutoDiscovery:
         import gc
         gc.collect()
         
-        print(f"✓ Network scan complete. Found {len(found_devices)} devices.")
+        #print(f"✓ Network scan complete. Found {len(found_devices)} devices.")
         return found_devices
     
     @staticmethod
     def find_rpi_on_network() -> Optional[str]:
         """Use mDNS to find Raspberry Pi"""
-        print("🔍 Searching for raspberrypi.local using mDNS...")
+        #print("🔍 Searching for raspberrypi.local using mDNS...")
         
         try:
             ip_address = socket.gethostbyname("raspberrypi.local")
-            print(f"✓ Found Raspberry Pi at: {ip_address}")
+            #print(f"✓ Found Raspberry Pi at: {ip_address}")
             return ip_address
         except socket.gaierror:
             print("⚠ raspberrypi.local not found. Trying network scan...")
@@ -128,7 +130,7 @@ class RPiAutoDiscovery:
         
         for pwd in passwords_to_try:
             try:
-                print(f"🔑 Testing connection to {username}@{ip} with password: {'***' if pwd else '(none)'}")
+                #print(f"🔑 Testing connection to {username}@{ip} with password: {'***' if pwd else '(none)'}")
                 
                 client = paramiko.SSHClient()
                 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -150,7 +152,7 @@ class RPiAutoDiscovery:
                 client.close()
                 
                 if output == "Connected":
-                    print(f"✓ SSH connection successful: {username}@{ip}")
+                    #print(f"✓ SSH connection successful: {username}@{ip}")
                     return True
             
             except paramiko.AuthenticationException:
@@ -182,13 +184,13 @@ class RPiAutoDiscovery:
         
         passwords_to_try = [password] if password else RPiAutoDiscovery.DEFAULT_PASSWORDS
         
-        print(f"🔍 Retrieving Raspberry Pi info from {ip}...")
-        print(f"📝 Trying passwords: {['***' if p else '(none)' for p in passwords_to_try]}")
+        #print(f"🔍 Retrieving Raspberry Pi info from {ip}...")
+        #print(f"📝 Trying passwords: {['***' if p else '(none)' for p in passwords_to_try]}")
         
         for pwd in passwords_to_try:
             client = None
             try:
-                print(f"📋 Connecting to {ip} to retrieve device info...")
+                #print(f"📋 Connecting to {ip} to retrieve device info...")
                 
                 client = paramiko.SSHClient()
                 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -203,7 +205,7 @@ class RPiAutoDiscovery:
                     allow_agent=True if not pwd else False
                 )
                 
-                print(f"✓ Connected successfully, fetching device info...")
+                #print(f"✓ Connected successfully, fetching device info...")
                 
                 # Get hostname
                 try:
@@ -245,8 +247,8 @@ class RPiAutoDiscovery:
                     'os': str(os_info) if os_info else 'Unknown'
                 }
                 
-                print(f"✓ Successfully retrieved device info!")
-                print(f"🔍 Auto-detection result: {result}")
+                #print(f"✓ Successfully retrieved device info!")
+                #print(f"🔍 Auto-detection result: {result}")
                 
                 if client:
                     client.close()
@@ -286,9 +288,9 @@ class RPiConnectionWizard:
     @staticmethod
     def auto_detect_rpi() -> Optional[Dict]:
         """Automatically detect and connect to Raspberry Pi - CRASH SAFE"""
-        print("\n" + "="*60)
-        print("🚀 RASPBERRY PI AUTO-DETECTION WIZARD")
-        print("="*60 + "\n")
+        #print("\n" + "="*60)
+        #print("🚀 RASPBERRY PI AUTO-DETECTION WIZARD")
+        #print("="*60 + "\n")
         
         # Check Paramiko availability
         if not PARAMIKO_AVAILABLE:
@@ -297,12 +299,12 @@ class RPiConnectionWizard:
             return None
         
         # Step 1: Try mDNS
-        print("Step 1: Trying mDNS (raspberrypi.local)...")
+        #print("Step 1: Trying mDNS (raspberrypi.local)...")
         ip = RPiAutoDiscovery.find_rpi_on_network()
         
         if not ip:
             # Step 2: Network scan
-            print("\nStep 2: Scanning network for devices...")
+            #print("\nStep 2: Scanning network for devices...")
             devices = RPiAutoDiscovery.scan_network_for_rpi()
             
             if not devices:
@@ -314,17 +316,17 @@ class RPiConnectionWizard:
             
             if rpi_devices:
                 ip = rpi_devices[0]['ip']
-                print(f"✓ Selected: {rpi_devices[0]['hostname']} ({ip})")
+                #print(f"✓ Selected: {rpi_devices[0]['hostname']} ({ip})")
             else:
                 ip = devices[0]['ip']
-                print(f"✓ Using first device: {devices[0]['hostname']} ({ip})")
+                #print(f"✓ Using first device: {devices[0]['hostname']} ({ip})")
         
         if not ip:
             print("❌ Could not determine IP address")
             return None
         
         # Step 3: Get RPI info
-        print(f"\nStep 3: Getting Raspberry Pi information...")
+        #print(f"\nStep 3: Getting Raspberry Pi information...")
         
         # Use stored username/password if available, otherwise try defaults
         try:
@@ -332,32 +334,33 @@ class RPiConnectionWizard:
             Utils = get_utils()
             username = Utils.app_settings.rpi_user or RPiAutoDiscovery.DEFAULT_USERNAME
             password = Utils.app_settings.rpi_password or None
-            print(f"Using stored credentials: {username}@{ip}")
+            #print(f"Using stored credentials: {username}@{ip}")
         except:
             username = RPiAutoDiscovery.DEFAULT_USERNAME
             password = None
-            print(f"Using default credentials: {username}@{ip}")
+            #print(f"Using default credentials: {username}@{ip}")
         
         rpi_info = RPiAutoDiscovery.get_rpi_info_paramiko(ip, username=username, password=password)
         
         if rpi_info and isinstance(rpi_info, dict) and 'ip' in rpi_info:
-            print(f"\n✅ Successfully connected!")
-            print(f"  Hostname: {rpi_info.get('hostname', 'unknown')}")
-            print(f"  IP: {rpi_info.get('ip', 'unknown')}")
-            print(f"  Model: {rpi_info.get('model', 'Unknown')}")
-            print(f"  OS: {rpi_info.get('os', 'Unknown')}")
+            #print(f"\n✅ Successfully connected!")
+            #print(f"  Hostname: {rpi_info.get('hostname', 'unknown')}")
+            #print(f"  IP: {rpi_info.get('ip', 'unknown')}")
+            #print(f"  Model: {rpi_info.get('model', 'Unknown')}")
+            #print(f"  OS: {rpi_info.get('os', 'Unknown')}")
             return rpi_info
         else:
             print("❌ Could not establish connection - rpi_info is invalid")
-            print(f"   rpi_info type: {type(rpi_info)}")
-            print(f"   rpi_info value: {rpi_info}")
+            #print(f"   rpi_info type: {type(rpi_info)}")
+            #print(f"   rpi_info value: {rpi_info}")
             return None
 
 
 if __name__ == "__main__":
     result = RPiConnectionWizard.auto_detect_rpi()
     if result:
-        print("\n✅ Connection info ready:")
-        print(result)
+        #print("\n✅ Connection info ready:")
+        #print(result)
+        pass
     else:
         print("\n❌ Auto-detection failed")

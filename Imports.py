@@ -92,12 +92,17 @@ def get_Elements_Window():
 def get_Help_Window():
     """Lazy import HelpWindow - avoid circular import"""
     from Help_window import HelpWindow
-    return HelpWindow()
+    return HelpWindow
 
 def get_State_Machine():
     """Lazy import AppStateMachine - avoid circular import"""
     from state_machine import AppStateMachine, CanvasStateMachine
     return AppStateMachine, CanvasStateMachine
+
+def get_State_Manager():
+    """Lazy import StateManager - avoid circular import"""
+    from state_manager import StateManager
+    return StateManager
 # ============================================================================
 # LAZY IMPORTS (Imported only when needed to avoid circular deps)
 # ============================================================================

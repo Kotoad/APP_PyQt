@@ -1,5 +1,5 @@
 from operator import index
-from Imports import get_utils
+from Imports import get_utils, get_State_Manager
 Utils = get_utils()
 from Imports import (QDialog, QVBoxLayout, QLabel, QTabWidget, QWidget, QMessageBox, QPushButton, QHBoxLayout,
 QComboBox, Qt, QEvent, QFont, QMouseEvent, json, QLineEdit, QApplication, QProgressDialog,
@@ -7,6 +7,7 @@ QObject, pyqtSignal)
 # Add to your existing imports
 from rpi_autodiscovery import RPiAutoDiscovery, RPiConnectionWizard
 
+StateManager = get_State_Manager()
 
 models = ["RPI pico/pico W", "RPI zero/zero W", "RPI 2 zero W", "RPI 1 model B/B+", "RPI 2 model B", "RPI 3 model B/B+", "RPI 4 model B", "RPI 5"]
 
@@ -64,7 +65,7 @@ class DeviceSettingsWindow(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.is_hidden = False
-        
+        self.state_manager = StateManager.get_instance()
         self.setup_ui()
     
     @classmethod
@@ -85,7 +86,7 @@ class DeviceSettingsWindow(QDialog):
         """Setup the UI"""
         self.setWindowTitle("Settings")
         self.resize(400, 300)
-        self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowFlags(Qt.WindowType.Window)
     
         self.setStyleSheet("""
             QDialog {
@@ -193,7 +194,7 @@ class DeviceSettingsWindow(QDialog):
         """Handle model change"""
         Utils.app_settings.rpi_model = self.rpi_model_combo.itemText(index)
         Utils.app_settings.rpi_model_index = index
-        print(f"Model changed to: {Utils.app_settings.rpi_model}")
+        #print(f"Model changed to: {Utils.app_settings.rpi_model}")
     
     def create_rpi_settings_section(self):
         """Create RPI connection settings group"""
@@ -265,7 +266,7 @@ class DeviceSettingsWindow(QDialog):
     
     def auto_detect_rpi(self):
         """Auto-detect Raspberry Pi on network"""
-        print("🔍 Starting auto-detection...")
+        #print("🔍 Starting auto-detection...")
         self.lower()
         self.process = QProgressDialog("Detecting Raspberry Pi on network...", "Cancel", 0, 0, self)
         self.process.setWindowModality(Qt.WindowModality.WindowModal)
@@ -274,7 +275,7 @@ class DeviceSettingsWindow(QDialog):
         try:
             def detect():
                 result = RPiConnectionWizard.auto_detect_rpi()
-                print("🔍 Auto-detection result:", result)
+                #print("🔍 Auto-detection result:", result)
                 return result
             
             # Create worker
@@ -289,7 +290,7 @@ class DeviceSettingsWindow(QDialog):
             thread = threading.Thread(target=self.worker.run, daemon=True)
             thread.start()
             
-            print("Starting auto-detection thread...")
+            #print("Starting auto-detection thread...")
         
         except Exception as e:
             print(f"❌ Error starting thread: {e}")
@@ -306,12 +307,12 @@ class DeviceSettingsWindow(QDialog):
 
     def _on_detection_success(self, result):
         """SLOT - Called on main thread when detection succeeds"""
-        print("🔍 Detection completed on main thread")
+        #print("🔍 Detection completed on main thread")
         
         try:
             # Validate result
             if result is None:
-                print("No Raspberry Pi found")
+                #print("No Raspberry Pi found")
                 self.rpi_status_label.setText("Status: No Pi detected")
                 self.rpi_status_label.setStyleSheet("color: #F44336; font-size: 10px;")
                 self.lower()
@@ -326,12 +327,12 @@ class DeviceSettingsWindow(QDialog):
             
             # Validate result is a dict
             if not isinstance(result, dict):
-                print(f"Invalid result type: {type(result)}")
-                self.on_detection_error("Invalid result returned from detection")
+                #print(f"Invalid result type: {type(result)}")
+                self._on_detection_error("Invalid result returned from detection")
                 return
             
             if 'ip' not in result or 'hostname' not in result:
-                print("❌ Result missing required keys")
+                #print("❌ Result missing required keys")
                 self.rpi_status_label.setText("Status: Incomplete data")
                 self.rpi_status_label.setStyleSheet("color: #F44336; font-size: 10px;")
                 self.lower()
@@ -352,7 +353,7 @@ class DeviceSettingsWindow(QDialog):
             password = str(result.get('password', ''))
             model = str(result.get('model', 'Unknown'))
             
-            print(f"✓ Got valid result - IP: {ip}, User: {username}")
+            #print(f"✓ Got valid result - IP: {ip}, User: {username}")
             
             # Block signals and update UI
             self.rpi_host_input.blockSignals(True)
@@ -367,7 +368,7 @@ class DeviceSettingsWindow(QDialog):
             self.rpi_user_input.blockSignals(False)
             self.rpi_password_input.blockSignals(False)
             
-            print("✓ Updated UI fields")
+            #print("✓ Updated UI fields")
             
             # Update settings
             Utils.app_settings.rpi_host = ip
@@ -376,7 +377,7 @@ class DeviceSettingsWindow(QDialog):
             Utils.app_settings.rpi_model_name = model
             Utils.app_settings.auto_detected = True
             
-            print("✓ Updated settings")
+            #print("✓ Updated settings")
             
             # Update status
             status_text = (
@@ -388,7 +389,7 @@ class DeviceSettingsWindow(QDialog):
             self.rpi_status_label.setText(status_text)
             self.rpi_status_label.setStyleSheet("color: #4CAF50; font-size: 10px;")
             
-            print("✓ Updated status label")
+            #print("✓ Updated status label")
             self.process.cancel()
             # Show success message
             self.lower()
@@ -403,7 +404,7 @@ class DeviceSettingsWindow(QDialog):
             )
             self.raise_()
             
-            print("✓✓✓ Auto-detection completed successfully ✓✓✓\n")
+            #print("✓✓✓ Auto-detection completed successfully ✓✓✓\n")
         
         except Exception as e:
             print(f"❌ Exception: {type(e).__name__}: {e}")
@@ -437,4 +438,5 @@ class DeviceSettingsWindow(QDialog):
     def closeEvent(self, event):
         """Handle close event"""
         self.is_hidden = True
+        self.state_manager.app_state.on_settings_dialog_close()
         event.accept()

@@ -25,7 +25,7 @@ class PicoWAutoTransfer:
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL
                     )
-                    print(f"✓ Installed {package}")
+                    #print(f"✓ Installed {package}")
                 except:
                     print(f"✗ Failed to install {package}")
     
@@ -40,17 +40,17 @@ class PicoWAutoTransfer:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
             
             if result.returncode == 0:
-                print(f"✓ Transfer successful: {source} → {target}")
+                #print(f"✓ Transfer successful: {source} → {target}")
                 return True
             else:
                 # If mpremote fails, try pyboard
                 if "No module named 'serial'" in result.stderr:
-                    print("Installing pyserial...")
+                    #print("Installing pyserial...")
                     subprocess.check_call([sys.executable, "-m", "pip", "install", "pyserial"])
                     # Retry
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
                     if result.returncode == 0:
-                        print(f"✓ Transfer successful (retry): {source} → {target}")
+                        #print(f"✓ Transfer successful (retry): {source} → {target}")
                         return True
                 
                 print(f"✗ Transfer failed: {result.stderr}")
@@ -83,14 +83,14 @@ class CodeCompiler:
         self.GPIO_compile = False
         self.indent_level = 0
         self.file = open("File.py", "w")
-        print("Compiling code to File.py...")
-        print(f"RPI Model: {Utils.app_settings.rpi_model}")
-        print(f"RPI Model Index: {Utils.app_settings.rpi_model_index}")
+        #print("Compiling code to File.py...")
+        #print(f"RPI Model: {Utils.app_settings.rpi_model}")
+        #print(f"RPI Model Index: {Utils.app_settings.rpi_model_index}")
         if Utils.app_settings.rpi_model_index == 0:
-            print(f"RPI Model selected: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
+            #print(f"RPI Model selected: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
             self.MC_compile = True
         elif Utils.app_settings.rpi_model_index in (1,2,3,4,5,6,7):
-            print(f"RPI Model selected: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
+            #print(f"RPI Model selected: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
             self.GPIO_compile = True
 
         self.write_imports()
@@ -107,7 +107,7 @@ class CodeCompiler:
         self.file.close()
 
         if self.MC_compile:
-            print("\n--- Transferring to Pico W ---")
+            #print("\n--- Transferring to Pico W ---")
             PicoWAutoTransfer.transfer_file("File.py", "main.py")
     
     def process_block(self, block_id):
@@ -117,7 +117,7 @@ class CodeCompiler:
         
         block = Utils.top_infos[block_id]
         
-        print(f"Processing block {block_id} of type {block['type']}")
+        #print(f"Processing block {block_id} of type {block['type']}")
         if block['type'] == 'If':
             self.handle_if_block(block)
         elif block['type'] == 'While':
@@ -151,7 +151,7 @@ class CodeCompiler:
                     break
     
     def write_setup(self):
-        print("Writing setup code...")
+        #print("Writing setup code...")
         if self.GPIO_compile:
             self.file.write("GPIO.setmode(GPIO.BCM)\n")
             self.file.write("Devices = {\n")
@@ -186,7 +186,7 @@ class CodeCompiler:
             self.file.write("}\n")
             
         elif self.MC_compile:
-            print("Writing Microcontroller pin setup...")
+            #print("Writing Microcontroller pin setup...")
             self.writeline("Devices = {")
             self.indent_level+=1
             for dev_name, dev_info in Utils.devices.items():
@@ -241,38 +241,39 @@ class CodeCompiler:
     def resolve_value(self, value_str, value_type):
         """Convert value to actual value - handle variable or literal"""
         if value_type in ('switch', 'N/A'):
-            print(f"Resolving value: {value_str}")
+            #print(f"Resolving value: {value_str}")
             return value_str  # Return as is for switch
         
         if self.is_variable_reference(value_str):
-            print(f"Resolving variable reference: {value_str}")
+            #print(f"Resolving variable reference: {value_str}")
             # Look up variable's current runtime value
             if value_type == 'Device':
-                print(f"Looking up device: {value_str}")
+                #print(f"Looking up device: {value_str}")
                 for dev_id, dev_info in Utils.devices.items():
-                    print(dev_info)
+                    #print(dev_info)
                     if dev_info['name'] == value_str:
-                        print(f"Found device {value_str} with PIN {dev_info['PIN']}")
+                        #print(f"Found device {value_str} with PIN {dev_info['PIN']}")
                         return f"Devices['{value_str}']['PIN']"
             elif value_type == 'Variable':
-                print(f"Looking up variable: {value_str}")
+                #print(f"Looking up variable: {value_str}")
                 for var_id, var_info in Utils.variables.items():
-                    print(var_info)
+                    #print(var_info)
                     if var_info['name'] == value_str:
-                        print(f"Found variable {value_str} with value {var_info['value']}")
+                        #print(f"Found variable {value_str} with value {var_info['value']}")
                         return f"Variables['{value_str}']['value']"
         else:
-            print(f"Using literal value: {value_str}")
+            #print(f"Using literal value: {value_str}")
+            pass
         return value_str  # It's a literal
     
     def is_variable_reference(self, value_str):
         """Check if value is a variable name (not a number)"""
         try:
             float(value_str)  # Can convert to number?
-            print(f"{value_str} is a literal number.")
+            #print(f"{value_str} is a literal number.")
             return False      # It's a literal number
         except ValueError:
-            print(f"{value_str} is a variable reference.")
+            #print(f"{value_str} is a variable reference.")
             return True 
         
     def writeline(self, text):
@@ -283,11 +284,11 @@ class CodeCompiler:
     def write_condition(self, type,  value1, operator, value2):
         """Write condition code - DRY principle"""
         text = f"{type} {value1} {operator} {value2}:"
-        print(f"Writing condition: {text}")
+        #print(f"Writing condition: {text}")
         self.writeline(text)
     
     def get_comparison_operator(self, combo_value):
-        print(f"Mapping combo value '{combo_value}' to operator")
+        #print(f"Mapping combo value '{combo_value}' to operator")
         """Map combo box value to Python operator"""
         operators = {
             "==": "==",
@@ -315,24 +316,24 @@ class CodeCompiler:
         return None
     
     def handle_if_block(self, block):
-        print(f"Handling If block {block}")
+        #print(f"Handling If block {block}")
         value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
         value_2 = self.resolve_value(block['value_2_name'], block['value_2_type'])
-        print(f"Resolved If block values: {value_1}, {value_2}")
+        #print(f"Resolved If block values: {value_1}, {value_2}")
         operator = self.get_comparison_operator(block['operator'])
-        print(f"Using operator: {operator}")
+        #print(f"Using operator: {operator}")
         out1_id = self.get_next_block_from_output(block['id'], 'out1')  # True path
         out2_id = self.get_next_block_from_output(block['id'], 'out2')  # False path
-        print(f"If block outputs: out1 -> {out1_id}, out2 -> {out2_id}")
+        #print(f"If block outputs: out1 -> {out1_id}, out2 -> {out2_id}")
         self.write_condition(
             "if", value_1, operator, value_2
         )
         self.indent_level += 1
         self.process_block(out1_id)
-        print(f"Completed If true branch, now handling else branch")
+        #print(f"Completed If true branch, now handling else branch")
         self.indent_level -= 1
         self.writeline("else:")
-        print(f"Processing else branch for If block")
+        #print(f"Processing else branch for If block")
         self.indent_level += 1
         self.process_block(out2_id)
         
@@ -341,28 +342,28 @@ class CodeCompiler:
     def handle_while_block(self, block):
         value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
         value_2 = self.resolve_value(block['value_2_name'], block['value_2_type'])
-        print(f"Resolved While block values: {value_1}, {value_2}")
+        #print(f"Resolved While block values: {value_1}, {value_2}")
         operator = self.get_comparison_operator(block['operator'])
-        print(f"Using operator: {operator}")
+        #print(f"Using operator: {operator}")
         out1_id = self.get_next_block_from_output(block['id'], 'out1')  # True path
         out2_id = self.get_next_block_from_output(block['id'], 'out2')  # False path
-        print(f"While block outputs: out1 -> {out1_id}, out2 -> {out2_id}")
+        #print(f"While block outputs: out1 -> {out1_id}, out2 -> {out2_id}")
         self.write_condition(
             "while", value_1, operator, value_2
         )
         self.indent_level += 1
-        print(f"Processing While true branch for While block")
+        #print(f"Processing While true branch for While block")
         self.process_block(out1_id)
         self.indent_level -= 1
-        print(f"Processing While false branch for While block")
+        #print(f"Processing While false branch for While block")
         self.process_block(out2_id)
     
     def handle_while_true_block(self, block):
-        print(f"Handling While true block {block}")
+        #print(f"Handling While true block {block}")
         next_id = self.get_next_block(block['id'])
         self.writeline("while True:")
         self.indent_level += 1
-        print(f"Processing While true branch for While true block")
+        #print(f"Processing While true branch for While true block")
         self.process_block(next_id)
         self.indent_level -= 1
         
@@ -372,7 +373,8 @@ class CodeCompiler:
         
         next_id = self.get_next_block(block['id'])
         if next_id:
-            print(f"Processing next block after Timer: {next_id}")
+            #print(f"Processing next block after Timer: {next_id}")
+            pass
         self.process_block(next_id)
     
     def handle_switch_block(self, block):
@@ -387,47 +389,48 @@ class CodeCompiler:
         
         Var_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
         
-        print(f"Resolved Switch block value: {switch_state} (type: {type(switch_state).__name__})")
+        #print(f"Resolved Switch block value: {switch_state} (type: {type(switch_state).__name__})")
         if self.GPIO_compile:
             if switch_state is True:
-                print(f"Writing GPIO HIGH for Switch block")
+                #print(f"Writing GPIO HIGH for Switch block")
                 self.writeline(f"GPIO.output({Var_1}, GPIO.HIGH)")
             elif switch_state is False:
-                print(f"Writing GPIO LOW for Switch block")
+                #print(f"Writing GPIO LOW for Switch block")
                 self.writeline(f"GPIO.output({Var_1}, GPIO.LOW)")
             else:
-                print(f"Unknown Switch value {switch_state}, defaulting to LOW")
+                #print(f"Unknown Switch value {switch_state}, defaulting to LOW")
                 self.writeline(f"GPIO.output({Var_1}, GPIO.LOW)")
         elif self.MC_compile:
             if switch_state is True:
-                print(f"Writing PIN HIGH for Switch block")
+                #print(f"Writing PIN HIGH for Switch block")
                 self.writeline(f"{Var_1}.value(1)")
             elif switch_state is False:
-                print(f"Writing PIN LOW for Switch block")
+                #print(f"Writing PIN LOW for Switch block")
                 self.writeline(f"{Var_1}.value(0)")
             else:
-                print(f"Unknown Switch value {switch_state}, defaulting to LOW")
+                #print(f"Unknown Switch value {switch_state}, defaulting to LOW")
                 self.writeline(f"{Var_1}.value(0)")
         next_id = self.get_next_block(block['id'])
         if next_id:
-            print(f"Processing next block after Switch: {next_id}")
+            #print(f"Processing next block after Switch: {next_id}")
+            pass
         self.process_block(next_id)
     
     def handle_button_block(self, block):
         DEV_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
         out1_id = self.get_next_block_from_output(block['id'], 'out1')  # ON path
         out2_id = self.get_next_block_from_output(block['id'], 'out2')
-        print(f"Resolved Button block device: {DEV_1}")
+        #print(f"Resolved Button block device: {DEV_1}")
         if self.GPIO_compile:
             self.write_condition(
                 "if", f"GPIO.input({DEV_1})", "==", "GPIO.HIGH"
             )
             self.indent_level += 1
-            print(f"Processing Button ON branch for Button block")
+            #print(f"Processing Button ON branch for Button block")
             self.process_block(out1_id)
             self.indent_level -= 1
             self.writeline("else:")
-            print(f"Processing Button OFF branch for Button block")
+            #print(f"Processing Button OFF branch for Button block")
             self.indent_level += 1
             self.process_block(out2_id)
             self.indent_level -= 1
@@ -436,17 +439,17 @@ class CodeCompiler:
                 "if", f"{DEV_1}.value()", "==", "1"
             )
             self.indent_level += 1
-            print(f"Processing Button ON branch for Button block")
+            #print(f"Processing Button ON branch for Button block")
             self.process_block(out1_id)
             self.indent_level -= 1
             self.writeline("else:")
-            print(f"Processing Button OFF branch for Button block")
+            #print(f"Processing Button OFF branch for Button block")
             self.indent_level += 1
             self.process_block(out2_id)
             self.indent_level -= 1
             
     
     def handle_end_block(self, block):
-        print(f"Handling End block {block['id']}")
+        #print(f"Handling End block {block['id']}")
         # End block - no action needed, just return
         return

@@ -11,9 +11,9 @@ QStandardItemModel, QListWidget, QEvent, ctypes, sys, time,
 QGraphicsPixmapItem, QGraphicsItem, QPointF)
 from PIL import Image, ImageDraw, ImageFont
 import random
-from Imports import get_utils, get_gui, get_State_Machine
+from Imports import get_utils, get_gui, get_State_Manager
 Utils = get_utils()
-State_machine = get_State_Machine()[1]
+State_manager = get_State_Manager()
 
 class BlockSignals(QObject):
     """Signal container for block interactions"""
@@ -28,14 +28,14 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         super().__init__()
         
         self.signals = BlockSignals()
-        self.state_machine = State_machine()
+        self.state_manager = State_manager.get_instance()
         if main_window is not None:
             self.main_window = main_window
         elif hasattr(parent_canvas, 'main_window'):
             self.main_window = parent_canvas.main_window
         else:
             self.main_window = QApplication.instance().activeWindow()
-        print(f"Main window in BlockGraphicsItem: {self.main_window}")
+        #print(f"Main window in BlockGraphicsItem: {self.main_window}")
         self.block_id = block_id
         self.block_type = block_type
         self.canvas = parent_canvas
@@ -62,7 +62,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         self.radius = 6
         self.border_width = 2
         
-        print(f"✓ BlockGraphicsItem created: {block_id} ({block_type}) at ({x}, {y})")
+        #print(f"✓ BlockGraphicsItem created: {block_id} ({block_type}) at ({x}, {y})")
 
     def _setup_dimensions(self):
         v_count = 0
@@ -274,46 +274,46 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
 
     def connect_graphics_signals(self):
         """Connect graphics item circle click signals to event handler"""
-        print(f"        Self: {self}")
-        print(f"        canvas: {self.canvas}")
+        #print(f"        Self: {self}")
+        #print(f"        canvas: {self.canvas}")
         if self.canvas.reference == 'canvas':
-            print("   Connecting signals for main canvas block")
+            #print("   Connecting signals for main canvas block")
             if self.block_id not in Utils.main_canvas['blocks']:
                 return
             else:
-                print(f"   Found block in main canvas: {self.block_id}")
+                #print(f"   Found block in main canvas: {self.block_id}")
                 block_info = Utils.main_canvas['blocks'][self.block_id]
         else:
-            print("   Connecting signals for function canvas block")
+            #print("   Connecting signals for function canvas block")
             for f_id, f_info in Utils.functions.items():
                 if self.canvas == f_info.get('canvas'):
                     if self.block_id not in f_info['blocks']:
                         return
                     else:
-                        print(f"   Found block in function {f_id}: {self.block_id}")
+                        #print(f"   Found block in function {f_id}: {self.block_id}")
                         block_info = f_info['blocks'][self.block_id]
                         break
-        print(f"✓ Connecting signals for block: {self.block_id}")
+        #print(f"✓ Connecting signals for block: {self.block_id}")
         block_graphics = block_info.get('widget')
-        print(f"   block_graphics: {block_graphics}")
+        #print(f"   block_graphics: {block_graphics}")
         if block_graphics and hasattr(block_graphics, 'signals'):
-            print(f"   block_graphics.signals: {block_graphics.signals}")
-            print(f"   canvas: {self.canvas if hasattr(self.canvas, 'elements_events') else 'No canvas events'}")
+            #print(f"   block_graphics.signals: {block_graphics.signals}")
+            #print(f"   canvas: {self.canvas if hasattr(self.canvas, 'elements_events') else 'No canvas events'}")
             if hasattr(self.canvas, 'elements_events'):
-                print(f"   canvas.elements_events: {self.canvas.elements_events}")
+                #print(f"   canvas.elements_events: {self.canvas.elements_events}")
                 events = self.canvas.elements_events
                 try:
                     block_graphics.signals.input_clicked.connect(events.on_input_clicked)
                     block_graphics.signals.output_clicked.connect(events.on_output_clicked)
-                    print(f"   Signals connected for {self.block_id}")
+                    #print(f"   Signals connected for {self.block_id}")
                 except Exception as e:
                     print(f"Error connecting signals for {self.block_id}: {e}")
 
     def itemChange(self, change, value):
         """Handle position/selection changes"""
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
-            if self.state_machine.on_moving_item():
-                print(f"Block {self.block_id} moved to {value}")
+            if self.state_manager.canvas_state.on_moving_item():
+                #print(f"Block {self.block_id} moved to {value}")
                 pos = self.pos()
                 if self.canvas.reference == 'canvas':
                     if self.block_id in Utils.main_canvas['blocks']:
@@ -332,7 +332,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
                     self.canvas.path_manager.update_paths_for_widget(self)
                 if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
                     if self.canvas.last_inspector_block and self.canvas.last_inspector_block.block_id == self.block_id:
-                        self.main_window.update_inspector_content(self.canvas.last_inspector_block)
+                        self.main_window.update_pos(self.canvas.last_inspector_block)
         
         return super().itemChange(change, value)
 
@@ -342,7 +342,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         local_pos = event.pos()
         circle_type = self._check_click_on_circle(local_pos)
         
-        print(f"Mouse press at {local_pos}, detected circle: {circle_type}")
+        #print(f"Mouse press at {local_pos}, detected circle: {circle_type}")
         
         if circle_type:
             circle_center = self._get_circle_center(circle_type)
@@ -361,7 +361,10 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
     def mouseReleaseEvent(self, event):
         """Handle block deselection"""
         self.setSelected(False)
-        self.state_machine.on_idle()
+        print("Current state after move:", self.state_manager.canvas_state.current_state())
+        if self.state_manager.canvas_state.current_state() == 'MOVING_ITEM':
+            print("Setting state to IDLE after move")
+            self.state_manager.canvas_state.on_idle()
         super().mouseReleaseEvent(event)
 
     def _get_circle_center(self, circle_type):
@@ -448,7 +451,7 @@ class spawning_elements:
         self.parent = parent
         self.elements_window = elements_window
         self.element_spawner = Element_spawn()
-        self.state_machine = State_machine()
+        self.state_manager = State_manager.get_instance()
 
     def start(self, parent, element_type):
         """Start placing an element"""
@@ -458,22 +461,22 @@ class spawning_elements:
         self.placing_active = True
         self.element_placed = False
         print("Start placement")
-        print(f"parent: {parent}, element_type: {element_type}")
+        #print(f"parent: {parent}, element_type: {element_type}")
         if self.elements_window and self.elements_window.isVisible():
             self.elements_window.is_hidden = True
             self.elements_window.hide()
 
-        print(f"Before: {parent.mousePressEvent}")
+        #print(f"Before: {parent.mousePressEvent}")
         self.old_mousePressEvent = parent.mousePressEvent
         parent.mousePressEvent = self.on_mouse_press
-        print(f"After: {parent.mousePressEvent}")
+        #print(f"After: {parent.mousePressEvent}")
         parent.setFocus()
-        print(f"Canvas enabled: {parent.isEnabled()}")
+        #print(f"Canvas enabled: {parent.isEnabled()}")
         parent.raise_()
-        print("Canvas raised to top")
+        #print("Canvas raised to top")
 
     def on_mouse_press(self, event):
-        print("Mouse Pressed")
+        #print("Mouse Pressed")
         if event.button() == Qt.MouseButton.LeftButton:
             self.place(event)
 
@@ -487,15 +490,15 @@ class spawning_elements:
     def check_placing(self, parent, event):
         """Check and place element"""
         if self.perm_stop:
-            print("Perm stop activated")
+            #print("Perm stop activated")
             return
 
-        print(f"Checking placing: perm_stop={self.perm_stop}, placing_active={self.placing_active}")
+        #print(f"Checking placing: perm_stop={self.perm_stop}, placing_active={self.placing_active}")
         if not self.element_placed and self.placing_active:
             self.element_spawner.custom_shape_spawn(parent, self.type, event)
             self.placing_active = False
             self.element_placed = True
-            print(f"Element placed: {self.type}, at {event.pos()}, Placement active: {self.placing_active}, Element placed: {self.element_placed}")
+            #print(f"Element placed: {self.type}, at {event.pos()}, Placement active: {self.placing_active}, Element placed: {self.element_placed}")
 
     def stop_placing(self, parent):
         """Stop placement mode"""
@@ -503,11 +506,11 @@ class spawning_elements:
         self.perm_stop = True
         self.placing_active = False
         self.element_placed = False
-        print("Current state before idle:", self.state_machine.current_state())
-        self.state_machine.on_idle()
-        print("Current state after idle:", self.state_machine.current_state())
+        print("Current state before idle:", self.state_manager.canvas_state.current_state())
+        self.state_manager.canvas_state.on_idle()
+        print("Current state after idle:", self.state_manager.canvas_state.current_state())
         parent.mousePressEvent = self.old_mousePressEvent
-        print("Restored original mousePressEvent")
+        #print("Restored original mousePressEvent")
         if self.elements_window:
             print("Re-opening ElementsWindow")
             self.elements_window.is_hidden = True
@@ -521,24 +524,28 @@ class Elements_events(QObject):
         self.canvas = canvas
         self.path_manager = canvas.path_manager if hasattr(canvas, 'path_manager') else None
         self.inspector_frame_visible = canvas.inspector_frame_visible if hasattr(canvas, 'inspector_frame_visible') else None
-        self.state_machine = State_machine()
-        print(f"Instantiating ElementsEvents for canvas: {canvas}")
-        print(f" → inspector_panel: {self.inspector_frame_visible}")
-        print("✓ ElementsEvents initialized")
-        print(f" → path_manager: {self.path_manager}")
+        self.state_manager = State_manager.get_instance()
+        #print(f"Instantiating ElementsEvents for canvas: {canvas}")
+        #print(f" → inspector_panel: {self.inspector_frame_visible}")
+        #print("✓ ElementsEvents initialized")
+        #print(f" → path_manager: {self.path_manager}")
 
     def on_input_clicked(self, block, circle_center, circle_type):
         """Handle input circle clicks"""
-        print(f"✓ on_input_clicked: {block.block_id} ({circle_type})")
+        #print(f"✓ on_input_clicked: {block.block_id} ({circle_type})")
         if self.path_manager:
-            if self.state_machine.on_idle():    
+            print("Current state before finalizing connection:", self.state_manager.canvas_state.current_state())
+            if self.state_manager.canvas_state.on_idle():
+                print("Finalizing path...")  
                 self.path_manager.finalize_connection(block, circle_center, circle_type)
 
     def on_output_clicked(self, block, circle_center, circle_type):
         """Handle output circle clicks"""
-        print(f"✓ on_output_clicked: {block.block_id} ({circle_type})")
+        #print(f"✓ on_output_clicked: {block.block_id} ({circle_type})")
         if self.path_manager:
-            if self.state_machine.on_adding_path():
+            print("Current state before adding path:", self.state_manager.canvas_state.current_state())
+            if self.state_manager.canvas_state.on_adding_path():
+                print("Adding path...")
                 self.path_manager.start_connection(block, circle_center, circle_type)
 
 
@@ -548,10 +555,10 @@ class Element_spawn:
 
     def custom_shape_spawn(self, parent, element_type, event):
         """Spawn a custom shape at the clicked position"""
-        print(f"Spawning element: {element_type}")
+        #print(f"Spawning element: {element_type}")
         block_id = f"{element_type}_{int(time.time() * 1000)}"
         scene_pos = parent.mapToScene(event.pos())
         x, y = scene_pos.x(), scene_pos.y()
 
         parent.add_block(element_type, x, y, block_id)
-        print(f"Spawned {element_type} at ({x}, {y})")
+        #print(f"Spawned {element_type} at ({x}, {y})")

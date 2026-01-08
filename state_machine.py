@@ -70,7 +70,16 @@ class CanvasStateMachine(QObject):
             print(f"State remains: {self.state.name}")
     
     def current_state(self):
-        return self.state
+        if self.state == CanvasState.IDLE:
+            return 'IDLE'
+        elif self.state == CanvasState.ADDING_BLOCK:
+            return 'ADDING_BLOCK'
+        elif self.state == CanvasState.ADDING_PATH:
+            return 'ADDING_PATH'
+        elif self.state == CanvasState.MOVING_ITEM:
+            return 'MOVING_ITEM'
+        elif self.state == CanvasState.DELETING_ITEM:
+            return 'DELETING_ITEM'
 
 class AppStates(Enum):
     MAIN_WINDOW = auto()
@@ -91,7 +100,7 @@ class AppStateMachine(QObject):
         self.open_windows = set()
     
     def can_open_window(self, window_name: str):
-        return window_name not in self.open_windows
+        return window_name not in self.open_windows and CanvasState.IDLE
     
     def can_close_window(self, window_name: str):
         return window_name in self.open_windows
@@ -102,50 +111,68 @@ class AppStateMachine(QObject):
     def on_main_window(self):
         if self.can_go_to_main_window():
             self.change_state(AppStates.MAIN_WINDOW)
+            return True
+        return False
     
     def on_settings_dialog_open(self):
         if self.can_open_window('Settings'):
             self.open_windows.add('Settings')
             self.window_opened.emit('Settings')
             self.change_state(AppStates.SETTINGS_DIALOG)
+            return True
+        return False
     
     def on_settings_dialog_close(self):
         if self.can_close_window('Settings'):
             self.open_windows.discard('Settings')
             self.window_closed.emit('Settings')
             self.change_state(AppStates.MAIN_WINDOW)
+            return True
+        return False
 
     def on_help_dialog_open(self):
         if self.can_open_window('Help'):
             self.open_windows.add('Help')
             self.window_opened.emit('Help')
             self.change_state(AppStates.HELP_DIALOG)
+            return True
+        return False
     
     def on_help_dialog_close(self):
         if self.can_close_window('Help'):
             self.open_windows.discard('Help')
             self.window_closed.emit('Help')
             self.change_state(AppStates.MAIN_WINDOW)
+            return True
+        return False
 
     def on_elements_dialog_open(self):
         if self.can_open_window('Elements'):
             self.open_windows.add('Elements')
             self.window_opened.emit('Elements')
             self.change_state(AppStates.ELEMENTS_DIALOG)
+            return True
+        return False
     
     def on_elements_dialog_close(self):
         if self.can_close_window('Elements'):
             self.open_windows.discard('Elements')
             self.window_closed.emit('Elements')
             self.change_state(AppStates.MAIN_WINDOW)
+            return True
+        return False
 
     def on_compiling_start(self):
         if self.can_compile():
             self.change_state(AppStates.COMPILING)
+            return True
+        return False
 
     def on_compiling_finish(self):
         if self.state == AppStates.COMPILING:
             self.change_state(AppStates.MAIN_WINDOW)
+            return True
+        return False
 
     def change_state(self, new_state: AppStates):
         if self.state != new_state:

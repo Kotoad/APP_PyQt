@@ -1,16 +1,17 @@
 from Imports import (QDialog, Qt, QVBoxLayout, QLabel, QTabWidget, QWidget, QFont, QTextEdit,
-                     QScrollArea, QPushButton, os)
+                     QScrollArea, QPushButton, os, get_State_Manager)
 
+StateManager = get_State_Manager()     
 
 class HelpWindow(QDialog):
     """Singleton Help Window"""
     _instance = None
 
     def __init__(self, parent=None, which=0):
-        super().__init__(None)
+        super().__init__(parent)
         self.parent_canvas = parent
         self.which = which
-        
+        self.state_manager = StateManager.get_instance()
         self.setup_ui()
     
     @classmethod
@@ -91,7 +92,7 @@ class HelpWindow(QDialog):
         
     def create_getting_started_tab(self):
         """Create the Getting Started tab"""
-        print("Creating Getting Started tab")
+        #print("Creating Getting Started tab")
         tab = QWidget()
         layout = QVBoxLayout(tab)
         layout.setSpacing(5)
@@ -117,12 +118,12 @@ class HelpWindow(QDialog):
         """)
         
         layout.addWidget(text_edit)
-        print("Added label to Getting Started tab")
+        #print("Added label to Getting Started tab")
         self.tab_widget.addTab(tab, "Getting Started")
 
     def create_examples_tab(self):
         """Create the Examples tab with scrollable vertical examples"""
-        print("Creating Examples tab")
+        #print("Creating Examples tab")
         self.examples_tab = QWidget()
         self.examples_layout = QVBoxLayout(self.examples_tab)
         self.examples_layout.setContentsMargins(0, 0, 0, 0)
@@ -130,7 +131,7 @@ class HelpWindow(QDialog):
         self.show_examples_list()
         
         self.tab_widget.addTab(self.examples_tab, "Examples")
-        print("Added scrollable examples to Examples tab")
+        #print("Added scrollable examples to Examples tab")
 
     def show_examples_list(self):
         """Show the examples list view"""
@@ -236,10 +237,10 @@ class HelpWindow(QDialog):
 
     def fill_content_area(self, content, example_id):
         css = self.get_content_stylesheet()
-        print(f"Filling content area for example ID: {example_id}")
+        #print(f"Filling content area for example ID: {example_id}")
         match example_id:
             case "1":
-                print("Filling content for Example 1")
+                #print("Filling content for Example 1")
                 current_dir = os.path.dirname(os.path.abspath(__file__))
                 Blinking_LED_Diagram = os.path.join(current_dir, "resources", "images", "Blinking_LED", "blinking_led_diagram.png")
                 Blinking_LED_Diagram = os.path.abspath(Blinking_LED_Diagram)  # Convert to absolute path
@@ -247,7 +248,7 @@ class HelpWindow(QDialog):
                 Blinking_LED_Flowchart = os.path.join(current_dir, "resources", "images", "Blinking_LED", "blinking_led_flowchart.png")
                 Blinking_LED_Flowchart = os.path.abspath(Blinking_LED_Flowchart)
                 Blinking_LED_Flowchart = Blinking_LED_Flowchart.replace("\\", "/")
-                print(f"Image path for help content: {Blinking_LED_Diagram}")
+                #print(f"Image path for help content: {Blinking_LED_Diagram}")
                 content.setHtml(
                     f"""
                         {css}
@@ -308,7 +309,7 @@ class HelpWindow(QDialog):
                         </p>  
                     """)
             case "2":
-                print("Filling content for Example 2")
+                #print("Filling content for Example 2")
                 content.setHtml(
                     f"""
                         {css}
@@ -363,7 +364,7 @@ class HelpWindow(QDialog):
                         </p>
                     """)
             case "3":
-                print("Filling content for Example 3")
+                #print("Filling content for Example 3")
                 content.setHtml(
                     f"""
                         {css}
@@ -389,14 +390,14 @@ class HelpWindow(QDialog):
                         </p>
                     """)
             case "4":
-                print("Filling content for Example 4")
+                #print("Filling content for Example 4")
                 content.setHtml(
                     f"""
                         {css}
                         <h2>Example 4 content goes here.</h2>
                     """)
             case "5":
-                print("Filling content for Example 5")
+                #print("Filling content for Example 5")
                 content.setHtml(
                     f"""
                         {css}
@@ -405,13 +406,13 @@ class HelpWindow(QDialog):
         
     def create_faq_tab(self):
         """Create the FAQ tab"""
-        print("Creating FAQ tab")
+        #print("Creating FAQ tab")
         tab = QWidget()
         layout = QVBoxLayout(tab)
         label = QLabel("This is the FAQ help content.")
         label.setWordWrap(True)
         layout.addWidget(label)
-        print("Added label to FAQ tab")
+        #print("Added label to FAQ tab")
         self.tab_widget.addTab(tab, "FAQ")
     
     def get_content_stylesheet(self):
@@ -459,3 +460,9 @@ class HelpWindow(QDialog):
         self.raise_()
         self.activateWindow()
         return self
+
+    def closeEvent(self, event):
+        """Handle close event"""
+        #print("HelpWindow closeEvent called")
+        self.state_manager.app_state.on_help_dialog_close()
+        event.accept()
