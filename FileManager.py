@@ -124,23 +124,93 @@ class FileManager:
             if canvas.reference == 'canvas':
                 #print("Processing main canvas blocks")
                 for block_id, block_info in Utils.main_canvas['blocks'].items():
-                    main_canvas['blocks'][block_id] = {
-                        'type': block_info['type'],
-                        'id': block_id,
-                        'x': block_info['x'],
-                        'y': block_info['y'],
-                        'width': block_info['width'],
-                        'height': block_info['height'],
-                        'value_1_name': block_info.get('value_1_name', ''),
-                        'value_1_type': block_info.get('value_1_type', ''),
-                        'value_2_name': block_info.get('value_2_name', ''),
-                        'value_2_type': block_info.get('value_2_type', ''),
-                        'operator': block_info.get('operator', ''),
-                        'sleep_time': block_info.get('sleep_time', 0),
-                        'switch_state': block_info.get('switch_state', ''),
-                        'in_connections': block_info.get('in_connections', []),
-                        'out_connections': block_info.get('out_connections', []),
-                    }
+                    if block_info['type'] in ('If', 'While', 'Button'):
+                        info = {
+                            'type': block_info['type'].split('_')[0],
+                            'id': block_id,
+                            'width': block_info['widget'].boundingRect().width(),
+                            'height': block_info['widget'].boundingRect().height(),
+                            'x': block_info['x'],
+                            'y': block_info['y'],
+                            'value_1_name': block_info.get('value_1_name', ''),
+                            'value_1_type': block_info.get('value_1_type', ''),
+                            'value_2_name': block_info.get('value_2_name', ''),
+                            'value_2_type': block_info.get('value_2_type', ''),
+                            'operator': block_info.get('operator', ''),
+                            'in_connections': block_info.get('in_connections', []),
+                            'out_connections': block_info.get('out_connections', []),
+                        }
+                    elif block_info['type'] == 'Timer':
+                        info = {
+                            'type': block_info['type'],
+                            'id': block_id,
+                            'width': block_info['widget'].boundingRect().width(),
+                            'height': block_info['widget'].boundingRect().height(),
+                            'x': block_info['x'],
+                            'y': block_info['y'],
+                            'sleep_time': block_info.get('sleep_time', 0),
+                            'in_connections': block_info.get('in_connections', []),
+                            'out_connections': block_info.get('out_connections', []),
+                        }
+                    elif block_info['type'] == 'Switch':
+                        info = {
+                            'type': block_info['type'],
+                            'id': block_id,
+                            'width': block_info['widget'].boundingRect().width(),
+                            'height': block_info['widget'].boundingRect().height(),
+                            'x': block_info['x'],
+                            'y': block_info['y'],
+                            'value_1_name': block_info.get('value_1_name', ''),
+                            'switch_state': block_info.get('switch_state', ''),
+                            'in_connections': block_info.get('in_connections', []),
+                            'out_connections': block_info.get('out_connections', []),
+                        }
+                    elif block_info['type'] in ('Start', 'End', 'While_true'):
+                        info = {
+                            'type': block_info['type'],
+                            'id': block_id,
+                            'width': block_info['widget'].boundingRect().width(),
+                            'height': block_info['widget'].boundingRect().height(),
+                            'x': block_info['x'],
+                            'y': block_info['y'],
+                            'in_connections': block_info.get('in_connections', []),
+                            'out_connections': block_info.get('out_connections', []),
+                        }
+                    elif block_info['type'] == 'Function':
+                        info = {
+                            'type': 'Function',
+                            'id': block_id,
+                            'name': block_info['name'],
+                            'width': block_info['widget'].boundingRect().width(),
+                            'height': block_info['widget'].boundingRect().height(),
+                            'x': block_info['x'],
+                            'y': block_info['y'],
+                            'internal_vars': {
+                                'main_vars': block_info['internal_vars'].get('main_vars', {}),
+                                'ref_vars': block_info['internal_vars'].get('ref_vars', {}),
+                            },
+                            'internal_devs': {
+                                'main_devs': block_info['internal_devs'].get('main_devs', {}),
+                                'ref_devs': block_info['internal_devs'].get('ref_devs', {}),
+                            },
+                            'in_connections': block_info.get('in_connections', []),
+                            'out_connections': block_info.get('out_connections', []),
+                        }
+                    else:
+                        print(f"Error: Unknown block type {block_info['type']}")
+                        info = {
+                            'type': block_info['type'],
+                            'id': block_id,
+                            'width': block_info['widget'].boundingRect().width(),
+                            'height': block_info['widget'].boundingRect().height(),
+                            'x': block_info['x'],
+                            'y': block_info['y'],
+                            'in_connections': block_info.get('in_connections', []),
+                            'out_connections': block_info.get('out_connections', []),
+                        }
+
+                    if info:
+                        main_canvas['blocks'][block_id] = info
             elif canvas.reference == 'function':
                 #print("Processing function canvas blocks")
                 for f_id, f_info in Utils.functions.items():
@@ -148,27 +218,97 @@ class FileManager:
                         functions[f_id] = {'blocks': {},
                                            'paths': {}}
                         for block_id, block_info in f_info['blocks'].items():
-                            #print(f"Processing block {block_id} in function {f_id}")
+                            print(f"Processing block {block_id} in function {f_id}, type {block_info['type']}, name: {block_info.get('name', 'N/A')}")
                             if f_id not in functions:
                                 #print(f"Creating new function entry for {f_id}")
                                 functions[f_id] = {'blocks': {}}
-                            functions[f_id]['blocks'][block_id] = {
-                                'type': block_info['type'],
-                                'id': block_id,
-                                'x': block_info['x'],
-                                'y': block_info['y'],
-                                'width': block_info['width'],
-                                'height': block_info['height'],
-                                'value_1_name': block_info.get('value_1_name', ''),
-                                'value_1_type': block_info.get('value_1_type', ''),
-                                'value_2_name': block_info.get('value_2_name', ''),
-                                'value_2_type': block_info.get('value_2_type', ''),
-                                'operator': block_info.get('operator', ''),
-                                'sleep_time': block_info.get('sleep_time', 0),
-                                'switch_state': block_info.get('switch_state', ''),
-                                'in_connections': block_info.get('in_connections', []),
-                                'out_connections': block_info.get('out_connections', []),
-                            }
+                            if block_info['type'] in ('If', 'While', 'Button'):
+                                info = {
+                                    'type': block_info['type'].split('_')[0],
+                                    'id': block_id,
+                                    'width': block_info['widget'].boundingRect().width(),
+                                    'height': block_info['widget'].boundingRect().height(),
+                                    'x': block_info['x'],
+                                    'y': block_info['y'],
+                                    'value_1_name': block_info.get('value_1_name', ''),
+                                    'value_1_type': block_info.get('value_1_type', ''),
+                                    'value_2_name': block_info.get('value_2_name', ''),
+                                    'value_2_type': block_info.get('value_2_type', ''),
+                                    'operator': block_info.get('operator', ''),
+                                    'in_connections': block_info.get('in_connections', []),
+                                    'out_connections': block_info.get('out_connections', []),
+                                }
+                            elif block_info['type'] == 'Timer':
+                                info = {
+                                    'type': block_info['type'],
+                                    'id': block_id,
+                                    'width': block_info['widget'].boundingRect().width(),
+                                    'height': block_info['widget'].boundingRect().height(),
+                                    'x': block_info['x'],
+                                    'y': block_info['y'],
+                                    'sleep_time': block_info.get('sleep_time', 0),
+                                    'in_connections': block_info.get('in_connections', []),
+                                    'out_connections': block_info.get('out_connections', []),
+                                }
+                            elif block_info['type'] == 'Switch':
+                                info = {
+                                    'type': block_info['type'],
+                                    'id': block_id,
+                                    'width': block_info['widget'].boundingRect().width(),
+                                    'height': block_info['widget'].boundingRect().height(),
+                                    'x': block_info['x'],
+                                    'y': block_info['y'],
+                                    'value_1_name': block_info.get('value_1_name', ''),
+                                    'switch_state': block_info.get('switch_state', ''),
+                                    'in_connections': block_info.get('in_connections', []),
+                                    'out_connections': block_info.get('out_connections', []),
+                                }
+                            elif block_info['type'] in ('Start', 'End', 'While_true'):
+                                info = {
+                                    'type': block_info['type'],
+                                    'id': block_id,
+                                    'width': block_info['widget'].boundingRect().width(),
+                                    'height': block_info['widget'].boundingRect().height(),
+                                    'x': block_info['x'],
+                                    'y': block_info['y'],
+                                    'in_connections': block_info.get('in_connections', []),
+                                    'out_connections': block_info.get('out_connections', []),
+                                }
+                            elif block_info['type'] == 'Function':
+                                info = {
+                                    'type': 'Function',
+                                    'id': block_id,
+                                    'name': block_info['name'],
+                                    'width': block_info['widget'].boundingRect().width(),
+                                    'height': block_info['widget'].boundingRect().height(),
+                                    'x': block_info['x'],
+                                    'y': block_info['y'],
+                                    'internal_vars': {
+                                        'main_vars': block_info['internal_vars'].get('main_vars', {}),
+                                        'ref_vars': block_info['internal_vars'].get('ref_vars', {}),
+                                    },
+                                    'internal_devs': {
+                                        'main_devs': block_info['internal_devs'].get('main_devs', {}),
+                                        'ref_devs': block_info['internal_devs'].get('ref_devs', {}),
+                                    },
+                                    'in_connections': block_info.get('in_connections', []),
+                                    'out_connections': block_info.get('out_connections', []),
+                                }
+                            else:
+                                print(f"Error: Unknown block type {block_info['type']}")
+                                info = {
+                                    'type': block_info['type'],
+                                    'id': block_id,
+                                    'width': block_info['widget'].boundingRect().width(),
+                                    'height': block_info['widget'].boundingRect().height(),
+                                    'x': block_info['x'],
+                                    'y': block_info['y'],
+                                    'in_connections': block_info.get('in_connections', []),
+                                    'out_connections': block_info.get('out_connections', []),
+                                }
+                            
+                            if info:
+                                functions[f_id]['blocks'][block_id] = info
         # Build connections data (using block IDs, NOT widget references)
         for canvas in Utils.canvas_instances:
             #print(f"Processing connections for canvas: {canvas}")

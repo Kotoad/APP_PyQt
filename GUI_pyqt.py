@@ -898,15 +898,16 @@ class GridCanvas(QGraphicsView):
             # Other buttons
             super().mouseReleaseEvent(event)
     
-    def add_block(self, block_type, x, y, block_id):
+    def add_block(self, block_type, x, y, block_id, name=None):
         """Add a new block to the canvas"""
-        #print(f"Adding block of type {block_type} at ({x}, {y}) with ID {block_id} to canvas {self}")
+        print(f"Adding block of type {block_type} at ({x}, {y}) with ID {block_id} to canvas {self}, name: {name if name else 'N/A'}")
         block = BlockGraphicsItem(
             x=x, y=y,
             block_id=block_id,
             block_type=block_type,
             parent_canvas=self,
-            main_window=self.main_window
+            main_window=self.main_window,
+            name=name
         )
         
         self.scene.addItem(block)
@@ -974,43 +975,42 @@ class GridCanvas(QGraphicsView):
                 'out_connections': [],
                 'canvas': self
             }
-        elif block_type.startswith('Function_'):
+        elif block_type == "Function":
             info = {
                 'type': 'Function',
+                'id': block_id,
+                'name': name,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'internal_vars': {
+                    'main_vars': {},
+                    'ref_vars': {},
+                },
+                'internal_devs': {
+                    'main_devs': {},
+                    'ref_devs': {},
+                },
+                'in_connections': [],
+                'out_connections': [],
+                'canvas': self
+            }
+        else:
+            print(f"Error: Unknown block type {block_type}")
+            info = {
+                'type': block_type,
                 'id': block_id,
                 'widget': block,
                 'width': block.boundingRect().width(),
                 'height': block.boundingRect().height(),
                 'x': x,
                 'y': y,
-                'function_name': block_type.split('_')[1],
-                'ref_vars': [],
-                'main_vars': [],
-                'ref_devs': [],
-                'main_devs': [],
                 'in_connections': [],
                 'out_connections': [],
                 'canvas': self
             }
-        """info = {
-            'type': block_type.split('_')[0],
-            'id': block_id,
-            'widget': block,
-            'width': block.boundingRect().width(),
-            'height': block.boundingRect().height(),
-            'x': x,
-            'y': y,
-            'value_1_name': "var1",
-            'value_1_type': "N/A",
-            'value_2_name': "var2",
-            'value_2_type': "N/A",
-            'operator': "==",
-            'switch_state': False,
-            'sleep_time': "1000",
-            'in_connections': [],
-            'out_connections': [],
-            'canvas': self
-        }"""
         if self.reference == 'canvas':
             Utils.main_canvas['blocks'].setdefault(block_id, info)
         elif self.reference == 'function':
@@ -1261,7 +1261,13 @@ class MainWindow(QMainWindow):
         self.count_w_separator = 0
         self.canvas_count = 0
         self.tab_buttons = []  # Track tab buttons
-                
+        self.last_m_dev = None
+        self.last_m_var = None
+        self.last_f_dev = None
+        self.last_f_var = None
+        self.last_type_var = None
+        self.last_type_dev = None
+
         self.create_menu_bar()
         self.create_canvas_frame()
     
@@ -2154,9 +2160,15 @@ class MainWindow(QMainWindow):
                 self.insert_items(block, main_var_combo, type='variable_m')
                 line_layout.addWidget(ref_var_combo)
                 line_layout.addWidget(main_var_combo) 
+                
+                if str(line_widget) not in block_data['internal_vars'].get('ref_vars', {}):
+                    block_data['internal_vars']['ref_vars'][str(line_widget)] = {
+                        'name': '',
+                    }
+                block_data['internal_vars']['ref_vars'][str(line_widget)]['name'] = var_info['name']
 
-                ref_var_combo.textChanged.connect(lambda text, bd=block_data, t='variable_f': self.function_variable_changed(text, bd, t))
-                main_var_combo.textChanged.connect(lambda text, bd=block_data, t='variable_m': self.function_variable_changed(text, bd, t))
+                ref_var_combo.textChanged.connect(lambda text, bd=block_data, t='variable_f', l=line_widget: self.function_variable_changed(text, bd, t, l))
+                main_var_combo.textChanged.connect(lambda text, bd=block_data, t='variable_m', l=line_widget: self.function_variable_changed(text, bd, t, l))
 
                 current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), line_widget)
             
@@ -2188,39 +2200,67 @@ class MainWindow(QMainWindow):
                 line_layout.addWidget(ref_dev_combo)
                 line_layout.addWidget(main_dev_combo)
 
-                ref_dev_combo.textChanged.connect(lambda text, bd=block_data, t='device_f': self.function_device_changed(text, bd, t))
-                main_dev_combo.textChanged.connect(lambda text, bd=block_data, t='device_m': self.function_device_changed(text, bd, t))
+                if str(line_widget) not in block_data['internal_devs'].get('ref_devs', {}):
+                    block_data['internal_devs']['ref_devs'][str(line_widget)] = {
+                        'name': '',
+                    }
+                block_data['internal_devs']['ref_devs'][str(line_widget)]['name'] = dev_info['name']
+
+                ref_dev_combo.textChanged.connect(lambda text, bd=block_data, t='device_f', l=line_widget: self.function_device_changed(text, bd, t, l))
+                main_dev_combo.textChanged.connect(lambda text, bd=block_data, t='device_m', l=line_widget: self.function_device_changed(text, bd, t, l))
 
 
                 current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), line_widget)
 
-    def function_variable_changed(self, text, block_data, type=None):
+    def function_variable_changed(self, text, block_data, type=None, line_widget=None):
         #print(f"Function variable changed to: {text}, type: {type}")
         # Implement the logic to update function variable mapping in block_data
         # This is a placeholder implementation
+        line_widget = str(line_widget)
         if type == 'variable_f':
-            if 'ref_vars' not in block_data:
-                block_data['ref_vars'] = []
-            block_data['ref_vars'].append(text)
+            if line_widget in block_data['internal_vars'].get('ref_vars', {}):
+                old_name = block_data['internal_vars']['ref_vars'][line_widget]['name']
+                block_data['internal_vars']['ref_vars'][line_widget].pop(old_name, None)
+            if line_widget not in block_data['internal_vars'].get('ref_vars', {}):
+                block_data['internal_vars']['ref_vars'][line_widget] = {
+                    'name': '',
+                }
+            block_data['internal_vars']['ref_vars'][line_widget]['name'] = text
         elif type == 'variable_m':
-            if 'main_vars' not in block_data:
-                block_data['main_vars'] = []
-            block_data['main_vars'].append(text)
-        #print(f"Updated block_data: {block_data}")
+            if line_widget in block_data['internal_vars'].get('main_vars', {}):
+                old_name = block_data['internal_vars']['main_vars'][line_widget]['name']
+                block_data['internal_vars']['main_vars'][line_widget].pop(old_name, None)
+            if line_widget not in block_data['internal_vars'].get('main_vars', {}):
+                block_data['internal_vars']['main_vars'][line_widget] = {
+                    'name': '',
+                }
+            block_data['internal_vars']['main_vars'][line_widget]['name'] = text
+        print(f"Updated block_data: {block_data}")
 
-    def function_device_changed(self, text, block_data, type=None):
+    def function_device_changed(self, text, block_data, type=None, line_widget=None):
         #print(f"Function device changed to: {text}, type: {type}")
         # Implement the logic to update function device mapping in block_data
         # This is a placeholder implementation
+        line_widget = str(line_widget)
         if type == 'device_f':
-            if 'ref_devs' not in block_data:
-                block_data['ref_devs'] = []
-            block_data['ref_devs'].append(text)
+            if line_widget in block_data['internal_devs'].get('ref_devs', {}):
+                old_name = block_data['internal_devs']['ref_devs'][line_widget]['name']
+                block_data['internal_devs']['ref_devs'][line_widget].pop(old_name, None)
+            if line_widget not in block_data['internal_devs'].get('ref_devs', {}):
+                block_data['internal_devs']['ref_devs'][line_widget] = {
+                    'name': '',
+                }
+            block_data['internal_devs']['ref_devs'][line_widget]['name'] = text
         elif type == 'device_m':
-            if 'main_devs' not in block_data:
-                block_data['main_devs'] = []
-            block_data['main_devs'].append(text)
-        #print(f"Updated block_data: {block_data}")
+            if line_widget in block_data['internal_devs'].get('main_devs', {}):
+                old_name = block_data['internal_devs']['main_devs'][line_widget]['name']
+                block_data['internal_devs']['main_devs'][line_widget].pop(old_name, None)
+            if line_widget not in block_data['internal_devs'].get('main_devs', {}):
+                block_data['internal_devs']['main_devs'][line_widget] = {
+                    'name': '',
+                }
+            block_data['internal_devs']['main_devs'][line_widget]['name'] = text
+        print(f"Updated block_data: {block_data}")
 
     def Block_value_name_1_changed(self, text, block_data):
         current_canvas = self.current_canvas
@@ -2454,7 +2494,7 @@ class MainWindow(QMainWindow):
         canvas_reference.row_layout.addWidget(type_input)
         canvas_reference.row_layout.addWidget(delete_btn)
         
-        delete_btn.clicked.connect(lambda _, v_id=var_id, rw=canvas_reference.row_widget, t="Variable", r=canvas_reference: self.remove_row(rw, v_id, t, r))
+        delete_btn.clicked.connect(lambda _, v_id=var_id, rw=canvas_reference.row_widget, t="Variable", r=canvas_reference: self.remove_internal_row(rw, v_id, t, r))
 
         if info['ref'] == 'canvas':
             Utils.variables['main_canvas'][var_id]['widget'] = canvas_reference.row_widget
@@ -2556,7 +2596,7 @@ class MainWindow(QMainWindow):
         canvas_reference.row_layout.addWidget(type_input)
         canvas_reference.row_layout.addWidget(delete_btn)
         
-        delete_btn.clicked.connect(lambda _, v_id=dev_id, rw=canvas_reference.row_widget, t="Device", r=canvas_reference: self.remove_row(rw, v_id, t, r))
+        delete_btn.clicked.connect(lambda _, v_id=dev_id, rw=canvas_reference.row_widget, t="Device", r=canvas_reference: self.remove_internal_row(rw, v_id, t, r))
 
         if info['ref'] == 'canvas':
             Utils.devices['main_canvas'][dev_id]['widget'] = canvas_reference.row_widget
@@ -2997,6 +3037,68 @@ class MainWindow(QMainWindow):
             canvas_reference.devices_row_count -= 1
         #print(f"Deleted variable: {var_id}")
     
+    def remove_internal_row(self, row_widget, var_id, type, canvas_reference=None):
+        if type == "Variable":
+                
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas:
+                    if info['ref'] == 'canvas':
+                        pass
+                    elif info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                del Utils.variables['function_canvases'][function_id][var_id]
+                                for imput, var_ids in Utils.vars_same.items():
+                                    if var_id in var_ids:
+                                        var_ids.remove(var_id)
+                                break
+            
+            for imput2, var in Utils.vars_same.items():
+                #print(f"Var {var}, len var {len(var)}")
+                if len(var) <= 1:
+                    for var_id in var:
+                        if info['ref'] == 'canvas':
+                            pass
+                        elif info['ref'] == 'function':
+                            Utils.variables['function_canvases'][function_id][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+            
+            panel_layout = canvas_reference.internal_layout
+            panel_layout.removeWidget(row_widget)
+            
+            row_widget.setParent(None)
+            row_widget.deleteLater()
+            
+        elif type == "Device":
+
+            for canvas, info in Utils.canvas_instances.items():
+                if canvas_reference == canvas:
+                    if info['ref'] == 'canvas':
+                        pass
+                    elif info['ref'] == 'function':
+                        for function_id, function_info in Utils.functions.items():
+                            if function_info['canvas'] == canvas_reference:
+                                del Utils.devices['function_canvases'][function_id][var_id]
+                                for imput, dev_ids in Utils.devs_same.items():
+                                    if var_id in dev_ids:
+                                        dev_ids.remove(var_id)
+                                break
+            
+            for imput2, dev in Utils.devs_same.items():
+                #print(f"Dev {dev}, len dev {len(dev)}")
+                if len(dev) <= 1:
+                    for dev_id in dev:
+                        if info['ref'] == 'canvas':
+                            pass
+                        elif info['ref'] == 'function':
+                            Utils.devices['function_canvases'][function_id][dev_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+            
+            panel_layout = canvas_reference.internal_layout
+            panel_layout.removeWidget(row_widget)
+            
+            row_widget.setParent(None)
+            row_widget.deleteLater()
+            
+
     def name_changed(self, text, var_id, type, canvas_reference=None):
         #print(f"Name changed to {text} for {type} with id {var_id}")
         if type == "Variable":
@@ -3984,110 +4086,278 @@ class MainWindow(QMainWindow):
                             x=block['x'],
                             y=block['y'],
                             block_id=str(block_id),
-                            canvas=canvas
+                            canvas=canvas,
+                            name=block['name']
                         )
                             
                 elif canvas_info['ref'] == 'function':
-                    #print("Rebuilding blocks for function canvas")
+                    print("Rebuilding blocks for function canvas")
                     for function_id, function_info in Utils.functions.items():
-                        #print(f" Checking function: {function_id}")
+                        print(f" Checking function: {function_id}")
                         if function_info['canvas'] == canvas:
-                            #print(f" Found matching canvas for function: {function_id}")
+                            print(f" Found matching canvas for function: {function_id}")
                             for block_id, block in Utils.project_data.functions[function_id]['blocks'].items():
-                                #print(f"  Rebuilding block {block_id} of type {block['type']}")
+                                print(f"  Rebuilding block {block_id} of type {block['type']}")
                                 self.add_block_from_data(
                                     block_type=block['type'],
                                     x=block['x'],
                                     y=block['y'],
                                     block_id=str(block_id),
                                     canvas=canvas,
+                                    name=block['name']
                                 )
             #print("✓ Blocks rebuilt on canvas")
         except Exception as e:
             print(f"❌ Error rebuilding blocks: {e}")
         
 
-    def add_block_from_data(self, block_type, x, y, block_id, canvas=None, function_id=None):
-        
+    def add_block_from_data(self, block_type, x, y, block_id, canvas=None, function_id=None, name=None):
         """Add a new block to the canvas"""
+        print(f" Adding block from data: ID={block_id}, Type={block_type}, X={x}, Y={y}, Canvas {canvas}")
         block = BlockGraphicsItem(
             x=x, y=y,
             block_id=block_id,
             block_type=block_type,
             parent_canvas=canvas,
+            name=name
         )
         for canvas_key, canvas_info in Utils.canvas_instances.items():
             if canvas_info['canvas'] == canvas:
                 break
         if canvas_info['ref'] == 'canvas':
-            block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
-            #block.value_1_type = Utils.project_data.blocks[block_id].get('value_1_type', "N/A")
-            block.value_2_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2")
-            #block.value_2_type = Utils.project_data.blocks[block_id].get('value_2_type', "N/A")
-            block.operator = Utils.project_data.main_canvas['blocks'][block_id].get('operator', "==")
-            block.switch_state = Utils.project_data.main_canvas['blocks'][block_id].get('switch_state', False)
-            block.sleep_time = Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000")
+            if block_type in ('If', 'While', 'Button'):
+                block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
+                #block.value_1_type = Utils.project_data.blocks[block_id].get('value_1_type', "N/A")
+                block.value_2_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2")
+                #block.value_2_type = Utils.project_data.blocks[block_id].get('value_2_type', "N/A")
+                block.operator = Utils.project_data.main_canvas['blocks'][block_id].get('operator', "==")
+            elif block_type == 'Switch':
+                block.switch_state = Utils.project_data.main_canvas['blocks'][block_id].get('switch_state', False)
+            elif block_type == 'Sleep':
+                block.sleep_time = Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000")
         if canvas_info['ref'] == 'function':
             #print("Setting function canvas block properties")
             for function_id, function_info in Utils.functions.items():
                 #print(f" Checking function: {function_id}")
                 if function_info['canvas'] == canvas:
                     #print(f" Found matching canvas for function: {function_id}")
-                    block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
-                    #block.value_1_type = Utils.project_data.blocks[block_id].get('value_1_type', "N/A")
-                    block.value_2_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2")
-                    #block.value_2_type = Utils.project_data.blocks[block_id].get('value_2_type', "N/A")
-                    block.operator = Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', "==")
-                    block.switch_state = Utils.project_data.functions[function_id]['blocks'][block_id].get('switch_state', False)
-                    block.sleep_time = Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000")
+                    if block_type in ('If', 'While', 'Button'):
+                        block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
+                        #block.value_1_type = Utils.project_data.blocks[block_id].get('value_1_type', "N/A")
+                        block.value_2_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2")
+                        #block.value_2_type = Utils.project_data.blocks[block_id].get('value_2_type', "N/A")
+                        block.operator = Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', "==")
+                    elif block_type == 'Switch':
+                        block.switch_state = Utils.project_data.functions[function_id]['blocks'][block_id].get('switch_state', False)
+                    elif block_type == 'Sleep':
+                        block.sleep_time = Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000")
                     break
                 
         canvas.scene.addItem(block)
         
         # Store in Utils
         if canvas_info['ref'] == 'canvas':
-            Utils.main_canvas['blocks'][block_id] = {
-                'type': Utils.project_data.main_canvas['blocks'][block_id]['type'].split('_')[0],
-                'id': block_id,
-                'widget': block,
-                'width': block.boundingRect().width(),
-                'height': block.boundingRect().height(),
-                'x': x,
-                'y': y,
-                'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
-                'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
-                'value_2_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2"),
-                'value_2_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_type', "N/A"),
-                'operator': Utils.project_data.main_canvas['blocks'][block_id].get('operator', "=="),
-                'switch_state': Utils.project_data.main_canvas['blocks'][block_id].get('switch_state', False),
-                'sleep_time': Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000"),
-                'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
-                'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', [])
-            }
+            if block_type in ('If', 'While', 'Button'):
+                info = {
+                    'type': block_type,
+                    'id': block_id,
+                    'widget': block,
+                    'width': block.boundingRect().width(),
+                    'height': block.boundingRect().height(),
+                    'x': x,
+                    'y': y,
+                    'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
+                    'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
+                    'value_2_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2"),
+                    'value_2_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_type', "N/A"),
+                    'operator': Utils.project_data.main_canvas['blocks'][block_id].get('operator', "=="),
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', []),
+                    'canvas': canvas
+                }
+            elif block_type == 'Timer':
+                info = {
+                    'type': block_type,
+                    'id': block_id,
+                    'widget': block,
+                    'width': block.boundingRect().width(),
+                    'height': block.boundingRect().height(),
+                    'x': x,
+                    'y': y,
+                    'sleep_time': Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000"),
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', []),
+                    'canvas': canvas
+                }
+            elif block_type == 'Switch':
+                info = {
+                    'type': block_type,
+                    'id': block_id,
+                    'widget': block,
+                    'width': block.boundingRect().width(),
+                    'height': block.boundingRect().height(),
+                    'x': x,
+                    'y': y,
+                    'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
+                    'switch_state': Utils.project_data.main_canvas['blocks'][block_id].get('switch_state', False),
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', []),
+                    'canvas': canvas
+                }
+            elif block_type in ('Start', 'End', 'While_true'):
+                info = {
+                    'type': block_type,
+                    'id': block_id,
+                    'widget': block,
+                    'width': block.boundingRect().width(),
+                    'height': block.boundingRect().height(),
+                    'x': x,
+                    'y': y,
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', []),
+                    'canvas': canvas
+                }
+            elif block_type == 'Function':
+                info = {
+                    'type': 'Function',
+                    'id': block_id,
+                    'name': Utils.project_data.main_canvas['blocks'][block_id].get('name', ''),
+                    'widget': block,
+                    'width': block.boundingRect().width(),
+                    'height': block.boundingRect().height(),
+                    'x': x,
+                    'y': y,
+                    'internal_vars': {
+                        'main_vars': Utils.project_data.main_canvas['blocks'][block_id]['internal_vars'].get('main_vars', {}),
+                        'ref_vars': Utils.project_data.main_canvas['blocks'][block_id]['internal_vars'].get('ref_vars', {}),
+                    },
+                    'internal_devs': {
+                        'main_devs': Utils.project_data.main_canvas['blocks'][block_id]['internal_devs'].get('main_devs', {}),
+                        'ref_devs': Utils.project_data.main_canvas['blocks'][block_id]['internal_devs'].get('ref_devs', {}),
+                    },
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', []),
+                    'canvas': canvas
+                }
+            else:
+                print(f"Error: Unknown block type {block_type}")
+                info = {
+                    'type': block_type,
+                    'id': block_id,
+                    'widget': block,
+                    'width': block.boundingRect().width(),
+                    'height': block.boundingRect().height(),
+                    'x': x,
+                    'y': y,
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', []),
+                    'canvas': canvas
+                }
+            Utils.main_canvas['blocks'][block_id] = info
         if canvas_info['ref'] == 'function':
-            #print("Storing function canvas block in Utils")
+            print("Storing function canvas block in Utils")
             for function_id, function_info in Utils.functions.items():
-                #print(f" Checking function: {function_id}")
+                print(f" Checking function: {function_id}")
                 if function_info['canvas'] == canvas:
-                    #print(f" Found matching canvas for function: {function_id}")
-                    Utils.functions[function_id]['blocks'][block_id] = {
-                        'type': Utils.project_data.functions[function_id]['blocks'][block_id]['type'].split('_')[0],
-                        'id': block_id,
-                        'widget': block,
-                        'width': block.boundingRect().width(),
-                        'height': block.boundingRect().height(),
-                        'x': x,
-                        'y': y,
-                        'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
-                        'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
-                        'value_2_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2"),
-                        'value_2_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_type', "N/A"),
-                        'operator': Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', "=="),
-                        'switch_state': Utils.project_data.functions[function_id]['blocks'][block_id].get('switch_state', False),
-                        'sleep_time': Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000"),
-                        'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
-                        'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', [])
-                    }
+                    print(f" Found matching canvas for function: {function_id}")
+                    if block_type in ('If', 'While', 'Button'):
+                        info = {
+                            'type': block_type,
+                            'id': block_id,
+                            'widget': block,
+                            'width': block.boundingRect().width(),
+                            'height': block.boundingRect().height(),
+                            'x': x,
+                            'y': y,
+                            'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
+                            'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
+                            'value_2_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2"),
+                            'value_2_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_type', "N/A"),
+                            'operator': Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', "=="),
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', []),
+                            'canvas': canvas
+                        }
+                    elif block_type == 'Timer':
+                        info = {
+                            'type': block_type,
+                            'id': block_id,
+                            'widget': block,
+                            'width': block.boundingRect().width(),
+                            'height': block.boundingRect().height(),
+                            'x': x,
+                            'y': y,
+                            'sleep_time': Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000"),
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', []),
+                            'canvas': canvas
+                        }
+                    elif block_type == 'Switch':
+                        info = {
+                            'type': block_type,
+                            'id': block_id,
+                            'widget': block,
+                            'width': block.boundingRect().width(),
+                            'height': block.boundingRect().height(),
+                            'x': x,
+                            'y': y,
+                            'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
+                            'switch_state': Utils.project_data.functions[function_id]['blocks'][block_id].get('switch_state', False),
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', []),
+                            'canvas': canvas
+                        }
+                    elif block_type in ('Start', 'End', 'While_true'):
+                        info = {
+                            'type': block_type,
+                            'id': block_id,
+                            'widget': block,
+                            'width': block.boundingRect().width(),
+                            'height': block.boundingRect().height(),
+                            'x': x,
+                            'y': y,
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', []),
+                            'canvas': canvas
+                        }
+                    elif block_type == 'Function':
+                        info = {
+                            'type': 'Function',
+                            'id': block_id,
+                            'name': Utils.project_data.functions[function_id]['blocks'][block_id].get('name', ''),
+                            'widget': block,
+                            'width': block.boundingRect().width(),
+                            'height': block.boundingRect().height(),
+                            'x': x,
+                            'y': y,
+                            'internal_vars': {
+                                'main_vars': Utils.project_data.functions[function_id]['blocks'][block_id]['internal_vars'].get('main_vars', {}),
+                                'ref_vars': Utils.project_data.functions[function_id]['blocks'][block_id]['internal_vars'].get('ref_vars', {}),
+                            },
+                            'internal_devs': {
+                                'main_devs': Utils.project_data.functions[function_id]['blocks'][block_id]['internal_devs'].get('main_devs', {}),
+                                'ref_devs': Utils.project_data.functions[function_id]['blocks'][block_id]['internal_devs'].get('ref_devs', {}),
+                            },
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', []),
+                            'canvas': canvas
+                        }
+                    else:
+                        print(f"Error: Unknown block type {block_type}")
+                        info = {
+                            'type': block_type,
+                            'id': block_id,
+                            'widget': block,
+                            'width': block.boundingRect().width(),
+                            'height': block.boundingRect().height(),
+                            'x': x,
+                            'y': y,
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', []),
+                            'canvas': canvas
+                        }
+                    
+                    Utils.functions[function_id]['blocks'][block_id] = info
                     break
         block.connect_graphics_signals()
         return block
@@ -4249,7 +4519,7 @@ class MainWindow(QMainWindow):
                 #print(f" Recreating variables for function canvas: {canvas_info['name']}")
                 for var_id, var_info in list(Utils.project_data.variables['function_canvases'][canvas_info['id']].items()):
                     #print(f"  Recreating variable {var_id} on function canvas")
-                    self.add_variable_row(var_id, var_info, canvas)
+                    self.add_internal_variable_row(var_id, var_info, canvas)
 
     def _rebuild_devices_panel(self):
         """Recreate devices in the side panel"""
@@ -4266,7 +4536,7 @@ class MainWindow(QMainWindow):
                 #print(f" Recreating devices for function canvas: {canvas_info['name']}")
                 for dev_id, dev_info in list(Utils.project_data.devices['function_canvases'][canvas_info['id']].items()):
                     #print(f"  Recreating device {dev_id} on function canvas")
-                    self.add_device_row(dev_id, dev_info, canvas)
+                    self.add_internal_device_row(dev_id, dev_info, canvas)
         
 def main():
     app = QApplication(sys.argv)

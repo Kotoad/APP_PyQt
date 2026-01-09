@@ -24,9 +24,9 @@ class BlockSignals(QObject):
 class BlockGraphicsItem(QGraphicsItem, QObject):
     """Graphics item representing a block - renders with QPainter for perfect zoom quality"""
 
-    def __init__(self, x, y, block_id, block_type, parent_canvas, main_window=None):
+    def __init__(self, x, y, block_id, block_type, parent_canvas, main_window=None, name=None):
         super().__init__()
-        
+        print(f'Initializing BlockGraphicsItem: {block_id} of type {block_type} at ({x}, {y}) on canvas {parent_canvas}, name: {name if name else "N/A"}')
         self.signals = BlockSignals()
         self.state_manager = State_manager.get_instance()
         if main_window is not None:
@@ -40,7 +40,8 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         self.block_type = block_type
         self.canvas = parent_canvas
         self.canvas_id = None
-        
+        self.name = name
+        #print(f"self.canvas: {self.canvas}, self.block_id: {self.block_id}, self.block_type: {self.block_type}, self.x: {x}, self.y: {y}, self.name: {self.name}")
         self.value_1_name = "var1"
         self.operator = "=="
         self.value_2_name = "var2"
@@ -62,7 +63,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         self.radius = 6
         self.border_width = 2
         
-        #print(f"✓ BlockGraphicsItem created: {block_id} ({block_type}) at ({x}, {y})")
+        print(f"✓ BlockGraphicsItem created: {block_id} ({block_type}) at ({x}, {y})")
 
     def _setup_dimensions(self):
         v_count = 0
@@ -80,14 +81,13 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         elif self.block_type == "Button":
             self.width = 100
             self.height = 54
-        elif self.block_type.startswith("Function_"):
-            func = self.block_type.split("Function_")[1]
+        elif self.block_type == "Function":
             #print(f"Utils.variables['function_canvases']: {Utils.variables['function_canvases']}")
             for canvas, canvas_info in Utils.canvas_instances.items():
-                if canvas_info.get('ref') == 'function' and canvas_info.get('name') == func:
+                if canvas_info.get('ref') == 'function' and canvas_info.get('name') == self.name:
                     self.canvas_id = canvas_info.get('id')
                     break
-            #print(f"Calculating dimensions for function block: {func} in canvas {self.canvas_id}")
+            #print(f"Calculating dimensions for function block: {self.name} in canvas {self.canvas_id}")
             for f_id, f_info in Utils.variables['function_canvases'][self.canvas_id].items():
                 v_count += 1
             for f_id, f_info in Utils.devices['function_canvases'][self.canvas_id].items():
@@ -187,7 +187,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             painter.drawText(QRectF(self.radius, 0, self.width, self.height), Qt.AlignmentFlag.AlignCenter, device_text)
             painter.drawText(ON_rect, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight, "ON")
             painter.drawText(OFF_rect, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight, "OFF")
-        elif self.block_type.startswith("Function_"):
+        elif self.block_type == "Function":
             #print(f"Drawing function block text for: {self.block_type}")
             name_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(name_rect, Qt.AlignmentFlag.AlignHCenter, text)
@@ -453,9 +453,10 @@ class spawning_elements:
         self.element_spawner = Element_spawn()
         self.state_manager = State_manager.get_instance()
 
-    def start(self, parent, element_type):
+    def start(self, parent, element_type, name=None):
         """Start placing an element"""
         self.type = element_type
+        self.name = name
         self.perm_stop = False
         self.parent = parent
         self.placing_active = True
@@ -495,7 +496,7 @@ class spawning_elements:
 
         #print(f"Checking placing: perm_stop={self.perm_stop}, placing_active={self.placing_active}")
         if not self.element_placed and self.placing_active:
-            self.element_spawner.custom_shape_spawn(parent, self.type, event)
+            self.element_spawner.custom_shape_spawn(parent, self.type, event, self.name)
             self.placing_active = False
             self.element_placed = True
             #print(f"Element placed: {self.type}, at {event.pos()}, Placement active: {self.placing_active}, Element placed: {self.element_placed}")
@@ -553,12 +554,12 @@ class Element_spawn:
     """Spawns visual elements"""
     height = 36
 
-    def custom_shape_spawn(self, parent, element_type, event):
+    def custom_shape_spawn(self, parent, element_type, event, name=None):
         """Spawn a custom shape at the clicked position"""
         #print(f"Spawning element: {element_type}")
         block_id = f"{element_type}_{int(time.time() * 1000)}"
         scene_pos = parent.mapToScene(event.pos())
         x, y = scene_pos.x(), scene_pos.y()
 
-        parent.add_block(element_type, x, y, block_id)
+        parent.add_block(element_type, x, y, block_id, name)
         #print(f"Spawned {element_type} at ({x}, {y})")

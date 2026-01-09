@@ -258,8 +258,8 @@ class ElementsWindow(QDialog):
         #print(f"Function elements collected: {function_elements}")
         for element in function_elements:
             btn = QPushButton(element)
-            element = "Function_" + element
-            btn.clicked.connect(lambda checked, e=element: self.spawn_element(e))
+            element_type = "Function"
+            btn.clicked.connect(lambda checked, e=element_type, n=element if element else None: self.spawn_element(e, n))
             self.layout.addWidget(btn)
         self.layout.addStretch()
 
@@ -267,7 +267,7 @@ class ElementsWindow(QDialog):
             #print("Adding Functions tab to ElementsWindow")
             self.tab_widget.addTab(self.f_tab, "Functions")
 
-    def spawn_element(self, element_type):
+    def spawn_element(self, element_type, name=None):
         """
         Spawn a shape/logic/IO element
         
@@ -294,7 +294,7 @@ class ElementsWindow(QDialog):
                 print("Current state of canvas before spawning:", self.state_manager.canvas_state.current_state())
                 if self.state_manager.canvas_state.on_adding_block():
                     print("Current state of canvas before spawning:", self.state_manager.canvas_state.current_state())
-                    current_canvas.spawner.start(current_canvas, element_type)
+                    current_canvas.spawner.start(current_canvas, element_type, name=name)
                     #print(f"Element spawn initiated on canvas {id(current_canvas)}")
                 else:
                     print("Canvas cannot add block right now.")
