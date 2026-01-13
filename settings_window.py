@@ -64,7 +64,8 @@ class DeviceSettingsWindow(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.is_hidden = False
+        self.parent_canvas = parent
+        self.is_hidden = True
         self.state_manager = StateManager.get_instance()
         self.setup_ui()
     
@@ -73,9 +74,15 @@ class DeviceSettingsWindow(QDialog):
         """Get or create singleton instance"""
         if cls._instance is not None:
             try:
-                if cls._instance.isVisible():
+                if not cls._instance.is_hidden:
+                    if cls._instance.parent_canvas != parent:
+                        cls._instance.parent_canvas = parent
                     return cls._instance
             except RuntimeError:
+                cls._instance = None
+            
+            except Exception as e:
+                print(f"Error accessing existing DeviceSettingsWindow instance: {e}")
                 cls._instance = None
         
         if cls._instance is None:
@@ -429,7 +436,10 @@ class DeviceSettingsWindow(QDialog):
         self.raise_()
     
     def open(self):
-        if not self.is_hidden:
+        print("Opening DeviceSettingsWindow")
+        if self.is_hidden:
+            print("DeviceSettingsWindow already open, raising to front")
+            self.is_hidden = False
             self.show()
             self.raise_()
             self.activateWindow()

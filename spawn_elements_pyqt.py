@@ -218,7 +218,8 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         if self.block_type == "Switch":
             small_font = QFont("Arial", 8)
             painter.setFont(small_font)
-            
+            #print(f"Drawing Switch labels, state: {self.switch_state}")
+            #print(f"Current block data: {Utils.main_canvas['blocks'].get(self.block_id, {})}")
             # ON label - GREEN if ON, GRAY if OFF
             
             on_rect = QRectF(self.radius + self.width - 35, self.height / 2 - 5, 30, 10)

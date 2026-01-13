@@ -11,7 +11,6 @@ runtime_widgets = {
     'lines': {},       # connection_id -> QLine
 }
 
-top_infos = {}
 paths = {}
 variables = {
     'main_canvas': {},      

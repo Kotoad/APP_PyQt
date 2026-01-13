@@ -2,6 +2,7 @@ from enum import Enum, auto
 
 from Imports import pyqtSignal, QObject
 
+
 class CanvasState(Enum):
     IDLE = auto()
     ADDING_BLOCK = auto()
@@ -14,7 +15,9 @@ class CanvasStateMachine(QObject):
 
     def __init__(self):
         super().__init__()
+        print("canvas state machine initilized")
         self.state = CanvasState.IDLE
+        print(f"{self.state}")
     
     def can_place_block(self):
         return self.state == CanvasState.IDLE
@@ -70,16 +73,9 @@ class CanvasStateMachine(QObject):
             print(f"State remains: {self.state.name}")
     
     def current_state(self):
-        if self.state == CanvasState.IDLE:
-            return 'IDLE'
-        elif self.state == CanvasState.ADDING_BLOCK:
-            return 'ADDING_BLOCK'
-        elif self.state == CanvasState.ADDING_PATH:
-            return 'ADDING_PATH'
-        elif self.state == CanvasState.MOVING_ITEM:
-            return 'MOVING_ITEM'
-        elif self.state == CanvasState.DELETING_ITEM:
-            return 'DELETING_ITEM'
+        if self.state.name:
+            return self.state.name
+        return None
 
 class AppStates(Enum):
     MAIN_WINDOW = auto()
@@ -94,13 +90,17 @@ class AppStateMachine(QObject):
     window_opened = pyqtSignal(str)
     window_closed = pyqtSignal(str)
 
-    def __init__(self):
+    def __init__(self, canvas_state_machine=None):
         super().__init__()
         self.state = AppStates.MAIN_WINDOW
         self.open_windows = set()
+        self.canvas_state_machine = canvas_state_machine or CanvasStateMachine()
+        self.current_tab_reference = None
     
     def can_open_window(self, window_name: str):
-        return window_name not in self.open_windows and CanvasState.IDLE
+        print(f"can_open_window: {window_name}, open_windows: {self.open_windows}, canvas_state: {self.canvas_state_machine.current_state()}")
+        print(f"can_open_window check: {window_name not in self.open_windows and self.canvas_state_machine.current_state() == 'IDLE'}")
+        return window_name not in self.open_windows and self.canvas_state_machine.current_state() == 'IDLE'
     
     def can_close_window(self, window_name: str):
         return window_name in self.open_windows
@@ -108,6 +108,12 @@ class AppStateMachine(QObject):
     def can_compile(self):
         return self.state != AppStates.COMPILING
     
+    def can_change_tab(self):
+        return self.state != AppStates.ELEMENTS_DIALOG and self.canvas_state_machine.current_state() == 'IDLE'
+
+    def can_create_canvas_tab(self):
+        return self.state == AppStates.MAIN_WINDOW and self.canvas_state_machine.current_state() == 'IDLE'
+
     def on_main_window(self):
         if self.can_go_to_main_window():
             self.change_state(AppStates.MAIN_WINDOW)
@@ -147,11 +153,14 @@ class AppStateMachine(QObject):
         return False
 
     def on_elements_dialog_open(self):
-        if self.can_open_window('Elements'):
+        print(f"Attempting to open Elements dialog from tab: {self.current_tab_reference}")
+        if self.can_open_window('Elements') and self.current_tab_reference in ('canvas', 'function'):
+            print(f"Opening Elements dialog from tab: {self.current_tab_reference}")
             self.open_windows.add('Elements')
             self.window_opened.emit('Elements')
             self.change_state(AppStates.ELEMENTS_DIALOG)
             return True
+        print("Cannot open Elements dialog: either already open or invalid tab.")
         return False
     
     def on_elements_dialog_close(self):
@@ -173,6 +182,19 @@ class AppStateMachine(QObject):
             self.change_state(AppStates.MAIN_WINDOW)
             return True
         return False
+
+    def on_tab_changed(self):
+        print(f"Check {self.state != AppStates.ELEMENTS_DIALOG and self.canvas_state_machine.current_state() == 'IDLE'} to go to MAIN_WINDOW")
+        print(f"Current state: {self.state}, Canvas state: {self.canvas_state_machine.current_state()}")
+        if self.can_change_tab():
+            self.change_state(AppStates.MAIN_WINDOW)
+            return True
+        return False
+
+    def on_tab_created(self):
+        if self.can_create_canvas_tab():
+            self.change_state(AppStates.MAIN_WINDOW)
+            return True
 
     def change_state(self, new_state: AppStates):
         if self.state != new_state:

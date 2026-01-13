@@ -56,6 +56,7 @@ class FileManager:
     PROJECTS_DIR = "projects"
     AUTOSAVE_DIR = "autosave"
     COMPARE_DIR = "compare"
+    APPDATA_DIR = os.path.expanduser("~\\AppData\\Local\\Visual Programming\\projects")
     PROJECT_EXTENSION = ".project"
     
     @classmethod
@@ -64,6 +65,7 @@ class FileManager:
         os.makedirs(cls.PROJECTS_DIR, exist_ok=True)
         os.makedirs(cls.AUTOSAVE_DIR, exist_ok=True)
         os.makedirs(cls.COMPARE_DIR, exist_ok=True)
+        os.makedirs(cls.APPDATA_DIR, exist_ok=True)
     
     # ========================================================================
     # SAVE OPERATIONS
@@ -81,6 +83,7 @@ class FileManager:
         Returns:
             True if successful, False otherwise
         """
+        
         try:
             cls.ensure_directories()
             
@@ -91,6 +94,7 @@ class FileManager:
                 filename = os.path.join(cls.COMPARE_DIR, project_name + "_TEMP" + cls.PROJECT_EXTENSION)
             else:
                 filename = os.path.join(cls.PROJECTS_DIR, project_name + cls.PROJECT_EXTENSION)
+                filename2 = os.path.join(cls.APPDATA_DIR, f"{project_name}" + cls.PROJECT_EXTENSION)
             
             # Build project data
             project_dict = cls._build_save_data(project_name)
@@ -98,8 +102,11 @@ class FileManager:
             # Write to file
             with open(filename, 'w') as f:
                 json.dump(project_dict, f, indent=2)
-            
-            #print(f"✓ Project saved: {filename}")
+            if not is_autosave and not is_compare:
+                with open(filename2, 'w') as f:
+                    json.dump(project_dict, f, indent=2)
+
+            print(f"✓ Project saved: {filename}")
             return True
             
         except Exception as e:
@@ -107,7 +114,7 @@ class FileManager:
             return False
     
     @classmethod
-    def _build_save_data(cls, project_name: str) -> dict:
+    def _build_save_data(cls, project_name: str, for_dict=True) -> dict:
         """
         Build complete project data for serialization
         
@@ -430,17 +437,27 @@ class FileManager:
         }
         
         # Complete project structure
-        project_dict = {
-            'metadata': metadata,
-            'settings': settings,
-            'main_canvas': main_canvas,
-            'canvases': canvases,
-            'functions': functions,
-            'variables': variables_data,
-            'devices': devices_data,
-        }
+        if for_dict:
+            project_dict = {
+                'metadata': metadata,
+                'settings': settings,
+                'main_canvas': main_canvas,
+                'canvases': canvases,
+                'functions': functions,
+                'variables': variables_data,
+                'devices': devices_data,
+            }
         
-        return project_dict
+            return project_dict
+        else:
+            Utils.project_data.main_canvas = main_canvas
+            Utils.project_data.functions = functions
+            Utils.project_data.canvases = canvases
+            Utils.project_data.variables = variables_data
+            Utils.project_data.devices = devices_data
+            Utils.project_data.settings = settings
+            Utils.project_data.metadata = metadata
+            return
     
     
     # ========================================================================
@@ -468,10 +485,15 @@ class FileManager:
             else:
                 filename = os.path.join(cls.PROJECTS_DIR, project_name + cls.PROJECT_EXTENSION)
             
-            # Check if file exists
+            appdata_filename = os.path.join(cls.APPDATA_DIR, project_name + cls.PROJECT_EXTENSION)
+        
             if not os.path.exists(filename):
-                print(f"✗ Project file not found: {filename}")
-                return False
+                if os.path.exists(appdata_filename):
+                    print(f"⚠️  Project not found in main folder, loading from AppData backup...")
+                    filename = appdata_filename
+                else:
+                    print(f"✗ Project file not found: {filename}")
+                    return False
             
             # Load JSON
             with open(filename, 'r') as f:
@@ -624,17 +646,19 @@ class FileManager:
             ProjectComparison object with detailed change info
         """
         comparison = ProjectComparison()
-        
+        print(f"Comparing current project against saved project: {name}")
         try:
             # Load the saved project data
             compare_dict = cls._load_project_dict(name)
             if not compare_dict:
+                print(" No saved project data found for comparison.")
                 comparison.has_changes = True
                 return comparison
             
-            current_data = ProjectData.from_dict(compare_dict)
-            saved_data = Utils.project_data
-            
+            saved_data = ProjectData.from_dict(compare_dict)
+            cls._build_save_data(name, for_dict=False)
+            current_data = Utils.project_data
+            print(f"current_data: {current_data}\n\n\nsaved_data: {saved_data}")
             # =====================================================
             # 1. COMPARE MAIN CANVAS BLOCKS & CONNECTIONS
             # =====================================================
@@ -669,7 +693,8 @@ class FileManager:
                 comparison.devices_changed or
                 comparison.settings_changed
             )
-            
+            print(f"Comparison complete. Changes detected: {comparison.has_changes}")
+            print(f"What has changes:\n{comparison}")
             return comparison
             
         except Exception as e:
@@ -848,17 +873,17 @@ class FileManager:
         """Compare variables in main canvas and all functions"""
         
         # Compare main canvas variables
-        saved_main_vars = saved_data.variables.get("maincanvas", {})
-        current_main_vars = current_data.variables.get("maincanvas", {})
+        saved_main_vars = saved_data.variables.get("main_canvas", {})
+        current_main_vars = current_data.variables.get("main_canvas", {})
         
         FileManager._compare_variable_group(
             saved_main_vars, current_main_vars,
-            "maincanvas", comparison
+            "main_canvas", comparison
         )
         
         # Compare function canvas variables
-        saved_func_vars = saved_data.variables.get("functioncanvases", {})
-        current_func_vars = current_data.variables.get("functioncanvases", {})
+        saved_func_vars = saved_data.variables.get("function_canvases", {})
+        current_func_vars = current_data.variables.get("function_canvases", {})
         
         for fid in set(list(saved_func_vars.keys()) + list(current_func_vars.keys())):
             saved_fvars = saved_func_vars.get(fid, {})
@@ -904,17 +929,17 @@ class FileManager:
         """Compare devices in main canvas and all functions"""
         
         # Compare main canvas devices
-        saved_main_devs = saved_data.devices.get("maincanvas", {})
-        current_main_devs = current_data.devices.get("maincanvas", {})
+        saved_main_devs = saved_data.devices.get("main_canvas", {})
+        current_main_devs = current_data.devices.get("main_canvas", {})
         
         FileManager._compare_device_group(
             saved_main_devs, current_main_devs,
-            "maincanvas", comparison
+            "main_canvas", comparison
         )
         
         # Compare function canvas devices
-        saved_func_devs = saved_data.devices.get("functioncanvases", {})
-        current_func_devs = current_data.devices.get("functioncanvases", {})
+        saved_func_devs = saved_data.devices.get("function_canvases", {})
+        current_func_devs = current_data.devices.get("function_canvases", {})
         
         for fid in set(list(saved_func_devs.keys()) + list(current_func_devs.keys())):
             saved_fdevs = saved_func_devs.get(fid, {})
@@ -982,7 +1007,7 @@ class FileManager:
     def _load_project_dict(cls, name: str) -> dict:
         """Load project as dictionary without populating Utils"""
         try:
-            filepath = os.path.join(cls.COMPARE_DIR, f"{name}_TEMP{cls.PROJECT_EXTENSION}")
+            filepath = os.path.join(cls.PROJECTS_DIR, f"{name}" + cls.PROJECT_EXTENSION)
             if not os.path.exists(filepath):
                 return None
             

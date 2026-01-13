@@ -122,7 +122,7 @@ class PathManager:
     
     def cancel_connection(self):
         """Cancel the current connection"""
-        #print("✓ PathManager.cancel_connection")
+        print("✓ PathManager.cancel_connection")
         
         # Remove preview item
         if self.preview_item is not None:
@@ -139,6 +139,27 @@ class PathManager:
             print("⚠ No connection started")
             return
         
+        if self.canvas.reference == 'canvas':
+            for block_id, top_info in Utils.main_canvas['blocks'].items():
+                if top_info.get('widget') == block:
+                    print(f"✓ PathManager.finalize_connection: {block.block_id} ({circle_type})")
+                    print(f"input connections: {top_info['in_connections']}, len: {len(top_info['in_connections'])}")
+                    if len(top_info['in_connections']) >= 1 and circle_type == 'in':
+                        print("⚠ Input already connected")
+                        self.cancel_connection()
+                        return
+                    
+        elif self.canvas.reference == 'function':
+            for f_id, f_info in Utils.functions.items():
+                if self.canvas == f_info.get('canvas'):
+                    for block_id, top_info in f_info['blocks'].items():
+                        if top_info.get('widget') == block:
+                            print(f"✓ PathManager.finalize_connection: {block.block_id} ({circle_type})")
+                            print(f"input connections: {top_info['in_connections']}, len: {len(top_info['in_connections'])}")
+                            if len(top_info['in_connections']) >= 1 and circle_type == 'in':
+                                print("⚠ Input already connected")
+                                self.cancel_connection()
+                                return
         #print(f"✓ PathManager.finalize_connection: {block.block_id} ({circle_type})")
         
         # Find target block in Utils

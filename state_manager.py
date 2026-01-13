@@ -1,4 +1,5 @@
 from Imports import get_State_Machine
+from resources.pyqt6_state_machines import CanvasState
 
 AppStateMachine, CanvasStateMachine = get_State_Machine()
 
@@ -17,7 +18,9 @@ class StateManager:
         if not hasattr(self, 'initialized'):
             print("Initializing StateManager")
             self.canvas_state = CanvasStateMachine()
-            self.app_state = AppStateMachine()
+            self.app_state = AppStateMachine(canvas_state_machine=self.canvas_state)
+            print(f"StateManager canvas_state id: {id(self.canvas_state)}")
+            print(f"AppStateMachine canvas_state_machine id: {id(self.app_state.canvas_state_machine)}")
             self.initialized = True
     
     @classmethod

@@ -1,0 +1,122 @@
+"""
+build_exe.py - PyInstaller Build Script
+
+This script converts your PyQt6 application into a standalone Windows executable.
+Users don't need Python installed - they just run the .exe!
+
+Usage:
+    python build_exe.py
+
+Output:
+    dist/main_pyqt.exe - Your standalone executable
+"""
+
+import PyInstaller.__main__
+import os
+import shutil
+from pathlib import Path
+
+def clean_build():
+    """Remove previous build files"""
+    print("[*] Cleaning previous builds...")
+    for folder in ['build', 'dist', '__pycache__']:
+        if os.path.exists(folder):
+            shutil.rmtree(folder)
+            print(f"    ✓ Removed {folder}/")
+
+def build_exe():
+    """Build the executable with PyInstaller"""
+    
+    # List of hidden imports that PyInstaller might miss
+    # Add more as needed based on your imports
+    hidden_imports = [
+        'PyQt6.QtCore',
+        'PyQt6.QtGui',
+        'PyQt6.QtWidgets',
+        'paramiko',
+        'PIL',
+        'cryptography',
+    ]
+    
+    # Modules to exclude (reduces file size)
+    excludes = [
+        'matplotlib',
+        'numpy',
+        'scipy',
+        'pandas',
+        'django',
+        'flask',
+        'pytest',
+    ]
+    
+    # Build command arguments
+    args = [
+        'main_pyqt.py',           # Entry point
+        '--onefile',               # Single executable file
+        '--windowed',              # No console window
+        '--name=Visual Programming Interface',  # App name
+        '--distpath=dist',         # Output folder
+        '--noconfirm',             # Don't ask for confirmation
+    ]
+    
+    # Add hidden imports
+    for imp in hidden_imports:
+        args.append(f'--hidden-import={imp}')
+    
+    # Add excludes
+    for exc in excludes:
+        args.append(f'--exclude-module={exc}')
+    
+    # Optional: Add icon (uncomment if you have one)
+    # args.append('--icon=icon.ico')
+    
+    print("[*] Building executable with PyInstaller...")
+    print(f"    Command: pyinstaller {' '.join(args[:5])} ...")
+    print()
+    
+    try:
+        PyInstaller.__main__.run(args)
+        print("\n[✓] Build successful!")
+        print("\n[*] Output:")
+        print(f"    dist/main_pyqt.exe - Your standalone executable")
+        print(f"    Size: ~200-300 MB")
+        print("\n[*] Next steps:")
+        print("    1. Test: dist/main_pyqt.exe")
+        print("    2. Delete: build/ folder (not needed)")
+        print("    3. Create ZIP with dist/main_pyqt.exe + README.md")
+        print("    4. Send to users!")
+        
+    except Exception as e:
+        print(f"\n[✗] Build failed: {e}")
+        return False
+    
+    return True
+
+def verify_build():
+    """Check if exe was created"""
+    exe_path = Path('dist/main_pyqt.exe')
+    if exe_path.exists():
+        size_mb = exe_path.stat().st_size / (1024 * 1024)
+        print(f"\n[✓] Executable created: {exe_path} ({size_mb:.1f} MB)")
+        return True
+    else:
+        print(f"\n[✗] Executable not found: {exe_path}")
+        return False
+
+if __name__ == '__main__':
+    print("╔════════════════════════════════════════════════════════════╗")
+    print("║     PyInstaller Build - Visual Programming Interface       ║")
+    print("╚════════════════════════════════════════════════════════════╝\n")
+    
+    # Clean previous builds
+    clean_build()
+    print()
+    
+    # Build the executable
+    success = build_exe()
+    
+    if success:
+        print()
+        verify_build()
+    
+    print("\n" + "="*60)
