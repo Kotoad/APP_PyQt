@@ -103,6 +103,11 @@ def get_State_Manager():
     """Lazy import StateManager - avoid circular import"""
     from state_manager import StateManager
     return StateManager
+
+def get_CodeViewer_Window():
+    """Lazy import CodeViewerWindow - avoid circular import"""
+    from Code_view_window import CodeViewerWindow
+    return CodeViewerWindow
 # ============================================================================
 # LAZY IMPORTS (Imported only when needed to avoid circular deps)
 # ============================================================================

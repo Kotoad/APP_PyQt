@@ -17,7 +17,7 @@ from PyQt6 import QtGui
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
     get_file_manager, get_path_manager, get_Elements_Window, get_utils,
-    get_Help_Window, get_State_Manager
+    get_Help_Window, get_State_Manager, get_CodeViewer_Window
 )
 Utils = get_utils()
 Code_Compiler = get_code_compiler()
@@ -31,6 +31,7 @@ PathGraphicsItem = get_path_manager()[1]
 ElementsWindow = get_Elements_Window()
 HelpWindow = get_Help_Window()
 StateManager = get_State_Manager()
+CodeViewerWindow = get_CodeViewer_Window()
     
 #MARK: - RPiExecutionThread
 class RPiExecutionThread(QThread):
@@ -1289,6 +1290,8 @@ class MainWindow(QMainWindow):
         self.last_type_var = None
         self.last_type_dev = None
 
+        self.reset_file()
+
         self.create_menu_bar()
         self.create_canvas_frame()
     
@@ -1296,6 +1299,14 @@ class MainWindow(QMainWindow):
         """Debug: Track if main window gets mouse press"""
         #print("⚠ MainWindow.mousePressEvent fired!")
         super().mousePressEvent(event)
+    
+    def reset_file(self):
+        try:
+            with open("File.py", "w") as f:
+                f.write("")
+        except Exception as e:
+            print(f"Error resetting File.py: {e}")
+
     #MARK: - UI Creation Methods
     def create_menu_bar(self):
         """Create the menu bar"""
@@ -1359,6 +1370,9 @@ class MainWindow(QMainWindow):
         
         compile_action = compile_menu.addAction("Compile Code")
         compile_action.triggered.connect(self.compile_and_upload)
+
+        view_code_action = compile_menu.addAction("View Generated Code")
+        view_code_action.triggered.connect(self.view_generated_code)
         
     def create_canvas_frame(self):
         self.central_widget = QWidget()
@@ -3211,7 +3225,12 @@ class MainWindow(QMainWindow):
         if self.state_manager.app_state.on_help_dialog_open():
             help_window.open()
     
-    
+    def view_generated_code(self):
+        """View the generated code"""
+        code_viewer = CodeViewerWindow.get_instance(self.current_canvas)
+        if self.state_manager.app_state.on_code_viewer_dialog_open():
+            code_viewer.open()
+
     def block_management(self, block_id, window):
         """Track block windows"""
         self.blockIDs[block_id] = window

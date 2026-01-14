@@ -98,8 +98,8 @@ class AppStateMachine(QObject):
         self.current_tab_reference = None
     
     def can_open_window(self, window_name: str):
-        print(f"can_open_window: {window_name}, open_windows: {self.open_windows}, canvas_state: {self.canvas_state_machine.current_state()}")
-        print(f"can_open_window check: {window_name not in self.open_windows and self.canvas_state_machine.current_state() == 'IDLE'}")
+        #print(f"can_open_window: {window_name}, open_windows: {self.open_windows}, canvas_state: {self.canvas_state_machine.current_state()}")
+        #print(f"can_open_window check: {window_name not in self.open_windows and self.canvas_state_machine.current_state() == 'IDLE'}")
         return window_name not in self.open_windows and self.canvas_state_machine.current_state() == 'IDLE'
     
     def can_close_window(self, window_name: str):
@@ -180,6 +180,20 @@ class AppStateMachine(QObject):
     def on_compiling_finish(self):
         if self.state == AppStates.COMPILING:
             self.change_state(AppStates.MAIN_WINDOW)
+            return True
+        return False
+
+    def on_code_viewer_dialog_open(self):
+        if self.can_open_window('CodeViewer'):
+            self.open_windows.add('CodeViewer')
+            self.window_opened.emit('CodeViewer')
+            return True
+        return False
+
+    def on_code_viewer_dialog_close(self):
+        if self.can_close_window('CodeViewer'):
+            self.open_windows.discard('CodeViewer')
+            self.window_closed.emit('CodeViewer')
             return True
         return False
 
