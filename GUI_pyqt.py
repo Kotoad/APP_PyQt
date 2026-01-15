@@ -10,7 +10,7 @@ from Imports import (
     QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication, QSizePolicy,
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
     QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent,
-    QStackedWidget, QSplitter
+    QStackedWidget, QSplitter, QIcon
 )
 import typing
 from PyQt6 import QtGui
@@ -177,16 +177,7 @@ class RPiExecutionThread(QThread):
             # ===== STEP 7: Execute code on RPi =====
             self.status.emit("🔪 Killing old processes...")
 
-            try:
-                # Kill any existing python processes that might be running old code
-                # This ensures old code stops before new code starts
-                kill_command = "pkill -f 'python3.*File.py' || true"
-                stdin, stdout, stderr = ssh.exec_command(kill_command, timeout=5)
-                kill_status = stdout.channel.recv_exit_status()
-                print(f"[RPiExecutionThread] Kill command executed (exit code: {kill_status})")
-            except Exception as e:
-                print(f"[RPiExecutionThread] Warning: Could not kill old processes: {e}")
-
+            self.kill_process(ssh)
             # Check if stop was called while killing
             if not self.should_continue():
                 ssh.close()
@@ -283,6 +274,18 @@ class RPiExecutionThread(QThread):
             if self.should_continue():
                 self.error.emit(f"Thread error: {str(e)}")
                 self.execution_completed.emit(False)
+
+    def kill_process(self, ssh):
+        try:
+            # Kill any existing python processes that might be running old code
+            # This ensures old code stops before new code starts
+            kill_command = "pkill -f 'python3.*File.py' || true"
+            stdin, stdout, stderr = ssh.exec_command(kill_command, timeout=5)
+            kill_status = stdout.channel.recv_exit_status()
+            print(f"[RPiExecutionThread] Kill command executed (exit code: {kill_status})")
+        except Exception as e:
+            print(f"[RPiExecutionThread] Warning: Could not kill old processes: {e}")
+
 
 class GridScene(QGraphicsScene):
     def __init__(self, grid_size=25):
@@ -819,13 +822,8 @@ class GridCanvas(QGraphicsView):
         elif self.path_manager.start_node:
             print(f"Key pressed during path creation: {event.key()}")
             if event.key() == Qt.Key.Key_Escape:
-                print("[GridCanvas] Cancelling path creation via Escape key")
-                if self.state_manager.canvas_state.on_idle():
-                    print("[GridCanvas] Canvas is idle - cancelling connection")
-                    self.path_manager.cancel_connection()
-                    event.accept()
-                else:
-                    event.ignore()
+                self.path_manager.cancel_connection()
+                event.accept()
             else:
                 event.ignore()
         else:
@@ -859,7 +857,7 @@ class GridCanvas(QGraphicsView):
                     event.accept()
                     return  # ← Return ONLY if we showed context menu
                 elif isinstance(item, PathGraphicsItem):
-                    #print(f"[GridCanvas] Showing path context menu")
+                    print(f"[GridCanvas] Showing path context menu")
                     self.show_path_context_menu(item, scene_pos)
                     event.accept()
                     return  # ← Return ONLY if we showed context menu
@@ -934,8 +932,8 @@ class GridCanvas(QGraphicsView):
                 'value_2_name': "var2",
                 'value_2_type': "N/A",
                 'operator': "==",
-                'in_connections': [],
-                'out_connections': [],
+                'in_connections': {},
+                'out_connections': {},
                 'canvas': self
             }
         elif block_type == 'Timer':
@@ -948,8 +946,8 @@ class GridCanvas(QGraphicsView):
                 'x': x,
                 'y': y,
                 'sleep_time': "1000",
-                'in_connections': [],
-                'out_connections': [],
+                'in_connections': {},
+                'out_connections': {},
                 'canvas': self
             }
         elif block_type == 'Switch':
@@ -963,8 +961,8 @@ class GridCanvas(QGraphicsView):
                 'y': y,
                 'value_1_name': "var1",
                 'switch_state': False,
-                'in_connections': [],
-                'out_connections': [],
+                'in_connections': {},
+                'out_connections': {},
                 'canvas': self
             }
         elif block_type in ('Start', 'End', 'While_true'):
@@ -976,8 +974,8 @@ class GridCanvas(QGraphicsView):
                 'height': block.boundingRect().height(),
                 'x': x,
                 'y': y,
-                'in_connections': [],
-                'out_connections': [],
+                'in_connections': {},
+                'out_connections': {},
                 'canvas': self
             }
         elif block_type == "Function":
@@ -998,8 +996,26 @@ class GridCanvas(QGraphicsView):
                     'main_devs': {},
                     'ref_devs': {},
                 },
-                'in_connections': [],
-                'out_connections': [],
+                'in_connections': {},
+                'out_connections': {},
+                'canvas': self
+            }
+        elif block_type in ("Sum","Subtract","Multiply","Divide","Modulo","Power",
+                            "Square_root"):
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'value_1_name': "var1",
+                'value_1_type': "N/A",
+                'value_2_name': "var2",
+                'value_2_type': "N/A",
+                'in_connections': {},
+                'out_connections': {},
                 'canvas': self
             }
         else:
@@ -1012,8 +1028,8 @@ class GridCanvas(QGraphicsView):
                 'height': block.boundingRect().height(),
                 'x': x,
                 'y': y,
-                'in_connections': [],
-                'out_connections': [],
+                'in_connections': {},
+                'out_connections': {},
                 'canvas': self
             }
         if self.reference == 'canvas':
@@ -1104,16 +1120,16 @@ class GridCanvas(QGraphicsView):
                 print(f"Path connects {in_part} to {out_part}")
                 if self.main_window.current_canvas.reference == "canvas":
                     if in_part in Utils.main_canvas['blocks']:
-                        Utils.main_canvas['blocks'][in_part]['in_connections'].remove(path_id)
+                        del Utils.main_canvas['blocks'][in_part]['in_connections'][path_id]
                     if out_part in Utils.main_canvas['blocks']:
-                        Utils.main_canvas['blocks'][out_part]['out_connections'].remove(path_id)
+                        del Utils.main_canvas['blocks'][out_part]['out_connections'][path_id]
                 elif self.main_window.current_canvas.reference == "function":
                     for f_id, f_info in Utils.functions.items():
                         if self.main_window.current_canvas == f_info.get('canvas'):
                             if in_part in Utils.functions[f_id]['blocks']:
-                                Utils.functions[f_id]['blocks'][in_part]['in_connections'].remove(path_id)
+                                del Utils.functions[f_id]['blocks'][in_part]['in_connections'][path_id]
                             if out_part in Utils.functions[f_id]['blocks']:
-                                Utils.functions[f_id]['blocks'][out_part]['out_connections'].remove(path_id)
+                                del Utils.functions[f_id]['blocks'][out_part]['out_connections'][path_id]
                             break
                 del paths[path_id]
     
@@ -1235,6 +1251,7 @@ class MainWindow(QMainWindow):
             QMenuBar {
                 background-color: #2B2B2B;
                 color: #FFFFFF;
+                border-bottom: 1px solid #3A3A3A;
                 padding: 4px;
             }
             QMenuBar::item {
@@ -1252,6 +1269,12 @@ class MainWindow(QMainWindow):
             QMenu::item:selected {
                 background-color: #1F538D;
             }
+
+            QToolBar {
+                background-color: #2B2B2B;
+                border-bottom: 1px solid #3A3A3A;
+            }
+            
             QLineEdit {
                 background-color: #3A3A3A;
                 color: #FFFFFF;
@@ -1293,6 +1316,7 @@ class MainWindow(QMainWindow):
         self.reset_file()
 
         self.create_menu_bar()
+        self.create_toolbar()
         self.create_canvas_frame()
     
     def mousePressEvent(self, event):
@@ -1373,7 +1397,57 @@ class MainWindow(QMainWindow):
 
         view_code_action = compile_menu.addAction("View Generated Code")
         view_code_action.triggered.connect(self.view_generated_code)
+    
+    def create_toolbar(self):
+
+        icon_path = "resources/images/Tool_bar/"
+
+        toolbar = self.addToolBar("Main Toolbar")
+        toolbar.setMovable(False)
+        toolbar.setIconSize(QSize(16, 16))
+
+        save_icon = QAction(QIcon(icon_path+"Save.png"), "Save", self)
+        save_icon.triggered.connect(self.on_save_file)
+        toolbar.addAction(save_icon)
+
+        open_icon = QAction(QIcon(icon_path+"Open_file.png"), "Open", self)
+        open_icon.triggered.connect(self.on_open_file)
+        toolbar.addAction(open_icon)
+
+        new_icon = QAction(QIcon(icon_path+"New_file.png"), "New", self)
+        new_icon.triggered.connect(self.on_new_file)
+        toolbar.addAction(new_icon)
+
+        toolbar.addSeparator()
+
+        settings_icon = QAction(QIcon(icon_path+"Settings.png"), "Settings", self)
+        settings_icon.triggered.connect(self.open_settings_window)
+        toolbar.addAction(settings_icon)
+
+        toolbar.addSeparator()
+
+        run_and_compile_icon = QAction(QIcon(icon_path+"Run_and_compile.png"), "Compile and Upload", self)
+        run_and_compile_icon.triggered.connect(self.compile_and_upload)
+        toolbar.addAction(run_and_compile_icon)
+
+        stop_execution_icon = QAction(QIcon(icon_path+"Stop_execution.png"), "Stop Execution", self)
+        stop_execution_icon.triggered.connect(self.stop_execution)
+        toolbar.addAction(stop_execution_icon)
+
+    def stop_execution(self):
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        ssh_config = {
+            'filepath': 'File.py',  # Your compiled file
+            'rpi_host': Utils.app_settings.rpi_host,
+            'rpi_user': Utils.app_settings.rpi_user,
+            'rpi_password': Utils.app_settings.rpi_password,
+        }
         
+        self.execution_thread = RPiExecutionThread(ssh_config)
+
+        self.execution_thread.kill_process(ssh)
     def create_canvas_frame(self):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -2720,9 +2794,6 @@ class MainWindow(QMainWindow):
             print(f"Setting initial value for variable {var_id}: {var_data['value']}")
             self.value_var_input.setText(var_data['value'])
             Utils.variables['main_canvas'][var_id]['value'] = var_data['value']
-        regex = QRegularExpression(r"^\d*$")
-        validator = QRegularExpressionValidator(regex, self)
-        self.value_var_input.setValidator(validator)
         self.value_var_input.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.value_changed(text, v_id, t, r))
         
         delete_btn = QPushButton("×")
@@ -3147,17 +3218,44 @@ class MainWindow(QMainWindow):
         if type == "Variable":
             try:
                 value = len(imput)
+                for v_id, v_info in Utils.variables['main_canvas'].items():
+                    if v_id == id:
+                        v_type = Utils.variables['main_canvas'][id]['type']
+                        break
+                print(f"Variable {id} of type {v_type} changed to value: {imput}")
                 
-                if value > 4:
+                if v_type == "Int" and int(imput) > sys.maxsize:
                     self.value_var_input.blockSignals(True)
-                    imput = imput[:4]
-                    self.value_var_input.setText(imput)
+                    self.value_var_input.setText(str(sys.maxsize))
+                    imput = str(sys.maxsize)
                     self.value_var_input.blockSignals(False)
-                
-                elif value < 0:
+                if v_type == "Int" and int(imput) < -sys.maxsize-1:
+                    self.value_var_input.blockSignals(True)
+                    self.value_var_input.setText(str(-sys.maxsize-1))
+                    imput = str(-sys.maxsize-1)
+                    self.value_var_input.blockSignals(False)
+                if v_type == "Float" and float(imput) > sys.maxsize:
+                    self.value_var_input.blockSignals(True)
+                    self.value_var_input.setText(str(sys.maxsize))
+                    imput = str(sys.maxsize)
+                    self.value_var_input.blockSignals(False)
+                if v_type == "Float" and float(imput) < -sys.maxsize-1:
+                    self.value_var_input.blockSignals(True)
+                    self.value_var_input.setText(str(-sys.maxsize-1))
+                    imput = str(-sys.maxsize-1)
+                    self.value_var_input.blockSignals(False)
+                if v_type == "Bool" and int(imput) > 1:
+                    self.value_var_input.blockSignals(True)
+                    self.value_var_input.setText("1")
+                    imput = "1"
+                    self.value_var_input.blockSignals(False)
+                if v_type == "Bool" and int(imput) < 0:
                     self.value_var_input.blockSignals(True)
                     self.value_var_input.setText("0")
+                    imput = "0"
                     self.value_var_input.blockSignals(False)
+
+
             except ValueError:
                     # Text is empty or can't convert (shouldn't happen with regex)
                     pass
@@ -3174,17 +3272,16 @@ class MainWindow(QMainWindow):
                                 break
         elif type == "Device":
             try:
-                value = len(imput)
-                
-                if value > 4:
+                if int(imput) > 40:
                     self.value_dev_input.blockSignals(True)
-                    imput = imput[:4]
-                    self.value_dev_input.setText(imput)
+                    self.value_dev_input.setText("40")
+                    imput = "40"
                     self.value_dev_input.blockSignals(False)
                 
-                elif value < 0:
+                if int(imput) < 0:
                     self.value_dev_input.blockSignals(True)
                     self.value_dev_input.setText("0")
+                    imput = "0"
                     self.value_dev_input.blockSignals(False)
             except ValueError:
                     # Text is empty or can't convert (shouldn't happen with regex)
@@ -4075,8 +4172,8 @@ class MainWindow(QMainWindow):
                     'value_2_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2"),
                     'value_2_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_type', "N/A"),
                     'operator': Utils.project_data.main_canvas['blocks'][block_id].get('operator', "=="),
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', []),
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
                     'canvas': canvas
                 }
             elif block_type == 'Timer':
@@ -4089,8 +4186,8 @@ class MainWindow(QMainWindow):
                     'x': x,
                     'y': y,
                     'sleep_time': Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000"),
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', []),
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
                     'canvas': canvas
                 }
             elif block_type == 'Switch':
@@ -4104,8 +4201,8 @@ class MainWindow(QMainWindow):
                     'y': y,
                     'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
                     'switch_state': Utils.project_data.main_canvas['blocks'][block_id].get('switch_state', False),
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', []),
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
                     'canvas': canvas
                 }
             elif block_type in ('Start', 'End', 'While_true'):
@@ -4117,8 +4214,8 @@ class MainWindow(QMainWindow):
                     'height': block.boundingRect().height(),
                     'x': x,
                     'y': y,
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', []),
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
                     'canvas': canvas
                 }
             elif block_type == 'Function':
@@ -4139,8 +4236,8 @@ class MainWindow(QMainWindow):
                         'main_devs': Utils.project_data.main_canvas['blocks'][block_id]['internal_devs'].get('main_devs', {}),
                         'ref_devs': Utils.project_data.main_canvas['blocks'][block_id]['internal_devs'].get('ref_devs', {}),
                     },
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', []),
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
                     'canvas': canvas
                 }
             else:
@@ -4153,8 +4250,8 @@ class MainWindow(QMainWindow):
                     'height': block.boundingRect().height(),
                     'x': x,
                     'y': y,
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', []),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', []),
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
                     'canvas': canvas
                 }
             Utils.main_canvas['blocks'][block_id] = info
@@ -4178,8 +4275,8 @@ class MainWindow(QMainWindow):
                             'value_2_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2"),
                             'value_2_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_type', "N/A"),
                             'operator': Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', "=="),
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', []),
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
                             'canvas': canvas
                         }
                     elif block_type == 'Timer':
@@ -4192,8 +4289,8 @@ class MainWindow(QMainWindow):
                             'x': x,
                             'y': y,
                             'sleep_time': Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000"),
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', []),
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
                             'canvas': canvas
                         }
                     elif block_type == 'Switch':
@@ -4207,8 +4304,8 @@ class MainWindow(QMainWindow):
                             'y': y,
                             'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
                             'switch_state': Utils.project_data.functions[function_id]['blocks'][block_id].get('switch_state', False),
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', []),
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
                             'canvas': canvas
                         }
                     elif block_type in ('Start', 'End', 'While_true'):
@@ -4220,8 +4317,8 @@ class MainWindow(QMainWindow):
                             'height': block.boundingRect().height(),
                             'x': x,
                             'y': y,
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', []),
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
                             'canvas': canvas
                         }
                     elif block_type == 'Function':
@@ -4242,8 +4339,8 @@ class MainWindow(QMainWindow):
                                 'main_devs': Utils.project_data.functions[function_id]['blocks'][block_id]['internal_devs'].get('main_devs', {}),
                                 'ref_devs': Utils.project_data.functions[function_id]['blocks'][block_id]['internal_devs'].get('ref_devs', {}),
                             },
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', []),
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
                             'canvas': canvas
                         }
                     else:
@@ -4256,8 +4353,8 @@ class MainWindow(QMainWindow):
                             'height': block.boundingRect().height(),
                             'x': x,
                             'y': y,
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', []),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', []),
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
                             'canvas': canvas
                         }
                     
@@ -4323,10 +4420,10 @@ class MainWindow(QMainWindow):
                         Utils.scene_paths[conn_id] = path_item
                         
                         # Update block connection references
-                        if conn_id not in from_block.get("out_connections", []):
-                            from_block.get("out_connections", []).append(conn_id)
-                        if conn_id not in to_block.get("in_connections", []):
-                            to_block.get("in_connections", []).append(conn_id)
+                        if conn_id not in from_block["out_connections"].keys():
+                            from_block["out_connections"][conn_id] = conn_data.get("from_circle_type", "out")
+                        if conn_id not in to_block["in_connections"].keys():
+                            to_block["in_connections"][conn_id] = conn_data.get("to_circle_type", "in")
                         
                         #print(f"✓ Connection {conn_id} recreated")
                         
@@ -4392,10 +4489,10 @@ class MainWindow(QMainWindow):
                                 Utils.scene_paths[conn_id] = path_item
                                 
                                 # Update block connection references
-                                if conn_id not in from_block.get("out_connections", []):
-                                    from_block.get("out_connections", []).append(conn_id)
-                                if conn_id not in to_block.get("in_connections", []):
-                                    to_block.get("in_connections", []).append(conn_id)
+                                if conn_id not in from_block["out_connections"].keys():
+                                    from_block["out_connections"][conn_id] = conn_data.get("from_circle_type", "out")
+                                if conn_id not in to_block["in_connections"].keys():
+                                    to_block['in_connections'][conn_id] = conn_data.get("to_circle_type", "in")
                                 
                                 #print(f"✓ Connection {conn_id} recreated")
                                 

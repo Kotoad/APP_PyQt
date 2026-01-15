@@ -69,18 +69,16 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         v_count = 0
         d_count = 0
         """Set block dimensions based on type"""
-        if self.block_type in ["If", "While"]:
+        if self.block_type in ["If", "While", "Switch", "Button"]:
             self.width = 100
             self.height = 54
-        elif self.block_type == "Timer":
+        elif self.block_type in ["Timer", "Sum", "Subtract","Multiply", "Divide", "Modulo", "Power", "Square_root", 
+                                "Random_number"]:
             self.width = 140
             self.height = 36
-        elif self.block_type == "Switch":
+        elif self.block_type in [ "Start", "End", "While_true"]:
             self.width = 100
-            self.height = 54
-        elif self.block_type == "Button":
-            self.width = 100
-            self.height = 54
+            self.height = 36
         elif self.block_type == "Function":
             #print(f"Utils.variables['function_canvases']: {Utils.variables['function_canvases']}")
             for canvas, canvas_info in Utils.canvas_instances.items():
@@ -98,7 +96,8 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             else:
                 count = d_count
             self.height = 15 + (count * 20)
-        else:  # Start, End, or default
+        else:  #Fallback for other blocks
+            print(f"[Warning] Unknown block type '{self.block_type}', using default dimensions.")
             self.width = 100
             self.height = 36
 
@@ -107,13 +106,21 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         colors = {
             "Start": QColor("#90EE90"),      # Light green
             "End": QColor("#FF6B6B"),        # Red
-            "Timer": QColor("#87CEEB"),     # Sky blue
+            "Timer": QColor("#02B488"),     # Sky blue
             "If": QColor("#87CEEB"),        # Sky blue
             "While": QColor("#87CEEB"),     # Sky blue
             "Switch": QColor("#87CEEB"),    # Sky blue
             "Button": QColor("#D3D3D3"),    # Light gray
             "While_true": QColor("#87CEEB"),     # Sky blue
-            
+            "Function": QColor("#FFA500"),  # Orange
+            "Sum": QColor("#9900FF"),         # Purple
+            "Subtract": QColor("#9900FF"),   # Purple
+            "Multiply": QColor("#9900FF"),   # Purple
+            "Divide": QColor("#9900FF"),     # Purple
+            "Modulo": QColor("#9900FF"),      # Purple
+            "Power": QColor("#9900FF"),      # Purple
+            "Square_root": QColor("#9900FF"),  # Purple
+            "Random_number": QColor("#9900FF")  # Purple
         }
         return colors.get(self.block_type, QColor("#FFD700"))  # Default yellow
 
@@ -158,10 +165,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         painter.setFont(font)
         
         # Determine text
-        if self.block_type == "Switch":
-            text = "Device"
-        else:
-            text = self.block_type
+        text = self.block_type
         
         # Draw text centered
         if self.block_type in ["If", "While", "Switch"]:
@@ -184,13 +188,14 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             OFF_rect = QRectF(self.radius, 0, self.width-10, self.height-5)
             device_text = f"{self.value_1_name}"
             
+            painter.drawText(QRectF(self.radius+5, 5, self.width, self.height), Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeading, text)
             painter.drawText(QRectF(self.radius, 0, self.width, self.height), Qt.AlignmentFlag.AlignCenter, device_text)
             painter.drawText(ON_rect, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight, "ON")
             painter.drawText(OFF_rect, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight, "OFF")
         elif self.block_type == "Function":
             #print(f"Drawing function block text for: {self.block_type}")
             name_rect = QRectF(self.radius, 0, self.width, self.height)
-            painter.drawText(name_rect, Qt.AlignmentFlag.AlignHCenter, text)
+            painter.drawText(name_rect, Qt.AlignmentFlag.AlignHCenter, self.name)
 
             # Draw variable/device list
             small_font = QFont("Arial", 8)
@@ -209,30 +214,49 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
                 dev_rect = QRectF(self.radius + 10, y_offset, self.width - 20, 15)
                 painter.drawText(dev_rect, Qt.AlignmentFlag.AlignRight, dev_text)
                 y_offset += 20
-        else:
-            text_rect = QRectF(self.radius, 0, self.width, self.height)
-            painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
-        
-        # For Switch blocks, draw ON/OFF labels
-        # For Switch blocks, draw ON/OFF labels with colors based on state
-        if self.block_type == "Switch":
+
+        elif self.block_type == "Switch":
             small_font = QFont("Arial", 8)
             painter.setFont(small_font)
             #print(f"Drawing Switch labels, state: {self.switch_state}")
             #print(f"Current block data: {Utils.main_canvas['blocks'].get(self.block_id, {})}")
-            # ON label - GREEN if ON, GRAY if OFF
             
             on_rect = QRectF(self.radius + self.width - 35, self.height / 2 - 5, 30, 10)
             on_color = QColor("Green") if self.switch_state else QColor("Gray")
             painter.setPen(QPen(on_color))
             painter.drawText(on_rect, Qt.AlignmentFlag.AlignRight, "ON")
             
-            # OFF label - RED if OFF, GRAY if ON
             off_rect = QRectF(self.radius + 5, self.height / 2 - 5, 30, 10)
             off_color = QColor("Red") if not self.switch_state else QColor("Gray")
             painter.setPen(QPen(off_color))
             painter.drawText(off_rect, Qt.AlignmentFlag.AlignLeft, "OFF")
-
+        
+        elif self.block_type in ["Sum", "Subtract", "Multiply", "Divide", "Modulo", "Power", "Square_root", "Random_number"]:
+            painter.setFont(font)
+            operation_text = ""
+            if self.block_type == "Sum":
+                operation_text = "+"
+            elif self.block_type == "Subtract":
+                operation_text = "-"
+            elif self.block_type == "Multiply":
+                operation_text = "*"
+            elif self.block_type == "Divide":
+                operation_text = "/"
+            elif self.block_type == "Modulo":
+                operation_text = "%"
+            elif self.block_type == "Power":
+                operation_text = "^"
+            elif self.block_type == "Square_root":
+                operation_text = "√"
+            elif self.block_type == "Random_number":
+                operation_text = "rand"
+            
+            math_text = f"{self.value_1_name} {operation_text} {self.value_2_name}"
+            math_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(math_rect, Qt.AlignmentFlag.AlignCenter, math_text)
+        else:
+            text_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
 
     def _draw_connection_circles(self, painter):
         """Draw input/output connection circles"""
@@ -263,7 +287,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
                     painter.drawEllipse(out_circle)
             else:
                 # Single output circle
-                if self.block_type == "Switch":
+                if self.block_type in ("Switch"):
                     out_y = 3 * self.height / 4
                 else:
                     out_y = self.height / 2
@@ -362,7 +386,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
     def mouseReleaseEvent(self, event):
         """Handle block deselection"""
         self.setSelected(False)
-        print("Current state after move:", self.state_manager.canvas_state.current_state())
+        print("Current state before release:", self.state_manager.canvas_state.current_state())
         if self.state_manager.canvas_state.current_state() == 'MOVING_ITEM':
             print("Setting state to IDLE after move")
             self.state_manager.canvas_state.on_idle()
@@ -537,9 +561,8 @@ class Elements_events(QObject):
         #print(f"✓ on_input_clicked: {block.block_id} ({circle_type})")
         if self.path_manager:
             print("Current state before finalizing connection:", self.state_manager.canvas_state.current_state())
-            if self.state_manager.canvas_state.on_idle():
-                print("Finalizing path...")  
-                self.path_manager.finalize_connection(block, circle_center, circle_type)
+            self.path_manager.finalize_connection(block, circle_center, circle_type)
+            
 
     def on_output_clicked(self, block, circle_center, circle_type):
         """Handle output circle clicks"""

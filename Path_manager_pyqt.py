@@ -1,13 +1,9 @@
-"""
-Path_manager_pyqt.py - UPDATED FOR QGraphicsView
-Simplified path management with graphics items
-"""
-
 from Imports import (Qt, QPoint, QLine, QPainter, QPen, QColor, QGraphicsPathItem,
                      QPointF, QPainterPath)
-from Imports import get_utils
+from Imports import get_utils, get_State_Manager
 
 Utils = get_utils()
+Statemanager = get_State_Manager()
 
 class PathGraphicsItem(QGraphicsPathItem):
     """Graphics item representing a connection path between blocks"""
@@ -87,15 +83,26 @@ class PathManager:
         self.start_node = None  # (widget, id, pos, circle_type)
         self.preview_points = []
         self.preview_item = None
-        self.grid_size = Utils.config.get("grid_size", 25)
+        self.state_manager = Statemanager.get_instance()
     
     def start_connection(self, block, circle_center, circle_type):
         """Start a new connection from a block's output circle"""
         #print(f"✓ PathManager.start_connection: {block.block_id} ({circle_type})")
+        
+
         if self.canvas.reference == 'canvas':
             #print(" → Starting from main canvas")
-            for block_id, top_info in Utils.main_canvas['blocks'].items():
-                if top_info.get('widget') == block:
+            for block_id, block_info in Utils.main_canvas['blocks'].items():
+                if block_info.get('widget') == block:
+                    if block_info.get('type') == 'End':
+                        print("⚠ Cannot start connection from End block")
+                        self.cancel_connection()
+                        return
+                    for conn_id, conn_type in block_info['out_connections'].items():
+                        if conn_type == circle_type:
+                            print("⚠ Output already connected on this circle")
+                            self.cancel_connection()
+                            return
                     self.start_node = {
                         'widget': block,
                         'id': block_id,
@@ -109,8 +116,17 @@ class PathManager:
             for f_id, f_info in Utils.functions.items():
                 if self.canvas == f_info.get('canvas'):
                     #print(f"   In function: {f_id}")
-                    for block_id, top_info in f_info['blocks'].items():
-                        if top_info.get('widget') == block:
+                    for block_id, block_info in f_info['blocks'].items():
+                        if block_info.get('widget') == block:
+                            if block_info.get('type') == 'End':
+                                print("⚠ Cannot start connection from End block")
+                                self.cancel_connection()
+                                return
+                            for conn_id, conn_type in block_info['out_connections'].items():
+                                if conn_type == circle_type:
+                                    print("⚠ Output already connected on this circle")
+                                    self.cancel_connection()
+                                    return
                             self.start_node = {
                                 'widget': block,
                                 'id': block_id,
@@ -132,41 +148,54 @@ class PathManager:
         self.start_node = None
         self.preview_points = []
         self.canvas.scene.update()
+        self.state_manager.canvas_state.on_idle()
     
     def finalize_connection(self, block, circle_center, circle_type):
         """Finalize connection to a block's input circle"""
         if not self.start_node:
             print("⚠ No connection started")
+            self.cancel_connection()
             return
         
         if self.canvas.reference == 'canvas':
-            for block_id, top_info in Utils.main_canvas['blocks'].items():
-                if top_info.get('widget') == block:
+            for block_id, block_info in Utils.main_canvas['blocks'].items():
+                if block_info.get('widget') == block:
                     print(f"✓ PathManager.finalize_connection: {block.block_id} ({circle_type})")
-                    print(f"input connections: {top_info['in_connections']}, len: {len(top_info['in_connections'])}")
-                    if len(top_info['in_connections']) >= 1 and circle_type == 'in':
-                        print("⚠ Input already connected")
-                        self.cancel_connection()
+                    print(f"input connections: {block_info['in_connections']}, len: {len(block_info['in_connections'].keys())}")
+                    for conn_id, conn_type in block_info['in_connections'].items():
+                        if conn_type == circle_type:
+                            print("⚠ Input already connected")
+                            #self.cancel_connection()
+                            return
+                        print(self.start_node['widget'], block)
+                    if self.start_node['widget'] == block:
+                        print("⚠ Cannot connect block to itself")
+                        #self.cancel_connection()
                         return
                     
         elif self.canvas.reference == 'function':
             for f_id, f_info in Utils.functions.items():
                 if self.canvas == f_info.get('canvas'):
-                    for block_id, top_info in f_info['blocks'].items():
-                        if top_info.get('widget') == block:
+                    for block_id, block_info in f_info['blocks'].items():
+                        if block_info.get('widget') == block:
                             print(f"✓ PathManager.finalize_connection: {block.block_id} ({circle_type})")
-                            print(f"input connections: {top_info['in_connections']}, len: {len(top_info['in_connections'])}")
-                            if len(top_info['in_connections']) >= 1 and circle_type == 'in':
-                                print("⚠ Input already connected")
-                                self.cancel_connection()
+                            print(f"input connections: {block_info['in_connections']}, len: {len(block_info['in_connections'].keys())}")
+                            for conn_id, conn_type in block_info['in_connections'].items():
+                                if conn_type == circle_type:
+                                    print("⚠ Input already connected")
+                                    #self.cancel_connection()
+                                    return
+                            if self.start_node['widget'] == block:
+                                print("⚠ Cannot connect block to itself")
+                                #self.cancel_connection()
                                 return
         #print(f"✓ PathManager.finalize_connection: {block.block_id} ({circle_type})")
         
         # Find target block in Utils
         if self.canvas.reference == 'canvas':
             #print(" → Finalizing to main canvas")
-            for block_id, top_info in Utils.main_canvas['blocks'].items():
-                if top_info.get('widget') == block:
+            for block_id, block_info in Utils.main_canvas['blocks'].items():
+                if block_info.get('widget') == block:
                     from_block = self.start_node['widget']
                     to_block = block
                     connection_id = f"{self.start_node['id']}-{block_id}"
@@ -190,8 +219,8 @@ class PathManager:
                     Utils.scene_paths[connection_id] = path_item
                     
                     # Update block connection info
-                    Utils.main_canvas['blocks'][self.start_node['id']]['out_connections'].append(connection_id)
-                    Utils.main_canvas['blocks'][block_id]['in_connections'].append(connection_id)
+                    Utils.main_canvas['blocks'][self.start_node['id']]['out_connections'].setdefault(connection_id, self.start_node['circle_type'])
+                    Utils.main_canvas['blocks'][block_id]['in_connections'].setdefault(connection_id, circle_type)
                     
                     #print(f"  → Connection created: {connection_id}")
                     break
@@ -200,8 +229,8 @@ class PathManager:
             for f_id, f_info in Utils.functions.items():
                 if self.canvas == f_info.get('canvas'):
                     #print(f"   In function: {f_id}")
-                    for block_id, top_info in f_info['blocks'].items():
-                        if top_info.get('widget') == block:
+                    for block_id, block_info in f_info['blocks'].items():
+                        if block_info.get('widget') == block:
                             from_block = self.start_node['widget']
                             to_block = block
                             connection_id = f"{self.start_node['id']}-{block_id}"
@@ -225,12 +254,13 @@ class PathManager:
                             Utils.scene_paths[connection_id] = path_item
                             
                             # Update block connection info
-                            Utils.functions[f_id]['blocks'][self.start_node['id']]['out_connections'].append(connection_id)
-                            Utils.functions[f_id]['blocks'][block_id]['in_connections'].append(connection_id)
+                            Utils.functions[f_id]['blocks'][self.start_node['id']]['out_connections'].setdefault(connection_id, self.start_node['circle_type'])
+                            Utils.functions[f_id]['blocks'][block_id]['in_connections'].setdefault(connection_id, circle_type)
                             
                             #print(f"  → Connection created: {connection_id}")
                             break
         # Reset
+        self.state_manager.canvas_state.on_idle()
         self.preview_points = []
         self.start_node = None
     
@@ -287,7 +317,6 @@ class PathManager:
     
     def update_paths_for_widget(self, widget):
         """Update all paths connected to a widget"""
-        block_id = widget.block_id
         
         for path_id, path_item in Utils.scene_paths.items():
             if path_item.from_block == widget or path_item.to_block == widget:

@@ -1,6 +1,7 @@
+from cProfile import label
 from Imports import (QWidget, QDialog, QVBoxLayout, QHBoxLayout,
 QPushButton, QLabel, QFrame, QTabWidget, Qt, QFont,
-pyqtSignal)
+pyqtSignal, QListWidget, QScrollArea)
 
 from Imports import get_State_Manager
 from Imports import get_spawn_elements, get_utils
@@ -118,6 +119,13 @@ class ElementsWindow(QDialog):
             QPushButton:pressed {
                 background-color: #1F538D;
             }
+            QWidget { background-color: #2B2B2B; }
+            QLabel { color: #FFFFFF; }
+            QListWidget { 
+                background-color: #2B2B2B; 
+                color: #FFFFFF;
+                border: 1px solid #3A3A3A;
+            }
         """)
         
         # Main layout
@@ -129,43 +137,89 @@ class ElementsWindow(QDialog):
         layout.addWidget(self.tab_widget)
         
         # Create tabs
-        self.create_shapes_tab()
+        self.create_basic_tab()
         self.create_logic_tab()
         self.create_io_tab()
-        self.create_functions_tab()
+        self.create_math_tab()
+        for canvas_id, canvas_info in Utils.canvas_instances.items():
+            if canvas_info['canvas'] == self.parent_canvas:
+                if canvas_info['ref'] == 'function':
+                    self.create_functions_tab()
+                    break
     
     def mousePressEvent(self, event):
         """Debug: Track if elements window gets mouse press"""
         super().mousePressEvent(event)
-    
-    def create_shapes_tab(self):
-        """Create shapes tab"""
+    #MARK: Basic Tab
+    def create_basic_tab(self):
+        """Create basic tab"""
         tab = QWidget()
-        layout = QVBoxLayout(tab)
-        layout.setSpacing(5)
+
+        layout = QHBoxLayout(tab)
+
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
         
-        # Title
-        title = QLabel("Shape Elements")
-        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
-        layout.addSpacing(10)
-        
+
+        left_label = QLabel("Basic Elements")
+        left_label.setFont(QFont("Arial", 10, QFont.Weight.Normal))
+        left_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        left_layout.addWidget(left_label)
+        left_layout.addSpacing(10)
         # Buttons - MAPPED TO SPAWNING ELEMENTS
-        shapes = [
-            ("Start", "Start"),
-            ("End", "End"),
-            ("Timer", "Timer")
-        ]
+
+        self.basic_blocks_list = QListWidget()
+        self.basic_blocks_list.addItems(["Start", "End", "Timer"])
+        self.basic_blocks_list.itemSelectionChanged.connect(self.on_basic_block_selected)
+        left_layout.addWidget(self.basic_blocks_list)
         
-        for label, shape_type in shapes:
-            btn = QPushButton(label)
-            btn.clicked.connect(lambda checked, s=shape_type: self.spawn_element(s))
-            layout.addWidget(btn)
-        
-        layout.addStretch()
-        self.tab_widget.addTab(tab, "Shapes")
+        self.description_text = QLabel("")
+        self.description_text.setWordWrap(True)
+        scroll_area = QScrollArea()
+        scroll_area.setWidget(self.description_text)
+        scroll_area.setWidgetResizable(True)
+        right_label = QLabel("Element Details")
+        right_label.setFont(QFont("Arial", 10, QFont.Weight.Normal))
+        right_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        right_layout.addWidget(right_label)
+        right_layout.addSpacing(10)
+        right_layout.addWidget(scroll_area)
+
+        left_layout.addStretch()
+        right_layout.addStretch()
+        layout.addWidget(left_widget)
+        layout.addWidget(right_widget)
+        self.tab_widget.addTab(tab, "Basic")
     
+    def on_basic_block_selected(self):
+        """Handle selection of basic block from list"""
+        selected = self.basic_blocks_list.currentItem()
+        if selected:
+            element_type = selected.text()
+            self.show_block_details(element_type)
+
+    def show_block_details(self, element_type):
+        """Show details for selected basic block"""
+        # Clear previous details
+        block_data = {
+            "Start": {
+                "description": "The starting point of the flow."
+            },
+            "End": {
+                "description": "The endpoint of the flow."
+            },
+            "Timer": {
+                "description": "A timer that triggers after a set duration."
+            }
+        }
+        # Add details based on element_type
+        if element_type in block_data:
+            data = block_data[element_type]
+            self.description_text.setText(f"{element_type}:\n\n{data['description']}")
+
     def create_logic_tab(self):
         """Create logic tab"""
         tab = QWidget()
@@ -220,6 +274,39 @@ class ElementsWindow(QDialog):
         layout.addStretch()
         self.tab_widget.addTab(tab, "I/O")
     
+    def create_math_tab(self):
+        """Create math tab"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setSpacing(5)
+        
+        # Title
+        title = QLabel("Math Elements")
+        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        layout.addSpacing(10)
+        
+        # Buttons - MAPPED TO SPAWNING ELEMENTS
+        math_elements = [
+            ("Sum", "Sum"),
+            ("Subtract", "Subtract"),
+            ("Multiply", "Multiply"), 
+            ("Divide", "Divide"), 
+            ("Modulo", "Modulo"), 
+            ("Power", "Power"), 
+            ("Square Root", "Square_root"),
+            ("Random Number", "Random_number")
+        ]
+        
+        for label, element in math_elements:
+            btn = QPushButton(label)
+            btn.clicked.connect(lambda checked, e=element: self.spawn_element(e))
+            layout.addWidget(btn)
+        
+        layout.addStretch()
+        self.tab_widget.addTab(tab, "Math")
+
     def create_functions_tab(self):
         """Create functions tab"""
         #print("Creating Functions tab in ElementsWindow")
