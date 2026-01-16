@@ -927,10 +927,10 @@ class GridCanvas(QGraphicsView):
                 'height': block.boundingRect().height(),
                 'x': x,
                 'y': y,
-                'value_1_name': "var1",
-                'value_1_type': "N/A",
-                'value_2_name': "var2",
-                'value_2_type': "N/A",
+                'value_1_name': None,
+                'value_1_type': None,
+                'value_2_name': None,
+                'value_2_type': None,
                 'operator': "==",
                 'in_connections': {},
                 'out_connections': {},
@@ -959,7 +959,7 @@ class GridCanvas(QGraphicsView):
                 'height': block.boundingRect().height(),
                 'x': x,
                 'y': y,
-                'value_1_name': "var1",
+                'value_1_name': None,
                 'switch_state': False,
                 'in_connections': {},
                 'out_connections': {},
@@ -1000,8 +1000,7 @@ class GridCanvas(QGraphicsView):
                 'out_connections': {},
                 'canvas': self
             }
-        elif block_type in ("Sum","Subtract","Multiply","Divide","Modulo","Power",
-                            "Square_root"):
+        elif block_type in ("Sum","Subtract","Multiply","Divide","Modulo","Power","Square_root"):
             info = {
                 'type': block_type,
                 'id': block_id,
@@ -1010,10 +1009,57 @@ class GridCanvas(QGraphicsView):
                 'height': block.boundingRect().height(),
                 'x': x,
                 'y': y,
-                'value_1_name': "var1",
-                'value_1_type': "N/A",
-                'value_2_name': "var2",
-                'value_2_type': "N/A",
+                'value_1_name': None,
+                'value_1_type': None,
+                'value_2_name': None,
+                'value_2_type': None,
+                'in_connections': {},
+                'out_connections': {},
+                'canvas': self
+            }
+        elif block_type == "Blink_LED":
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'value_1_name': None,
+                'value_1_type': None,
+                'sleep_time': "1000",
+                'in_connections': {},
+                'out_connections': {},
+                'canvas': self
+            }
+        elif block_type == "Toggle_LED":
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'value_1_name': None,
+                'value_1_type': None,
+                'in_connections': {},
+                'out_connections': {},
+                'canvas': self
+            }
+        elif block_type == "PWM_LED":
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'value_1_name': None,
+                'value_1_type': None,
+                'PWM_value': "128",
                 'in_connections': {},
                 'out_connections': {},
                 'canvas': self
@@ -2158,6 +2204,9 @@ class MainWindow(QMainWindow):
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), label)
             
             interval_input = QLineEdit()
+            regex = QRegularExpression(r"^\d*$")
+            validator = QRegularExpressionValidator(regex, self)
+            interval_input.setValidator(validator)
             interval_input.setText(block_data.get('sleep_time', '1000'))
             interval_input.setPlaceholderText("Interval in ms")
             interval_input.textChanged.connect(lambda text, bd=block_data: self.Block_sleep_interval_changed(text, bd))
@@ -2174,7 +2223,7 @@ class MainWindow(QMainWindow):
             self.name_1_input = SearchableLineEdit()
             self.name_1_input.setText(block_data.get('value_1_name', ''))
             self.name_1_input.setPlaceholderText("Value 1 Name")
-            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_name_1_changed(text, bd))
+            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
             self.insert_items(block, self.name_1_input)
             
@@ -2211,7 +2260,7 @@ class MainWindow(QMainWindow):
             self.name_1_input = SearchableLineEdit()
             self.name_1_input.setText(block_data.get('value_1_name', ''))
             self.name_1_input.setPlaceholderText("Value Name")
-            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_name_1_changed(text, bd))
+            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
             self.insert_items(block, self.name_1_input)
             
@@ -2241,11 +2290,96 @@ class MainWindow(QMainWindow):
             self.name_1_input = SearchableLineEdit()
             self.name_1_input.setText(block_data.get('value_1_name', ''))
             self.name_1_input.setPlaceholderText("Value Name")
-            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_name_1_changed(text, bd))
+            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
             self.insert_items(block, self.name_1_input)
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+        if block_data['type'] == 'Blink_LED':
+            name_label = QLabel("LED device name:")
+            
+            self.name_1_input = SearchableLineEdit()
+            self.name_1_input.setText(block_data.get('value_1_name', ''))
+            self.name_1_input.setPlaceholderText("LED device name")
+            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+            
+            self.insert_items(block, self.name_1_input)
+            
+            time_label = QLabel("Blink Interval (ms):")
+
+            self.blink_time_input = QLineEdit()
+            regex = QRegularExpression(r"^\d*$")
+            validator = QRegularExpressionValidator(regex, self)
+            self.blink_time_input.setValidator(validator)
+            self.blink_time_input.setText(block_data.get('sleep_time', '1000'))
+            self.blink_time_input.setPlaceholderText("Blink Interval in ms")
+            self.blink_time_input.textChanged.connect(lambda text, bd=block_data: self.Block_sleep_interval_changed(text, bd))
+
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), time_label)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.blink_time_input)
+        if block_data['type'] == 'Toggle_LED':
+            name_label = QLabel("LED device name:")
+            
+            self.name_1_input = SearchableLineEdit()
+            self.name_1_input.setText(block_data.get('value_1_name', ''))
+            self.name_1_input.setPlaceholderText("LED device name")
+            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+            
+            self.insert_items(block, self.name_1_input)
+
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+        if block_data['type'] == 'PWM_LED':
+            name_label = QLabel("LED device name:")
+            
+            self.name_1_input = SearchableLineEdit()
+            self.name_1_input.setText(block_data.get('value_1_name', ''))
+            self.name_1_input.setPlaceholderText("LED device name")
+            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+            
+            self.insert_items(block, self.name_1_input)
+
+            PWM_label = QLabel("PWM Value (0-255):")
+
+            self.PWM_value_input = QLineEdit()
+            regex = QRegularExpression(r"^\d*$")
+            validator = QRegularExpressionValidator(regex, self)
+            self.PWM_value_input.setValidator(validator)
+            self.PWM_value_input.setText(block_data.get('PWM_value', '128'))
+            self.PWM_value_input.setPlaceholderText("PWM Value (0-255)")
+            self.PWM_value_input.textChanged.connect(lambda text, bd=block_data: self.Block_PWM_value_changed(text, bd))
+
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), PWM_label)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.PWM_value_input)
+        if block_data['type'] in ("Sum", "Subtract", "Multiply", "Divide", "Modulo", "Power", "Square_root", "Random_number"):
+            name_label = QLabel("First Variable Name:")
+            
+            
+            
+            self.value_1_name_input = SearchableLineEdit()
+            self.value_1_name_input.setText(block_data.get('value_1_name', ''))
+            self.value_1_name_input.setPlaceholderText("First Variable Name")
+            self.value_1_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+
+            name_label_2 = QLabel("Second Variable Name:")
+
+            self.value_2_name_input = SearchableLineEdit()
+            self.value_2_name_input.setText(block_data.get('value_2_name', ''))
+            self.value_2_name_input.setPlaceholderText("Second Variable Name")
+            self.value_2_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_2_name_changed(text, bd))
+
+            self.insert_items(block, self.value_1_name_input)
+            self.insert_items(block, self.value_2_name_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.value_1_name_input)  
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label_2)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.value_2_name_input)
         if block_data['type'] == 'Function':
             
             var_label = QLabel("Input variables")
@@ -2383,7 +2517,7 @@ class MainWindow(QMainWindow):
         block_data['internal_devs']['main_devs'][dev_id]['type'] = 'Device'
         print(f"Updated block_data: {block_data}")
 
-    def Block_value_name_1_changed(self, text, block_data):
+    def Block_value_1_name_changed(self, text, block_data):
         current_canvas = self.current_canvas
         #print("Updating vlaue 1 name")
         if current_canvas is None:
@@ -2470,6 +2604,20 @@ class MainWindow(QMainWindow):
         #print("Updating sleep interval")
         block_data['sleep_time'] = text
         block_data['widget'].sleep_time = text
+        block_data['widget'].update()
+
+    def Block_PWM_value_changed(self, text, block_data):
+        #print("Updating PWM value")
+        if text != '':
+            pwm_val = int(text)
+            if pwm_val < 0:
+                pwm_val = 0
+            elif pwm_val > 255:
+                pwm_val = 255
+            text = str(pwm_val)
+            self.PWM_value_input.setText(text)
+        block_data['PWM_value'] = text
+        block_data['widget'].PWM_value = text
         block_data['widget'].update()
 
     def insert_items(self, block, line_edit, type=None):

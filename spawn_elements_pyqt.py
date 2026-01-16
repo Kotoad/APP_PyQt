@@ -42,11 +42,12 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         self.canvas_id = None
         self.name = name
         #print(f"self.canvas: {self.canvas}, self.block_id: {self.block_id}, self.block_type: {self.block_type}, self.x: {x}, self.y: {y}, self.name: {self.name}")
-        self.value_1_name = "var1"
+        self.value_1_name = "None"
         self.operator = "=="
-        self.value_2_name = "var2"
+        self.value_2_name = "None"
         self.switch_state = False
         self.sleep_time = "1000"
+        self.PWM_value = "128"
         # Block dimensions based on type
         self._setup_dimensions()
         
@@ -73,10 +74,10 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             self.width = 100
             self.height = 54
         elif self.block_type in ["Timer", "Sum", "Subtract","Multiply", "Divide", "Modulo", "Power", "Square_root", 
-                                "Random_number"]:
+                                "Random_number", "Blink_LED", "PWM_LED"]:
             self.width = 140
             self.height = 36
-        elif self.block_type in [ "Start", "End", "While_true"]:
+        elif self.block_type in [ "Start", "End", "While_true", "Toggle_LED"]:
             self.width = 100
             self.height = 36
         elif self.block_type == "Function":
@@ -90,11 +91,12 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
                 v_count += 1
             for f_id, f_info in Utils.devices['function_canvases'][self.canvas_id].items():
                 d_count += 1
-            self.width = 140
+            
             if v_count >= d_count:
                 count = v_count
             else:
                 count = d_count
+            self.width = 140
             self.height = 15 + (count * 20)
         else:  #Fallback for other blocks
             print(f"[Warning] Unknown block type '{self.block_type}', using default dimensions.")
@@ -120,7 +122,10 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             "Modulo": QColor("#9900FF"),      # Purple
             "Power": QColor("#9900FF"),      # Purple
             "Square_root": QColor("#9900FF"),  # Purple
-            "Random_number": QColor("#9900FF")  # Purple
+            "Random_number": QColor("#9900FF"),  # Purple
+            "Blink_LED": QColor("#57A139"),      # Yellow
+            "Toggle_LED": QColor("#57A139"),     # Yellow
+            "PWM_LED": QColor("#57A139"),        # Yellow
         }
         return colors.get(self.block_type, QColor("#FFD700"))  # Default yellow
 
@@ -254,6 +259,21 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             math_text = f"{self.value_1_name} {operation_text} {self.value_2_name}"
             math_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(math_rect, Qt.AlignmentFlag.AlignCenter, math_text)
+        elif self.block_type in ["Toggle_LED",]:
+            painter.setFont(font)
+            device_text = f"{self.value_1_name}"
+            device_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
+        elif self.block_type in ["Blink_LED"]:
+            painter.setFont(font)
+            device_text = f"{self.value_1_name} - {self.sleep_time} ms"
+            device_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
+        elif self.block_type in ["PWM_LED"]:
+            painter.setFont(font)
+            device_text = f"{self.value_1_name} - {self.PWM_value}"
+            device_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
         else:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
