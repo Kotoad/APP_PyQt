@@ -1283,6 +1283,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Visual Programming Interface")
+        self.setWindowIcon(QIcon('resources/images/APPicon.ico'))
         self.resize(1200, 800)
         self.code_compiler = Code_Compiler()
         self.state_manager = StateManager.get_instance()

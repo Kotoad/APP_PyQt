@@ -1,6 +1,6 @@
 from Imports import get_utils, os, sys, subprocess
 Utils = get_utils()
-
+#MARK: Pico Auto Transfer
 class PicoWAutoTransfer:
     """Automatic transfer with dependency checking"""
     
@@ -68,7 +68,7 @@ class PicoWAutoTransfer:
             print(f"✗ Unexpected error: {e}")
             return False
 
-
+#MARK: Code Compiler
 class CodeCompiler:
     def __init__(self):
         self.file = None
@@ -84,6 +84,8 @@ class CodeCompiler:
         self.function_lines = []
         self.footer_lines = []
         self.last_block = None
+        self.btn_in_code = False
+        self.led_in_code = False
         self.current_lines = self.header_lines  # Pointer to current lines being written
     
     def compile(self):
@@ -147,10 +149,8 @@ class CodeCompiler:
         print(f"Processing block {block_id} of type {block['type']}")
         if block['type'] == 'If':
             self.handle_if_block(block)
-        elif block['type'] == 'While':
+        elif block['type'] in ('While', 'While_true'):
             self.handle_while_block(block)
-        elif block['type'] == 'While_true':
-            self.handle_while_true_block(block)
         elif block['type'] == 'Timer':
             self.handle_timer_block(block)
         elif block['type'] == 'End':
@@ -159,13 +159,17 @@ class CodeCompiler:
             self.handle_switch_block(block)
         elif block['type'] == 'Button':
             self.handle_button_block(block)
+        elif block['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED'):
+            self.handle_LED_block(block)
+        elif block['type'] in ("Sum","Subtract","Multiply","Divide","Modulo","Power","Square_root"):
+            self.handle_math_block(block)
         elif block['type'] == 'Function':
             # Function call block
             self.handle_function_block(block)
         else:
             print(f"Unknown block type: {block['type']}")
             pass
-        
+    #MARK: Code Headers and Setup
     def write_imports(self):
         print("Writing import statements...")
         if self.GPIO_compile:
@@ -175,6 +179,22 @@ class CodeCompiler:
         elif self.MC_compile:
             self.writeline("from machine import Pin\n")
             self.writeline("import time\n")
+        
+        for block_id, block_info in Utils.main_canvas['blocks'].items():
+                if block_info['type'] == 'Button':
+                    self.btn_in_code = True
+                if block_info['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED'):
+                    self.led_in_code = True
+        for func_id, func_info in Utils.functions.items():
+            for block_id, block_info in func_info['blocks'].items():
+                if block_info['type'] == 'Button':
+                    self.btn_in_code = True
+                if block_info['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED'):
+                    self.led_in_code = True
+        if self.btn_in_code:
+            self.create_btn_class()
+        if self.led_in_code:
+            self.create_led_class()
 
     def write_setup(self):
         print("Writing setup code...")
@@ -183,7 +203,7 @@ class CodeCompiler:
             self.writeline("Devices_main = {")
             self.indent_level+=1
             for dev_name, dev_info in Utils.devices['main_canvas'].items():
-                text = f"\"{dev_info['name']}\":{{"f"\"PIN\": {dev_info['PIN']}, \"type\":\"{dev_info['type']}\"}},"
+                text = f"\"{dev_info['name']}\":{{\"name\":\"{dev_info['name']}\", \"PIN\": {dev_info['PIN']}, \"type\":\"{dev_info['type']}\"}},"
                 self.writeline(text)
             self.indent_level-=1
             self.writeline("}\n")
@@ -201,7 +221,15 @@ class CodeCompiler:
             self.indent_level+=1
             self.writeline(f"GPIO.setup(dev_config['PIN'], GPIO.IN, pull_up_down=GPIO.PUD_DOWN)")
             self.indent_level-=1
-            self.indent_level-=1
+            self.writeline("if dev_config['type'] == 'PWM':")
+            self.indent_level+=1
+            self.writeline("GPIO.setup(dev_config['PIN'], GPIO.OUT)")
+            self.writeline("dev_config['name'] = GPIO.PWM(dev_config['PIN'], 1000)")
+            self.writeline("dev_config['name'].start(0)")
+            self.writeline("if not hasattr(dev_config['name'], 'CurrentDutyCycle'):")
+            self.indent_level+=1
+            self.writeline("dev_config['name'].CurrentDutyCycle = 0")
+            self.indent_level-=3
             
             self.writeline("Variables_main = {")
             self.indent_level+=1
@@ -241,7 +269,85 @@ class CodeCompiler:
     def write_cleanup(self):
         self.writeline("GPIO.cleanup()")
 
+    #MARK: Device Classes
+    def create_btn_class(self):
+        print("Creating Button class...")
+        self.writeline("\nclass Button:")
+        self.indent_level += 1
+        self.writeline("def __init__(self):")
+        self.indent_level += 1
+        self.writeline("pass")
+        self.indent_level -= 1
+        self.writeline("def is_pressed(self, pin):")
+        self.indent_level += 1
+        self.writeline("if GPIO.input(pin) == GPIO.HIGH:")
+        self.indent_level += 1
+        self.writeline("return True")
+        self.indent_level -= 1
+        self.writeline("else:")
+        self.indent_level += 1
+        self.writeline("return False")
+        self.indent_level -= 2  # Back to class level
     
+    def create_led_class(self):
+        print("Creating LED class...")
+        self.writeline("\nclass LED:")
+        self.indent_level += 1
+        self.writeline("def __init__(self):")
+        self.indent_level += 1
+        self.writeline("pass")
+        self.indent_level -= 1
+        self.writeline("def Toggle_LED(self, pin):")
+        self.indent_level += 1
+        self.writeline("if GPIO.input(pin) == GPIO.HIGH:")
+        self.indent_level += 1
+        self.writeline("GPIO.output(pin, GPIO.LOW)")
+        self.indent_level -= 1
+        self.writeline("else:")
+        self.indent_level += 1
+        self.writeline("GPIO.output(pin, GPIO.HIGH)")
+        self.indent_level -= 2  # Back to method level
+        self.writeline("def Blink_LED(self, pin, duration_ms):")
+        self.indent_level += 1
+        self.writeline("if GPIO.input(pin) == GPIO.HIGH:")
+        self.indent_level += 1
+        self.writeline("GPIO.output(pin, GPIO.LOW)")
+        self.writeline("time.sleep(duration_ms / 1000)")
+        self.writeline("GPIO.output(pin, GPIO.HIGH)")
+        self.indent_level -= 1
+        self.writeline("else:")
+        self.indent_level += 1
+        self.writeline("GPIO.output(pin, GPIO.HIGH)")
+        self.writeline("time.sleep(duration_ms / 1000)")
+        self.writeline("GPIO.output(pin, GPIO.LOW)")
+        self.indent_level -= 2  # Back to method level
+        self.writeline("def PWM_LED(self, pin, PWM_value):")
+        self.indent_level += 1
+        self.writeline("for dev_name, dev_config in Devices_main.items():")
+        self.indent_level += 1
+        self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'PWM':")
+        self.indent_level += 1
+        self.writeline("pwm_instance = dev_config['name']")
+        self.writeline("current_duty = dev_config.get('CurrentDutyCycle', 0)")
+        self.indent_level -= 3  # Back to method level
+        self.writeline("if PWM_value < current_duty:")
+        self.indent_level += 1
+        self.writeline("for duty_cycle in range(current_duty, PWM_value + 1):")
+        self.indent_level += 1
+        self.writeline("pwm_instance.ChangeDutyCycle(duty_cycle)")
+        self.writeline("time.sleep(0.05)")
+        self.indent_level -= 2
+        self.writeline("elif PWM_value > current_duty:")
+        self.indent_level += 1
+        self.writeline("for duty_cycle in range(current_duty, PWM_value - 1, -1):")
+        self.indent_level += 1
+        self.writeline("pwm_instance.ChangeDutyCycle(duty_cycle)")
+        self.writeline("time.sleep(0.05)")
+        self.indent_level -= 2
+        self.writeline("dev_config['CurrentDutyCycle'] = PWM_value")
+        self.indent_level -= 2  # Back to class level
+
+    #MARK: Helper Methods
     def find_block_by_type(self, block_type):
         """Find first block of given type"""
         if self.compiling_what == 'canvas':
@@ -383,6 +489,7 @@ class CodeCompiler:
                         return block_id
         return None
     
+    #MARK: Block Handlers
     def handle_if_block(self, block):
         #print(f"Handling If block {block}")
         value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
@@ -393,9 +500,7 @@ class CodeCompiler:
         out1_id = self.get_next_block_from_output(block['id'], 'out1')  # True path
         out2_id = self.get_next_block_from_output(block['id'], 'out2')  # False path
         #print(f"If block outputs: out1 -> {out1_id}, out2 -> {out2_id}")
-        self.write_condition(
-            "if", value_1, operator, value_2
-        )
+        self.write_condition("if", value_1, operator, value_2)
         self.indent_level += 1
         self.process_block(out1_id)
         #print(f"Completed If true branch, now handling else branch")
@@ -408,6 +513,16 @@ class CodeCompiler:
         self.indent_level -= 1
     
     def handle_while_block(self, block):
+        if block['type'] == 'While_true':
+            #print(f"Handling While true block {block}")
+            next_id = self.get_next_block(block['id'])
+            self.writeline("while True:")
+            self.indent_level += 1
+            #print(f"Processing While true branch for While true block")
+            self.process_block(next_id)
+            self.indent_level -= 1
+            return
+        
         value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
         value_2 = self.resolve_value(block['value_2_name'], block['value_2_type'])
         #print(f"Resolved While block values: {value_1}, {value_2}")
@@ -416,26 +531,14 @@ class CodeCompiler:
         out1_id = self.get_next_block_from_output(block['id'], 'out1')  # True path
         out2_id = self.get_next_block_from_output(block['id'], 'out2')  # False path
         #print(f"While block outputs: out1 -> {out1_id}, out2 -> {out2_id}")
-        self.write_condition(
-            "while", value_1, operator, value_2
-        )
+        self.write_condition("while", value_1, operator, value_2)
         self.indent_level += 1
         #print(f"Processing While true branch for While block")
         self.process_block(out1_id)
         self.indent_level -= 1
         #print(f"Processing While false branch for While block")
         self.process_block(out2_id)
-    
-    def handle_while_true_block(self, block):
-        #print(f"Handling While true block {block}")
-        next_id = self.get_next_block(block['id'])
-        self.writeline("while True:")
-        self.indent_level += 1
-        #print(f"Processing While true branch for While true block")
-        self.process_block(next_id)
-        self.indent_level -= 1
-        
-        
+           
     def handle_timer_block(self, block):
         self.writeline(f"time.sleep({block['sleep_time']}/1000)")
         
@@ -490,9 +593,7 @@ class CodeCompiler:
         out2_id = self.get_next_block_from_output(block['id'], 'out2')
         #print(f"Resolved Button block device: {DEV_1}")
         if self.GPIO_compile:
-            self.write_condition(
-                "if", f"GPIO.input({DEV_1})", "==", "GPIO.HIGH"
-            )
+            self.writeline(f"if Button().is_pressed({DEV_1}):")
             self.indent_level += 1
             #print(f"Processing Button ON branch for Button block")
             self.process_block(out1_id)
@@ -503,9 +604,7 @@ class CodeCompiler:
             self.process_block(out2_id)
             self.indent_level -= 1
         elif self.MC_compile:
-            self.write_condition(
-                "if", f"{DEV_1}.value()", "==", "1"
-            )
+            self.writeline(f"if Button().is_pressed({DEV_1}):")
             self.indent_level += 1
             #print(f"Processing Button ON branch for Button block")
             self.process_block(out1_id)
@@ -566,6 +665,51 @@ class CodeCompiler:
         next_id = self.get_next_block(start_function_block['id'])
         print(f"Processing function blocks starting from: {next_id}")
         self.process_block(next_id)
+
+    def handle_math_block(self, block):
+        value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
+        value_2 = self.resolve_value(block['value_2_name'], block['value_2_type'])
+        result_var = block['result_var_name']
+        #print(f"Resolved Math block values: {value_1}, {value_2}, result var: {result_var}")
+        if block['type'] == 'Sum':
+            self.writeline(f"{result_var} = {value_1} + {value_2}")
+        elif block['type'] == 'Subtract':
+            self.writeline(f"{result_var} = {value_1} - {value_2}")
+        elif block['type'] == 'Multiply':
+            self.writeline(f"{result_var} = {value_1} * {value_2}")
+        elif block['type'] == 'Divide':
+            self.writeline(f"{result_var} = {value_1} / {value_2}")
+        elif block['type'] == 'Modulo':
+            self.writeline(f"{result_var} = {value_1} % {value_2}")
+        elif block['type'] == 'Power':
+            self.writeline(f"{result_var} = {value_1} ** {value_2}")
+        elif block['type'] == 'Square_root':
+            self.writeline(f"{result_var} = {value_1} ** 0.5")
+        
+        next_id = self.get_next_block(block['id'])
+        if next_id:
+            #print(f"Processing next block after Math: {next_id}")
+            pass
+        self.process_block(next_id)
+    
+    def handle_LED_block(self, block):
+        DEV_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
+        if block['type'] == 'Blink_LED':
+            duration = block['duration_ms']
+            self.writeline(f"LED().Blink_LED({DEV_1}, {duration})")
+        elif block['type'] == 'Toggle_LED':
+            self.writeline(f"LED().Toggle_LED({DEV_1})")
+        elif block['type'] == 'PWM_LED':
+            pwm_value = self.resolve_value(block['value_1_name'], block['value_1_type'])
+            self.writeline(f"LED().PWM_LED({DEV_1}, {pwm_value})")
+        
+        next_id = self.get_next_block(block['id'])
+        if next_id:
+            #print(f"Processing next block after LED: {next_id}")
+            pass
+        self.process_block(next_id)
+    
+
 
     def handle_end_block(self, block):
         #print(f"Handling End block {block['id']}")

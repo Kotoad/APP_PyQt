@@ -57,6 +57,7 @@ def build_exe():
         '--name=Visual Programming Interface',  # App name
         '--distpath=dist',         # Output folder
         '--noconfirm',             # Don't ask for confirmation
+        '--icon=resources/images/APPicon.ico'  # Application icon
     ]
     
     # Add hidden imports
@@ -71,7 +72,7 @@ def build_exe():
     # args.append('--icon=icon.ico')
     
     print("[*] Building executable with PyInstaller...")
-    print(f"    Command: pyinstaller {' '.join(args[:5])} ...")
+    print(f"    Command: pyinstaller {' '.join(args[:7])} ...")
     print()
     
     try:

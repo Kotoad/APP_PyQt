@@ -195,14 +195,15 @@ exit
     def _create_lnk(self, target, shortcut_path):
         """Create .lnk shortcut using VBScript"""
         vbs_content = f'''
-Set oWS = WScript.CreateObject("WScript.Shell")
-sLinkFile = "{shortcut_path}"
-Set oLink = oWS.CreateShortcut(sLinkFile)
-oLink.TargetPath = "{target}"
-oLink.WorkingDirectory = "{Path(target).parent}"
-oLink.Description = "{self.app_name}"
-oLink.Save
-'''
+            Set oWS = WScript.CreateObject("WScript.Shell")
+            sLinkFile = "{shortcut_path}"
+            Set oLink = oWS.CreateShortcut(sLinkFile)
+            oLink.TargetPath = "{target}"
+            oLink.WorkingDirectory = "{Path(target).parent}"
+            oLink.Description = "{self.app_name}"
+            oLink.IconLocation = "{Path('resources/images/APPicon.ico')}"
+            oLink.Save
+        '''
         vbs_path = Path.home() / "create_shortcut.vbs"
         with open(vbs_path, 'w') as f:
             f.write(vbs_content)
@@ -238,6 +239,10 @@ class InstallerWindow(QMainWindow):
         self.app_name = "Visual Programming Interface"
         self.app_version = "1.0.0"
         
+        icon_path = Path('resources/images/APPicon.ico')
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
+
         # Detect bundle vs standalone
         self.is_bundled = self._detect_bundled_mode()
         self.bundle_path = self._get_bundle_path()
