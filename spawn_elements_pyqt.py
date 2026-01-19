@@ -42,9 +42,17 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         self.canvas_id = None
         self.name = name
         #print(f"self.canvas: {self.canvas}, self.block_id: {self.block_id}, self.block_type: {self.block_type}, self.x: {x}, self.y: {y}, self.name: {self.name}")
-        self.value_1_name = "None"
-        self.operator = "=="
-        self.value_2_name = "None"
+        self.value_1_name = "N"
+        if self.block_type == "Basic_operations":
+            self.operator = "+"
+        elif self.block_type == "Exponential_operations":
+            self.operator = "^"
+        elif self.block_type == "Random_number":
+            self.operator = "rand"
+        elif self.block_type in ("If", "While", "Switch"):
+            self.operator = "=="
+        self.value_2_name = "N"
+        self.result_var_name = "N"
         self.switch_state = False
         self.sleep_time = "1000"
         self.PWM_value = "128"
@@ -73,7 +81,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         if self.block_type in ["If", "While", "Switch", "Button"]:
             self.width = 100
             self.height = 54
-        elif self.block_type in ["Timer", "Sum", "Subtract","Multiply", "Divide", "Modulo", "Power", "Square_root", 
+        elif self.block_type in ["Timer","Basic_operations", "Exponential_operations",
                                 "Random_number", "Blink_LED", "PWM_LED"]:
             self.width = 140
             self.height = 36
@@ -115,13 +123,8 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             "Button": QColor("#D3D3D3"),    # Light gray
             "While_true": QColor("#87CEEB"),     # Sky blue
             "Function": QColor("#FFA500"),  # Orange
-            "Sum": QColor("#9900FF"),         # Purple
-            "Subtract": QColor("#9900FF"),   # Purple
-            "Multiply": QColor("#9900FF"),   # Purple
-            "Divide": QColor("#9900FF"),     # Purple
-            "Modulo": QColor("#9900FF"),      # Purple
-            "Power": QColor("#9900FF"),      # Purple
-            "Square_root": QColor("#9900FF"),  # Purple
+            "Basic_operations": QColor("#9900FF"),  # Light orange
+            "Exponential_operations": QColor("#9900FF"),      # Purple
             "Random_number": QColor("#9900FF"),  # Purple
             "Blink_LED": QColor("#57A139"),      # Yellow
             "Toggle_LED": QColor("#57A139"),     # Yellow
@@ -236,41 +239,19 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             painter.setPen(QPen(off_color))
             painter.drawText(off_rect, Qt.AlignmentFlag.AlignLeft, "OFF")
         
-        elif self.block_type in ["Sum", "Subtract", "Multiply", "Divide", "Modulo", "Power", "Square_root", "Random_number"]:
-            painter.setFont(font)
-            operation_text = ""
-            if self.block_type == "Sum":
-                operation_text = "+"
-            elif self.block_type == "Subtract":
-                operation_text = "-"
-            elif self.block_type == "Multiply":
-                operation_text = "*"
-            elif self.block_type == "Divide":
-                operation_text = "/"
-            elif self.block_type == "Modulo":
-                operation_text = "%"
-            elif self.block_type == "Power":
-                operation_text = "^"
-            elif self.block_type == "Square_root":
-                operation_text = "√"
-            elif self.block_type == "Random_number":
-                operation_text = "rand"
-            
-            math_text = f"{self.value_1_name} {operation_text} {self.value_2_name}"
+        elif self.block_type in ["Basic_operations", "Exponential_operations", "Random_number"]:
+            math_text = f"{self.result_var_name} = {self.value_1_name} {self.operator} {self.value_2_name}"
             math_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(math_rect, Qt.AlignmentFlag.AlignCenter, math_text)
         elif self.block_type in ["Toggle_LED",]:
-            painter.setFont(font)
             device_text = f"{self.value_1_name}"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
         elif self.block_type in ["Blink_LED"]:
-            painter.setFont(font)
             device_text = f"{self.value_1_name} - {self.sleep_time} ms"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
         elif self.block_type in ["PWM_LED"]:
-            painter.setFont(font)
             device_text = f"{self.value_1_name} - {self.PWM_value}"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)

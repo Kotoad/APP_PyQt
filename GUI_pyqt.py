@@ -1000,7 +1000,7 @@ class GridCanvas(QGraphicsView):
                 'out_connections': {},
                 'canvas': self
             }
-        elif block_type in ("Sum","Subtract","Multiply","Divide","Modulo","Power","Square_root"):
+        elif block_type in ("Basic_operations", "Exponential_operations", "Random_number"):
             info = {
                 'type': block_type,
                 'id': block_id,
@@ -1013,6 +1013,9 @@ class GridCanvas(QGraphicsView):
                 'value_1_type': None,
                 'value_2_name': None,
                 'value_2_type': None,
+                'operator': None,
+                'result_var_name': None,
+                'result_var_type': None,
                 'in_connections': {},
                 'out_connections': {},
                 'canvas': self
@@ -1467,6 +1470,12 @@ class MainWindow(QMainWindow):
 
         toolbar.addSeparator()
 
+        add_block_icon = QAction(QIcon(icon_path+"Add_block.png"), "Add block", self)
+        add_block_icon.triggered.connect(self.open_elements_window)
+        toolbar.addAction(add_block_icon)
+
+        toolbar.addSeparator()
+
         settings_icon = QAction(QIcon(icon_path+"Settings.png"), "Settings", self)
         settings_icon.triggered.connect(self.open_settings_window)
         toolbar.addAction(settings_icon)
@@ -1476,6 +1485,10 @@ class MainWindow(QMainWindow):
         run_and_compile_icon = QAction(QIcon(icon_path+"Run_and_compile.png"), "Compile and Upload", self)
         run_and_compile_icon.triggered.connect(self.compile_and_upload)
         toolbar.addAction(run_and_compile_icon)
+
+        run_icon = QAction(QIcon(icon_path+"Run.png"), "Run", self)
+        run_icon.triggered.connect(self.execute_on_rpi_ssh_background)
+        toolbar.addAction(run_icon)
 
         stop_execution_icon = QAction(QIcon(icon_path+"Stop_execution.png"), "Stop Execution", self)
         stop_execution_icon.triggered.connect(self.stop_execution)
@@ -2358,15 +2371,30 @@ class MainWindow(QMainWindow):
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), PWM_label)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.PWM_value_input)
-        if block_data['type'] in ("Sum", "Subtract", "Multiply", "Divide", "Modulo", "Power", "Square_root", "Random_number"):
+        if block_data['type'] in ("Basic_operations", "Exponential_operations", "Random_number"):
             name_label = QLabel("First Variable Name:")
-            
-            
             
             self.value_1_name_input = SearchableLineEdit()
             self.value_1_name_input.setText(block_data.get('value_1_name', ''))
             self.value_1_name_input.setPlaceholderText("First Variable Name")
             self.value_1_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+
+            if block_data['type'] == "Basic_operations":
+                box_label = QLabel("Operator:")
+
+                operator_box = QComboBox()
+                operator_box.addItems(["+", "-", "*", "/", "%"])
+                operator_box.setCurrentText(block_data.get('operator', '+'))
+                operator_box.currentTextChanged.connect(lambda text, bd=block_data: self.Block_operator_changed(text, bd))
+            elif block_data['type'] == "Exponential_operations":
+                box_label = QLabel("Operator:")
+
+                operator_box = QComboBox()
+                operator_box.addItems(["^", "√"])
+                operator_box.setCurrentText(block_data.get('operator', '^'))
+                operator_box.currentTextChanged.connect(lambda text, bd=block_data: self.Block_operator_changed(text, bd))
+            else:
+                operator_box = None
 
             name_label_2 = QLabel("Second Variable Name:")
 
@@ -2375,10 +2403,23 @@ class MainWindow(QMainWindow):
             self.value_2_name_input.setPlaceholderText("Second Variable Name")
             self.value_2_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_2_name_changed(text, bd))
 
+            name_label_3 = QLabel("Result Variable Name:")
+
+            self.result_var_name_input = SearchableLineEdit()
+            self.result_var_name_input.setText(block_data.get('result_var_name', ''))
+            self.result_var_name_input.setPlaceholderText("Result Variable Name")
+            self.result_var_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_result_var_name_changed(text, bd))
+
             self.insert_items(block, self.value_1_name_input)
             self.insert_items(block, self.value_2_name_input)
+            self.insert_items(block, self.result_var_name_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label_3)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.result_var_name_input)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.value_1_name_input)  
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.value_1_name_input) 
+            if operator_box:
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), box_label)
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), operator_box) 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label_2)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.value_2_name_input)
         if block_data['type'] == 'Function':
@@ -2594,6 +2635,40 @@ class MainWindow(QMainWindow):
             text = text[:3] + "..."
         block_data['value_2_name'] = text
         block_data['widget'].value_2_name = text
+        block_data['widget'].update()
+    
+    def Block_result_var_name_changed(self, text, block_data):
+        #print("Updating result variable name") 
+        block_data['result_var_name'] = text
+        current_canvas = self.current_canvas
+        if current_canvas is None:
+            print("ERROR: No current canvas available")
+            return
+
+        if current_canvas.reference == 'canvas':
+            #print(f"Current Utils.main_canvas['blocks']: {Utils.main_canvas['blocks']}")
+            variables = Utils.variables['main_canvas']
+            devices = Utils.devices['main_canvas']
+        elif current_canvas.reference == 'function':
+            for f_id, f_info in Utils.functions.items():
+                if current_canvas == f_info.get('canvas'):
+                    #print(f"Current Utils.functions[{f_id}]['blocks']: {Utils.functions[f_id]['blocks']}")
+                    variables = Utils.variables['function_canvases'][f_id]
+                    devices = Utils.devices['function_canvases'][f_id]
+                    break
+
+        for var_id, var_info in variables.items():
+            if var_info['name'] == text:
+                block_data['result_var_type'] = 'Variable'
+                break
+        for dev_id, dev_info in devices.items():
+            if dev_info['name'] == text:
+                block_data['result_var_type'] = 'Device'
+                break
+        if len(text) > 5:
+            text = text[:3] + "..."
+        block_data['result_var_name'] = text
+        block_data['widget'].result_var_name = text
         block_data['widget'].update()
     
     def Block_switch_changed(self, state, block_data):
@@ -4284,6 +4359,19 @@ class MainWindow(QMainWindow):
                 block.switch_state = Utils.project_data.main_canvas['blocks'][block_id].get('switch_state', False)
             elif block_type == 'Sleep':
                 block.sleep_time = Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000")
+            elif block_type in ('Basic_operations', 'Exponential_operations', 'Random_number'):
+                block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
+                block.value_2_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2")
+                block.operator = Utils.project_data.main_canvas['blocks'][block_id].get('operator', None)
+                block.result_var_name = Utils.project_data.main_canvas['blocks'][block_id].get('result_var_name', "result")
+            elif block_type == 'Blink_LED':
+                block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
+                block.sleep_time = Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000")
+            elif block_type == 'Toggle_LED':
+                block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
+            elif block_type == 'PWM_LED':
+                block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
+                block.PWM_value = Utils.project_data.main_canvas['blocks'][block_id].get('PWM_value', "128")
         if canvas_info['ref'] == 'function':
             #print("Setting function canvas block properties")
             for function_id, function_info in Utils.functions.items():
@@ -4301,6 +4389,19 @@ class MainWindow(QMainWindow):
                         block.switch_state = Utils.project_data.functions[function_id]['blocks'][block_id].get('switch_state', False)
                     elif block_type == 'Sleep':
                         block.sleep_time = Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000")
+                    elif block_type in ('Basic_operations', 'Exponential_operations', 'Random_number'):
+                        block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
+                        block.value_2_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2")
+                        block.operator = Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', None)
+                        block.result_var_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('result_var_name', "result")
+                    elif block_type == 'Blink_LED':
+                        block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
+                        block.sleep_time = Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000")
+                    elif block_type == 'Toggle_LED':
+                        block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
+                    elif block_type == 'PWM_LED':
+                        block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
+                        block.PWM_value = Utils.project_data.functions[function_id]['blocks'][block_id].get('PWM_value', "128")
                     break
                 
         canvas.scene.addItem(block)
@@ -4363,6 +4464,73 @@ class MainWindow(QMainWindow):
                     'height': block.boundingRect().height(),
                     'x': x,
                     'y': y,
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
+                    'canvas': canvas
+                }
+            elif block_type in ("Basic_operations", "Exponential_operations", "Random_number"):
+                info = {
+                    'type': block_type,
+                    'id': block_id,
+                    'widget': block,
+                    'width': block.boundingRect().width(),
+                    'height': block.boundingRect().height(),
+                    'x': x,
+                    'y': y,
+                    'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
+                    'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
+                    'value_2_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2"),
+                    'value_2_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_type', "N/A"),
+                    'operator': Utils.project_data.main_canvas['blocks'][block_id].get('operator', None),
+                    'result_var_name': Utils.project_data.main_canvas['blocks'][block_id].get('result_var_name', "result"),
+                    'result_var_type': Utils.project_data.main_canvas['blocks'][block_id].get('result_var_type', "N/A"),
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
+                    'canvas': canvas
+                }
+            elif block_type == 'Blink_LED':
+                info = {
+                    'type': block_type,
+                    'id': block_id,
+                    'widget': block,
+                    'width': block.boundingRect().width(),
+                    'height': block.boundingRect().height(),
+                    'x': x,
+                    'y': y,
+                    'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
+                    'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
+                    'sleep_time': Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000"),
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
+                    'canvas': canvas
+                }
+            elif block_type == 'Toggle_LED':
+                info = {
+                    'type': block_type,
+                    'id': block_id,
+                    'widget': block,
+                    'width': block.boundingRect().width(),
+                    'height': block.boundingRect().height(),
+                    'x': x,
+                    'y': y,
+                    'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
+                    'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
+                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
+                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
+                    'canvas': canvas
+                }
+            elif block_type == 'PWM_LED':
+                info = {
+                    'type': block_type,
+                    'id': block_id,
+                    'widget': block,
+                    'width': block.boundingRect().width(),
+                    'height': block.boundingRect().height(),
+                    'x': x,
+                    'y': y,
+                    'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
+                    'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
+                    'PWM_value': Utils.project_data.main_canvas['blocks'][block_id].get('PWM_value', "128"),
                     'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
                     'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
                     'canvas': canvas
@@ -4466,6 +4634,73 @@ class MainWindow(QMainWindow):
                             'height': block.boundingRect().height(),
                             'x': x,
                             'y': y,
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
+                            'canvas': canvas
+                        }
+                    elif block_type in ("Basic_operations", "Exponential_operations", "Random_number"):
+                        info = {
+                            'type': block_type,
+                            'id': block_id,
+                            'widget': block,
+                            'width': block.boundingRect().width(),
+                            'height': block.boundingRect().height(),
+                            'x': x,
+                            'y': y,
+                            'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
+                            'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
+                            'value_2_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2"),
+                            'value_2_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_type', "N/A"),
+                            'operator': Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', None),
+                            'result_var_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('result_var_name', "result"),
+                            'result_var_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('result_var_type', "N/A"),
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
+                            'canvas': canvas
+                        }
+                    elif block_type == 'Blink_LED':
+                        info = {
+                            'type': block_type,
+                            'id': block_id,
+                            'widget': block,
+                            'width': block.boundingRect().width(),
+                            'height': block.boundingRect().height(),
+                            'x': x,
+                            'y': y,
+                            'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
+                            'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
+                            'sleep_time': Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000"),
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
+                            'canvas': canvas
+                        }
+                    elif block_type == 'Toggle_LED':
+                        info = {
+                            'type': block_type,
+                            'id': block_id,
+                            'widget': block,
+                            'width': block.boundingRect().width(),
+                            'height': block.boundingRect().height(),
+                            'x': x,
+                            'y': y,
+                            'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
+                            'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
+                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
+                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
+                            'canvas': canvas
+                        }
+                    elif block_type == 'PWM_LED':
+                        info = {
+                            'type': block_type,
+                            'id': block_id,
+                            'widget': block,
+                            'width': block.boundingRect().width(),
+                            'height': block.boundingRect().height(),
+                            'x': x,
+                            'y': y,
+                            'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
+                            'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
+                            'PWM_value': Utils.project_data.functions[function_id]['blocks'][block_id].get('PWM_value', "128"),
                             'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
                             'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
                             'canvas': canvas

@@ -183,6 +183,65 @@ class FileManager:
                             'in_connections': block_info.get('in_connections', []),
                             'out_connections': block_info.get('out_connections', []),
                         }
+                    elif block_info['type'] in ('Basic_operations', 'Exponential_operations', 'Random_number'):
+                        info = {
+                            'type': block_info['type'],
+                            'id': block_id,
+                            'width': block_info['widget'].boundingRect().width(),
+                            'height': block_info['widget'].boundingRect().height(),
+                            'x': block_info['x'],
+                            'y': block_info['y'],
+                            'value_1_name': block_info.get('value_1_name', ''),
+                            'value_1_type': block_info.get('value_1_type', ''),
+                            'value_2_name': block_info.get('value_2_name', ''),
+                            'value_2_type': block_info.get('value_2_type', ''),
+                            'operator': block_info.get('operator', ''),
+                            'result_var_name': block_info.get('result_var_name', ''),
+                            'result_var_type': block_info.get('result_var_type', ''),
+                            'in_connections': block_info.get('in_connections', []),
+                            'out_connections': block_info.get('out_connections', []),
+                        }
+                    elif block_info['type'] == 'Blink_LED':
+                        info = {
+                            'type': block_info['type'],
+                            'id': block_id,
+                            'width': block_info['widget'].boundingRect().width(),
+                            'height': block_info['widget'].boundingRect().height(),
+                            'x': block_info['x'],
+                            'y': block_info['y'],
+                            'value_1_name': block_info.get('value_1_name', ''),
+                            'value_1_type': block_info.get('value_1_type', ''),
+                            'sleep_time': block_info.get('sleep_time', 500),
+                            'in_connections': block_info.get('in_connections', []),
+                            'out_connections': block_info.get('out_connections', []),
+                        }
+                    elif block_info['type'] == 'Toggle_LED':
+                        info = {
+                            'type': block_info['type'],
+                            'id': block_id,
+                            'width': block_info['widget'].boundingRect().width(),
+                            'height': block_info['widget'].boundingRect().height(),
+                            'x': block_info['x'],
+                            'y': block_info['y'],
+                            'value_1_name': block_info.get('value_1_name', ''),
+                            'value_1_type': block_info.get('value_1_type', ''),
+                            'in_connections': block_info.get('in_connections', []),
+                            'out_connections': block_info.get('out_connections', []),
+                        }
+                    elif block_info['type'] == 'PWM_LED':
+                        info = {
+                            'type': block_info['type'],
+                            'id': block_id,
+                            'width': block_info['widget'].boundingRect().width(),
+                            'height': block_info['widget'].boundingRect().height(),
+                            'x': block_info['x'],
+                            'y': block_info['y'],
+                            'value_1_name': block_info.get('value_1_name', ''),
+                            'value_1_type': block_info.get('value_1_type', ''),
+                            'PWM_value': block_info.get('PWM_value', 128),
+                            'in_connections': block_info.get('in_connections', []),
+                            'out_connections': block_info.get('out_connections', []),
+                        }
                     elif block_info['type'] == 'Function':
                         info = {
                             'type': 'Function',

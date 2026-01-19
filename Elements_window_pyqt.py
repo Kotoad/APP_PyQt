@@ -340,13 +340,8 @@ class ElementsWindow(QDialog):
         
         # Buttons - MAPPED TO SPAWNING ELEMENTS
         math_elements = [
-            ("Sum", "Sum"),
-            ("Subtract", "Subtract"),
-            ("Multiply", "Multiply"), 
-            ("Divide", "Divide"), 
-            ("Modulo", "Modulo"), 
-            ("Power", "Power"), 
-            ("Square Root", "Square_root"),
+            ("Basic operations", "Basic_operations"),
+            ("Exponential operations", "Exponential_operations"), 
             ("Random Number", "Random_number")
         ]
         
@@ -481,26 +476,11 @@ class ElementsWindow(QDialog):
             "For Loop": {
                 "description": "A loop that iterates over a sequence of values for a specified number of times."
             },
-            "Sum": {
-                "description": "Calculates the sum of two or more numbers."
+            "Basic_operations": {
+                "description": "Performs basic arithmetic operations: addition, subtraction, multiplication, division and modulo."
             },
-            "Subtract": {
-                "description": "Calculates the difference between two numbers."
-            },
-            "Multiply": {
-                "description": "Calculates the product of two or more numbers."
-            },
-            "Divide": {
-                "description": "Calculates the quotient of two numbers."
-            },
-            "Modulo": {
-                "description": "Calculates the remainder of the division of two numbers."
-            },
-            "Power": {
-                "description": "Raises a number to the power of an exponent."
-            },
-            "Square_root": {
-                "description": "Calculates the square root of a number."
+            "Exponential_operations": {
+                "description": "Performs exponential operations such as power and square root."
             },
             "Random_number": {
                 "description": "Generates a random number within a specified range."

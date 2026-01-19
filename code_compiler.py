@@ -166,8 +166,10 @@ class CodeCompiler:
             self.handle_button_block(block)
         elif block['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED'):
             self.handle_LED_block(block)
-        elif block['type'] in ("Sum","Subtract","Multiply","Divide","Modulo","Power","Square_root"):
+        elif block['type'] in ("Basic_operations", "Exponential_operations"):
             self.handle_math_block(block)
+        elif block['type'] == 'Random_number':
+            self.handle_random_block(block)
         elif block['type'] == 'Function':
             # Function call block
             self.handle_function_block(block)
@@ -524,6 +526,20 @@ class CodeCompiler:
         print(f"Mapped to operator: {operators.get(combo_value, '==')}")
         return operators.get(combo_value, "==")
     
+    def get_math_operator(self, operator):
+        """Map math block type to Python operator"""
+        operators = {
+            "+": "+",
+            "-": "-",
+            "*": "*",
+            "/": "/",
+            "%": "%",
+            "√": "** 0.5",
+            "^": "**"
+
+        }
+        return operators.get(operator, "+")
+
     #MARK: Block Handlers
     def handle_if_block(self, block):
         #print(f"Handling If block {block}")
@@ -704,22 +720,11 @@ class CodeCompiler:
     def handle_math_block(self, block):
         value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
         value_2 = self.resolve_value(block['value_2_name'], block['value_2_type'])
-        result_var = block['result_var_name']
+        operator = self.get_math_operator(block['operator'])
+        result_var = self.resolve_value(block['result_var_name'], block['result_var_type'])
         #print(f"Resolved Math block values: {value_1}, {value_2}, result var: {result_var}")
-        if block['type'] == 'Sum':
-            self.writeline(f"{result_var} = {value_1} + {value_2}")
-        elif block['type'] == 'Subtract':
-            self.writeline(f"{result_var} = {value_1} - {value_2}")
-        elif block['type'] == 'Multiply':
-            self.writeline(f"{result_var} = {value_1} * {value_2}")
-        elif block['type'] == 'Divide':
-            self.writeline(f"{result_var} = {value_1} / {value_2}")
-        elif block['type'] == 'Modulo':
-            self.writeline(f"{result_var} = {value_1} % {value_2}")
-        elif block['type'] == 'Power':
-            self.writeline(f"{result_var} = {value_1} ** {value_2}")
-        elif block['type'] == 'Square_root':
-            self.writeline(f"{result_var} = {value_1} ** 0.5")
+        if block['type'] in ('Basic_operations', 'Exponential_operations'):
+            self.writeline(f"{result_var} = {value_1} {operator} {value_2}")
         
         next_id = self.get_next_block(block['id'])
         if next_id:
@@ -727,6 +732,18 @@ class CodeCompiler:
             pass
         self.process_block(next_id)
     
+    def handle_rand_block(self, block):
+        value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
+        value_2 = self.resolve_value(block['value_2_name'], block['value_2_type'])
+        result_var = self.resolve_value(block['result_var_name'], block['result_var_type'])
+
+        self.writeline(f"{result_var} = random.randint({value_1}, {value_2})")
+        next_id = self.get_next_block(block['id'])
+        if next_id:
+            #print(f"Processing next block after Random: {next_id}")
+            pass
+        self.process_block(next_id)
+
     def handle_LED_block(self, block):
         DEV_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
         if block['type'] == 'Blink_LED':
