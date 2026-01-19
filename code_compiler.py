@@ -115,10 +115,14 @@ class CodeCompiler:
         start_block = self.find_block_by_type('Start')
         if start_block:
             print(f"Found Start block: {start_block['id']}")
+            if self.led_in_code:
+                self.writeline("\nled = LED()")
+            self.writeline("try:")
+            self.indent_level += 1
             next_id = self.get_next_block(start_block['id'])
             print(f"Processing blocks starting from: {next_id}")
             self.process_block(next_id)
-            
+            self.indent_level -= 1
         if self.GPIO_compile:
             self.current_lines = self.footer_lines
             self.write_cleanup()
@@ -150,6 +154,7 @@ class CodeCompiler:
         if block['type'] == 'If':
             self.handle_if_block(block)
         elif block['type'] in ('While', 'While_true'):
+            print(f"Handling While block {block}")
             self.handle_while_block(block)
         elif block['type'] == 'Timer':
             self.handle_timer_block(block)
@@ -173,40 +178,25 @@ class CodeCompiler:
     def write_imports(self):
         print("Writing import statements...")
         if self.GPIO_compile:
-            self.writeline("import RPi.GPIO as GPIO\n")
+            self.writeline("import RPi.GPIO as GPIO")
             self.writeline("import time\n")
             
         elif self.MC_compile:
-            self.writeline("from machine import Pin\n")
+            self.writeline("from machine import Pin")
             self.writeline("import time\n")
-        
-        for block_id, block_info in Utils.main_canvas['blocks'].items():
-                if block_info['type'] == 'Button':
-                    self.btn_in_code = True
-                if block_info['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED'):
-                    self.led_in_code = True
-        for func_id, func_info in Utils.functions.items():
-            for block_id, block_info in func_info['blocks'].items():
-                if block_info['type'] == 'Button':
-                    self.btn_in_code = True
-                if block_info['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED'):
-                    self.led_in_code = True
-        if self.btn_in_code:
-            self.create_btn_class()
-        if self.led_in_code:
-            self.create_led_class()
 
     def write_setup(self):
         print("Writing setup code...")
         if self.GPIO_compile:
             self.writeline("GPIO.setmode(GPIO.BCM)\n")
-            self.writeline("Devices_main = {")
-            self.indent_level+=1
-            for dev_name, dev_info in Utils.devices['main_canvas'].items():
-                text = f"\"{dev_info['name']}\":{{\"name\":\"{dev_info['name']}\", \"PIN\": {dev_info['PIN']}, \"type\":\"{dev_info['type']}\"}},"
-                self.writeline(text)
-            self.indent_level-=1
-            self.writeline("}\n")
+            if len(Utils.devices['main_canvas'].keys()) > 0:
+                self.writeline("Devices_main = {")
+                self.indent_level+=1
+                for dev_name, dev_info in Utils.devices['main_canvas'].items():
+                    text = f"\"{dev_info['name']}\":{{\"name\":\"{dev_info['name']}\", \"PIN\": {dev_info['PIN']}, \"type\":\"{dev_info['type']}\"}},"
+                    self.writeline(text)
+                self.indent_level-=1
+                self.writeline("}\n")
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level+=1
             self.writeline("if dev_config['type'] == 'Output':")
@@ -231,29 +221,33 @@ class CodeCompiler:
             self.writeline("dev_config['name'].CurrentDutyCycle = 0")
             self.indent_level-=3
             
-            self.writeline("Variables_main = {")
-            self.indent_level+=1
-            for var_name, var_info in Utils.variables['main_canvas'].items():
-                text = f"\"{var_info['name']}\":{{"f"\"value\": {var_info['value']}}},"
-                self.writeline(text)
-            self.indent_level-=1
-            self.writeline("}\n")
+            if len(Utils.variables['main_canvas'].keys()) > 0:
+                self.writeline("Variables_main = {")
+                self.indent_level+=1
+                for var_name, var_info in Utils.variables['main_canvas'].items():
+                    text = f"\"{var_info['name']}\":{{"f"\"value\": {var_info['value']}}},"
+                    self.writeline(text)
+                self.indent_level-=1
+                self.writeline("}\n")
             
         elif self.MC_compile:
-            self.writeline("Devices_main = {")
-            self.indent_level+=1
-            for dev_name, dev_info in Utils.devices['main_canvas'].items():
-                text = f"\"{dev_info['name']}\":{{"f"\"PIN\": {dev_info['PIN'] if dev_info['PIN'] else 'None'}, \"type\":\"{dev_info['type']}\"}},"
-                self.writeline(text)
-            self.indent_level-=1
-            self.writeline("}")
-            self.writeline("Variables_main = {")
-            self.indent_level+=1
-            for var_name, var_info in Utils.variables['main_canvas'].items():
-                text = f"\"{var_info['name']}\":{{"f"\"value\": {var_info['value']}}},"
-                self.writeline(text)
-            self.indent_level-=1
-            self.writeline("}\n")
+            if len(Utils.devices['main_canvas'].keys()) > 0:
+                self.writeline("Devices_main = {")
+                self.indent_level+=1
+                for dev_name, dev_info in Utils.devices['main_canvas'].items():
+                    text = f"\"{dev_info['name']}\":{{"f"\"PIN\": {dev_info['PIN'] if dev_info['PIN'] else 'None'}, \"type\":\"{dev_info['type']}\"}},"
+                    self.writeline(text)
+                self.indent_level-=1
+                self.writeline("}")
+
+            if len(Utils.variables['main_canvas'].keys()) > 0:
+                self.writeline("Variables_main = {")
+                self.indent_level+=1
+                for var_name, var_info in Utils.variables['main_canvas'].items():
+                    text = f"\"{var_info['name']}\":{{"f"\"value\": {var_info['value']}}},"
+                    self.writeline(text)
+                self.indent_level-=1
+                self.writeline("}\n")
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level+=1
             self.writeline("if dev_config['type'] == 'Output':")
@@ -265,9 +259,32 @@ class CodeCompiler:
             self.writeline(f"dev_name = Pin(dev_config['PIN'], Pin.IN)")
             self.indent_level-=1
             self.indent_level-=1
+
+        for block_id, block_info in Utils.main_canvas['blocks'].items():
+                if block_info['type'] == 'Button':
+                    self.btn_in_code = True
+                if block_info['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED'):
+                    self.led_in_code = True
+        for func_id, func_info in Utils.functions.items():
+            for block_id, block_info in func_info['blocks'].items():
+                if block_info['type'] == 'Button':
+                    self.btn_in_code = True
+                if block_info['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED'):
+                    self.led_in_code = True
+        if self.btn_in_code:
+            self.create_btn_class()
+        if self.led_in_code:
+            self.create_led_class()
                 
     def write_cleanup(self):
+        self.writeline("\nexcept KeyboardInterrupt:")
+        self.indent_level += 1
+        self.writeline("print(\"\\nProgram interrupted by user.\")")
+        self.indent_level -= 1
+        self.writeline("finally:")
+        self.indent_level += 1
         self.writeline("GPIO.cleanup()")
+        self.indent_level -= 1
 
     #MARK: Device Classes
     def create_btn_class(self):
@@ -295,27 +312,34 @@ class CodeCompiler:
         self.indent_level += 1
         self.writeline("def __init__(self):")
         self.indent_level += 1
-        self.writeline("pass")
-        self.indent_level -= 1
+        self.writeline("self.pin_state = {}")
+        self.writeline("for dev_name, dev_config in Devices_main.items():")
+        self.indent_level += 1
+        self.writeline("if dev_config['type'] == 'Output':")
+        self.indent_level += 1
+        self.writeline("self.pin_state[dev_config['PIN']] = GPIO.LOW")
+        self.indent_level -= 3
         self.writeline("def Toggle_LED(self, pin):")
         self.indent_level += 1
-        self.writeline("if GPIO.input(pin) == GPIO.HIGH:")
+        self.writeline("if pin in self.pin_state and self.pin_state[pin] == GPIO.HIGH:")
         self.indent_level += 1
         self.writeline("GPIO.output(pin, GPIO.LOW)")
+        self.writeline("self.pin_state[pin] = GPIO.LOW")
         self.indent_level -= 1
-        self.writeline("else:")
+        self.writeline("elif pin in self.pin_state and self.pin_state[pin] == GPIO.LOW:")
         self.indent_level += 1
         self.writeline("GPIO.output(pin, GPIO.HIGH)")
+        self.writeline("self.pin_state[pin] = GPIO.HIGH")
         self.indent_level -= 2  # Back to method level
         self.writeline("def Blink_LED(self, pin, duration_ms):")
         self.indent_level += 1
-        self.writeline("if GPIO.input(pin) == GPIO.HIGH:")
+        self.writeline("if pin in self.pin_state and self.pin_state[pin] == GPIO.HIGH:")
         self.indent_level += 1
         self.writeline("GPIO.output(pin, GPIO.LOW)")
         self.writeline("time.sleep(duration_ms / 1000)")
         self.writeline("GPIO.output(pin, GPIO.HIGH)")
         self.indent_level -= 1
-        self.writeline("else:")
+        self.writeline("elif pin in self.pin_state and self.pin_state[pin] == GPIO.LOW:")
         self.indent_level += 1
         self.writeline("GPIO.output(pin, GPIO.HIGH)")
         self.writeline("time.sleep(duration_ms / 1000)")
@@ -329,23 +353,23 @@ class CodeCompiler:
         self.indent_level += 1
         self.writeline("pwm_instance = dev_config['name']")
         self.writeline("current_duty = dev_config.get('CurrentDutyCycle', 0)")
-        self.indent_level -= 3  # Back to method level
+        self.indent_level -= 2  # Back to method level
         self.writeline("if PWM_value < current_duty:")
-        self.indent_level += 1
-        self.writeline("for duty_cycle in range(current_duty, PWM_value + 1):")
-        self.indent_level += 1
-        self.writeline("pwm_instance.ChangeDutyCycle(duty_cycle)")
-        self.writeline("time.sleep(0.05)")
-        self.indent_level -= 2
-        self.writeline("elif PWM_value > current_duty:")
         self.indent_level += 1
         self.writeline("for duty_cycle in range(current_duty, PWM_value - 1, -1):")
         self.indent_level += 1
         self.writeline("pwm_instance.ChangeDutyCycle(duty_cycle)")
         self.writeline("time.sleep(0.05)")
         self.indent_level -= 2
+        self.writeline("elif PWM_value > current_duty:")
+        self.indent_level += 1
+        self.writeline("for duty_cycle in range(current_duty, PWM_value + 1):")
+        self.indent_level += 1
+        self.writeline("pwm_instance.ChangeDutyCycle(duty_cycle)")
+        self.writeline("time.sleep(0.05)")
+        self.indent_level -= 2
         self.writeline("dev_config['CurrentDutyCycle'] = PWM_value")
-        self.indent_level -= 2  # Back to class level
+        self.indent_level -= 2    # Back to class level
 
     #MARK: Helper Methods
     def find_block_by_type(self, block_type):
@@ -363,24 +387,56 @@ class CodeCompiler:
         """Get the block connected to output of current block"""
         print(f"Getting next block from {current_block_id}")
         if self.compiling_what == 'canvas':
+            print(f"Searching in main canvas blocks")
             current_info = Utils.main_canvas['blocks'][current_block_id]
         elif self.compiling_what == 'function':
+            print(f"Searching in function canvas blocks for function {self.compiling_function}")
             current_info = Utils.functions[self.compiling_function]['blocks'][current_block_id]
         
         # Get first out_connection
         if current_info['out_connections']:
-            first_connection_id = current_info['out_connections'][0]
+            print(f"Current block out_connections: {current_info['out_connections']}")
+            for conn_id in current_info['out_connections'].keys():
+                print(f"Checking connection ID: {conn_id}")
+                first_connection_id = conn_id
             
             # Find which block this connection goes to
             if self.compiling_what == 'canvas':
+                print(f"Searching in main canvas blocks")
                 search_infos = Utils.main_canvas['blocks']
             elif self.compiling_what == 'function':
+                print(f"Searching in function canvas blocks for function {self.compiling_function}")
                 search_infos = Utils.functions[self.compiling_function]['blocks']
             for block_id, info in search_infos.items():
                 if first_connection_id in info['in_connections']:
                     print(f"Next block is {block_id}")
                     return block_id
         return None 
+    
+    def get_next_block_from_output(self, current_block_id, output_circle):
+        """Get the block connected to specific output circle of current block"""
+        if self.compiling_what == 'canvas':
+            current_info = Utils.main_canvas['blocks'][current_block_id]
+        elif self.compiling_what == 'function':
+            current_info = Utils.functions[self.compiling_function]['blocks'][current_block_id]
+
+        # Find connection from specified output circle
+        for conn_id in current_info['out_connections'].keys():
+            conn_info = Utils.paths.get(conn_id)
+            if conn_info and conn_info['from_circle_type'] == output_circle:
+                # Find which block this connection goes to
+                print(f"Getting next block from output circle '{output_circle}' of block {current_block_id}")
+                if self.compiling_what == 'canvas':
+                    print(f"Searching in main canvas blocks")
+                    search_infos = Utils.main_canvas['blocks']
+                elif self.compiling_what == 'function':
+                    print(f"Searching in function canvas blocks for function {self.compiling_function}")
+                    search_infos = Utils.functions[self.compiling_function]['blocks']
+                for block_id, info in search_infos.items():
+                    if conn_id in info['in_connections']:
+                        print(f"Next block is {block_id}")
+                        return block_id
+        return None
     
     def resolve_value(self, value_str, value_type):
         """Convert value to actual value - handle variable or literal"""
@@ -467,27 +523,6 @@ class CodeCompiler:
         }
         print(f"Mapped to operator: {operators.get(combo_value, '==')}")
         return operators.get(combo_value, "==")
-
-    def get_next_block_from_output(self, current_block_id, output_circle):
-        """Get the block connected to specific output circle of current block"""
-        if self.compiling_what == 'canvas':
-            current_info = Utils.main_canvas['blocks'][current_block_id]
-        elif self.compiling_what == 'function':
-            current_info = Utils.functions[self.compiling_function]['blocks'][current_block_id]
-
-        # Find connection from specified output circle
-        for conn_id in current_info['out_connections']:
-            conn_info = Utils.paths.get(conn_id)
-            if conn_info and conn_info['from_circle_type'] == output_circle:
-                # Find which block this connection goes to
-                if self.compiling_what == 'canvas':
-                    search_infos = Utils.main_canvas['blocks']
-                elif self.compiling_what == 'function':
-                    search_infos = Utils.functions[self.compiling_function]['blocks']
-                for block_id, info in search_infos.items():
-                    if conn_id in info['in_connections']:
-                        return block_id
-        return None
     
     #MARK: Block Handlers
     def handle_if_block(self, block):
@@ -514,11 +549,11 @@ class CodeCompiler:
     
     def handle_while_block(self, block):
         if block['type'] == 'While_true':
-            #print(f"Handling While true block {block}")
+            print(f"Handling While true block {block}")
             next_id = self.get_next_block(block['id'])
             self.writeline("while True:")
             self.indent_level += 1
-            #print(f"Processing While true branch for While true block")
+            print(f"Processing While true branch for While true block")
             self.process_block(next_id)
             self.indent_level -= 1
             return
@@ -696,12 +731,12 @@ class CodeCompiler:
         DEV_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
         if block['type'] == 'Blink_LED':
             duration = block['duration_ms']
-            self.writeline(f"LED().Blink_LED({DEV_1}, {duration})")
+            self.writeline(f"led.Blink_LED({DEV_1}, {duration})")
         elif block['type'] == 'Toggle_LED':
-            self.writeline(f"LED().Toggle_LED({DEV_1})")
+            self.writeline(f"led.Toggle_LED({DEV_1})")
         elif block['type'] == 'PWM_LED':
             pwm_value = self.resolve_value(block['value_1_name'], block['value_1_type'])
-            self.writeline(f"LED().PWM_LED({DEV_1}, {pwm_value})")
+            self.writeline(f"led.PWM_LED({DEV_1}, {pwm_value})")
         
         next_id = self.get_next_block(block['id'])
         if next_id:
@@ -727,3 +762,4 @@ class CodeCompiler:
         else:
             print("End block reached in canvas - no action needed")
         return
+    

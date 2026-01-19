@@ -2811,7 +2811,7 @@ class MainWindow(QMainWindow):
                                 if dev_id not in Utils.devices['function_canvases'][function_id].keys():
                                     Utils.devices['function_canvases'][function_id][dev_id] = {
                                         'name': '',
-                                        'type': 'Out',
+                                        'type': 'Output',
                                         'widget': None,
                                         'name_imput': None,
                                         'type_input': None,
@@ -2832,7 +2832,7 @@ class MainWindow(QMainWindow):
                         if function_info['canvas'] == canvas_reference:
                             Utils.devices['function_canvases'][function_id][dev_id] = {
                                 'name': '',
-                                'type': 'Out',
+                                'type': 'Output',
                                 'widget': None,
                                 'name_imput': None,
                                 'type_input': None,
@@ -2855,7 +2855,7 @@ class MainWindow(QMainWindow):
         name_imput.textChanged.connect(lambda text, v_id=dev_id, t="Device", r=canvas_reference: self.name_changed(text, v_id, t, r))
         
         type_input = QComboBox()
-        type_input.addItems(["Out", "In", "Button"])
+        type_input.addItems(["Output", "Input", "Button", "PWM"])
         if dev_data and 'type' in dev_data:
             type_input.setCurrentText(dev_data['type'])
             for function_id, function_info in Utils.functions.items():
@@ -3010,7 +3010,7 @@ class MainWindow(QMainWindow):
                 if device_id not in Utils.devices['main_canvas'].keys():
                     Utils.devices['main_canvas'][device_id] = {
                         'name': '',
-                        'type': 'Out',
+                        'type': 'Output',
                         'PIN': '',
                         'widget': None,
                         'name_imput': None,
@@ -3024,7 +3024,7 @@ class MainWindow(QMainWindow):
         else:
             Utils.devices['main_canvas'][device_id] = {
                 'name': '',
-                'type': 'Out',
+                'type': 'Output',
                 'PIN': '',
                 'widget': None,
                 'name_imput': None,

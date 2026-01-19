@@ -5,6 +5,9 @@
 projects/
 autosave/
 compare/
+build/
+dist/
+
 
 # Python cache files
 __pycache__/
@@ -26,3 +29,4 @@ env/
 # OS specific files
 .DS_Store
 Thumbs.db
+File.py
