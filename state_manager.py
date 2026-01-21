@@ -1,5 +1,4 @@
 from Imports import get_State_Machine
-from resources.pyqt6_state_machines import CanvasState
 
 AppStateMachine, CanvasStateMachine = get_State_Machine()
 

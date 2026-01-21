@@ -10,7 +10,7 @@ from Imports import (
     QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication, QSizePolicy,
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
     QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent,
-    QStackedWidget, QSplitter, QIcon
+    QStackedWidget, QSplitter, QIcon, QKeySequence, QShortcut
 )
 import typing
 from PyQt6 import QtGui
@@ -831,7 +831,7 @@ class GridCanvas(QGraphicsView):
     
     def mousePressEvent(self, event):
         """Handle mouse press - check for middle-click panning"""
-        #print(f"[GridCanvas.mousePressEvent] Button: {event.button()}")
+        print(f"[GridCanvas.mousePressEvent] Button: {event.button()}")
         
         # Handle middle-click panning
         if event.button() == Qt.MouseButton.MiddleButton:
@@ -862,7 +862,25 @@ class GridCanvas(QGraphicsView):
                     event.accept()
                     return  # ← Return ONLY if we showed context menu
             # ← If NO menu shown, fall through to super()
-        
+        if event.button() == Qt.MouseButton.LeftButton:
+            print(f"[GridCanvas] Left mouse pressed")
+            if self.path_manager.start_node:
+                items = self.scene.items(self.mapToScene(event.position().toPoint()))
+
+                click_on_block = False
+                for item in items:
+                    if isinstance(item, BlockGraphicsItem):
+                        print(f"[GridCanvas] Completing path to block on mouse press")
+                        click_on_block = True
+                
+                if click_on_block:
+                    pass
+                else:
+                    print(f"[GridCanvas] Adding point to path at mouse press")
+                    scene_pos = self.mapToScene(event.position().toPoint())
+                    self.path_manager.add_point(scene_pos)
+                    event.accept()
+                    return
         # ✅ CRITICAL: Pass all other events to parent so blocks can receive them
         #print(f"[GridCanvas] Passing event to super() for block handling")
         super().mousePressEvent(event)
@@ -887,10 +905,8 @@ class GridCanvas(QGraphicsView):
             # Update preview path as mouse moves
             scene_pos = self.mapToScene(event.position().toPoint())
             self.path_manager.update_preview_path(scene_pos)
-            event.accept()
-        else:
-            # Normal mouse movement
-            super().mouseMoveEvent(event)
+
+        super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
         """Handle mouse release - end panning"""
@@ -1291,7 +1307,7 @@ class MainWindow(QMainWindow):
         self.code_compiler = Code_Compiler()
         self.state_manager = StateManager.get_instance()
         self.path_manager = PathManager(self)
-        self.create_save_shortcut()
+        self.create_shortcuts()
         self.setup_auto_save_timer()
         # Style
         self.setStyleSheet("""
@@ -1371,7 +1387,7 @@ class MainWindow(QMainWindow):
     
     def mousePressEvent(self, event):
         """Debug: Track if main window gets mouse press"""
-        #print("⚠ MainWindow.mousePressEvent fired!")
+        print("⚠ MainWindow.mousePressEvent fired!")
         super().mousePressEvent(event)
     
     def reset_file(self):
@@ -3568,12 +3584,17 @@ class MainWindow(QMainWindow):
     
     # Menu actions
     
-    def create_save_shortcut(self):
+    def create_shortcuts(self):
         """Create Ctrl+S keyboard shortcut for saving"""
-        from PyQt6.QtGui import QKeySequence, QShortcut
         #print("Creating save shortcut (Ctrl+S)")
         save_shortcut = QShortcut(QKeySequence.StandardKey.Save, self)
         save_shortcut.activated.connect(self.on_save_file)
+
+        open_shortcut = QShortcut(QKeySequence.StandardKey.Open, self)
+        open_shortcut.activated.connect(self.on_open_file)
+
+        new_shortcut = QShortcut(QKeySequence.StandardKey.New, self)
+        new_shortcut.activated.connect(self.on_new_file)
     
     def setup_auto_save_timer(self):
         """Setup auto-save timer for every 5 minutes"""
@@ -4786,7 +4807,8 @@ class MainWindow(QMainWindow):
                             path_id=conn_id,
                             parent_canvas=canvas,
                             to_circle_type=conn_data.get("to_circle_type", "in"),
-                            from_circle_type=conn_data.get("from_circle_type", "out")
+                            from_circle_type=conn_data.get("from_circle_type", "out"),
+                            waypoints=conn_data.get("waypoints", [])
                         )
                         canvas.scene.addItem(path_item)
                         # Recreate connection
@@ -4855,7 +4877,8 @@ class MainWindow(QMainWindow):
                                     path_id=conn_id,
                                     parent_canvas=canvas,
                                     to_circle_type=conn_data.get("to_circle_type", "in"),
-                                    from_circle_type=conn_data.get("from_circle_type", "out")
+                                    from_circle_type=conn_data.get("from_circle_type", "out"),
+                                    waypoints=conn_data.get("waypoints", [])
                                 )
                                 canvas.scene.addItem(path_item)
                                 # Recreate connection

@@ -1,23 +1,50 @@
 from Imports import (Qt, QPoint, QLine, QPainter, QPen, QColor, QGraphicsPathItem,
-                     QPointF, QPainterPath)
+                     QPointF, QPainterPath, QGraphicsEllipseItem, QGraphicsItem)
 from Imports import get_utils, get_State_Manager
 
 Utils = get_utils()
 Statemanager = get_State_Manager()
+#MARK: - WaypointHandle
+class WaypointHandle(QGraphicsEllipseItem):
 
+    def __init__(self, x, y, index, parent=None):
+        radius = 5
+        super().__init__(-radius, -radius, radius*2, radius*2)
+        self.setPos(QPointF(x, y))
+        self.setBrush(QColor(255, 0, 0))
+        self.setZValue(1)
+        self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIsMovable, True)
+        #self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemIsSelectable, True)
+        self.setFlag(QGraphicsEllipseItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
+        self.radius = radius
+        self.index = index  # Index of the waypoint in the path's waypoint list
+        self.parent_path = parent  # Reference to the PathGraphicsItem
+
+    def itemChange(self, change, value):
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            new_pos = value
+            print(f" → New position: {new_pos}")
+            self.parent_path.move_waypoint(self.index, new_pos)
+        return super().itemChange(change, value)
+
+#MARK: - PathGraphicsItem
 class PathGraphicsItem(QGraphicsPathItem):
     """Graphics item representing a connection path between blocks"""
     
-    def __init__(self, from_block, to_block, path_id, parent_canvas, to_circle_type, from_circle_type):
+    def __init__(self, from_block, to_block, path_id, parent_canvas, to_circle_type, from_circle_type, waypoints=None):
         super().__init__()
         if from_block == None:
             return
+        self.setAcceptHoverEvents(True)
+        self.setZValue(-1)  # Ensure paths are behind blocks
         self.from_block = from_block
         self.to_block = to_block
         self.path_id = path_id
         self.canvas = parent_canvas
         self.to_circle_type = to_circle_type
         self.from_circle_type = from_circle_type
+        self.waypoints = waypoints
+        self.state_manager = Statemanager.get_instance()
         #print(f"✓ PathGraphicsItem.__init__: {path_id} from {from_block.block_id} to {to_block.block_id}")
         #print(f"   from_circle_type: {from_circle_type}, to_circle_type: {to_circle_type}")
         
@@ -26,42 +53,9 @@ class PathGraphicsItem(QGraphicsPathItem):
         pen.setWidth(2)
         self.setPen(pen)
         
-        self.update_path()
-    
-    def update_path(self):
-        """Recalculate path between blocks"""
-        
-        # Get block positions and sizes
-        from_rect = self.from_block.boundingRect()
-        to_rect = self.to_block.boundingRect()
-        if self.to_circle_type == 'in':
-            to_pos = self.to_block.pos() + QPointF(0, to_rect.height() / 2)
-        elif self.to_circle_type == 'in1':
-            to_pos = self.to_block.pos() + QPointF(0, 3*(to_rect.height() / 4))
-        elif self.to_circle_type == None:
-            to_pos = self.to_block.pos() + QPointF(0, to_rect.height() / 2)
-            
-        if self.from_circle_type == 'out':
-            from_pos = self.from_block.pos() + QPointF(from_rect.width(), from_rect.height() / 2)
-        elif self.from_circle_type == None:
-            from_pos = self.from_block.pos() + QPointF(from_rect.width(), from_rect.height() / 2)
-        elif self.from_circle_type == 'out1':
-            from_pos = self.from_block.pos() + QPointF(from_rect.width(), from_rect.height() / 4)
-        elif self.from_circle_type == 'out2':
-            from_pos = self.from_block.pos() + QPointF(from_rect.width(), 3*(from_rect.height() / 4))
-        #print(f"   from_pos: {from_pos}, to_pos: {to_pos}")
-        # Create orthogonal path
-        path = QPainterPath()
-        path.moveTo(from_pos)
-        
-        mid_x = (from_pos.x() + to_pos.x()) / 2
-        path.lineTo(mid_x, from_pos.y())
-        path.lineTo(mid_x, to_pos.y())
-        path.lineTo(to_pos)
-        
-        self.setPath(path)
+        self.draw_path(self.waypoints)
 
-    def update_preview_path(self, waypoints):
+    def draw_path(self, waypoints):
         """Update path using provided waypoints"""
         path = QPainterPath()
         if not waypoints:
@@ -69,12 +63,68 @@ class PathGraphicsItem(QGraphicsPathItem):
         
         start_point = QPointF(waypoints[0][0], waypoints[0][1])
         path.moveTo(start_point)
-        
+
         for point in waypoints[1:]:
+            print(f"Adding line to point: {point}")
             path.lineTo(QPointF(point[0], point[1]))
         
         self.setPath(path)
+        return path
     
+    def mousePressEvent(self, event):
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        super().mouseReleaseEvent(event)
+
+    def move_waypoint(self, index, new_pos):
+        """Move a specific waypoint to a new position"""
+        if index < 0 or index >= len(self.waypoints):
+            print("⚠ Invalid waypoint index")
+            return
+        print(f"Moving waypoint {index} to {new_pos}")
+        self.waypoints[index] = (new_pos.x(), new_pos.y())
+        self.draw_path(self.waypoints)
+
+    def hoverEnterEvent(self, event):
+        # Change color or show handle when mouse touches block
+        if self.state_manager.canvas_state.current_state() != 'IDLE':
+            return
+        print("Mouse entered block!")
+        pen = QPen(QColor(255, 0, 0))  # Change color on hover
+        pen.setWidth(2)
+        self.setPen(pen)
+        
+        self.draw_path(self.waypoints)
+        self.highlight_waypoints()
+
+        super().hoverEnterEvent(event)
+
+    def hoverLeaveEvent(self, event):
+        # Reset color when mouse leaves
+        print("Mouse left block!")
+        pen = QPen(QColor(31, 83, 141))  # Reset color on hover leave
+        pen.setWidth(2)
+        self.setPen(pen)
+        self.draw_path(self.waypoints)
+        self.remove_waypoint_highlights()
+        super().hoverLeaveEvent(event)
+    
+    def highlight_waypoints(self):
+        """Highlight waypoints for editing"""
+        for point in self.waypoints[1:len(self.waypoints)-1]:
+            point_item = WaypointHandle(point[0], point[1], parent=self, index=self.waypoints.index(point))
+            self.canvas.scene.addItem(point_item)
+    
+    def remove_waypoint_highlights(self):
+        """Remove waypoint highlights"""
+        for item in self.canvas.scene.items():
+            if isinstance(item, WaypointHandle):
+                self.canvas.scene.removeItem(item)
+
 class PathManager:
     """Manages all path connections between blocks"""
     
@@ -84,7 +134,7 @@ class PathManager:
         self.preview_points = []
         self.preview_item = None
         self.state_manager = Statemanager.get_instance()
-    
+    #MARK: - Connection Management
     def start_connection(self, block, circle_center, circle_type):
         """Start a new connection from a block's output circle"""
         #print(f"✓ PathManager.start_connection: {block.block_id} ({circle_type})")
@@ -202,7 +252,8 @@ class PathManager:
                     self.canvas.scene.removeItem(self.preview_item)
                     self.preview_item = None
                     # Create path graphics item
-                    path_item = PathGraphicsItem(from_block, to_block, connection_id, self.canvas, circle_type, self.start_node['circle_type'])
+                    path_item = PathGraphicsItem(from_block, to_block, connection_id, self.canvas, circle_type, self.start_node['circle_type'], waypoints=self.preview_points)
+                    print(f"    Created path item: {path_item}")
                     self.canvas.scene.addItem(path_item)
                     
                     # Store in Utils and scene_paths
@@ -237,8 +288,14 @@ class PathManager:
                             self.canvas.scene.removeItem(self.preview_item)
                             self.preview_item = None
                             # Create path graphics item
-                            path_item = PathGraphicsItem(from_block, to_block, connection_id, self.canvas, circle_type, self.start_node['circle_type'])
-                            self.canvas.scene.addItem(path_item)
+                            path_item = PathGraphicsItem(from_block, to_block, connection_id, self.canvas, circle_type, self.start_node['circle_type'], waypoints=self.preview_points)
+                            print(f"    Created path item: {path_item}")
+                            try:
+                                self.canvas.scene.addItem(path_item)
+                                path_item.draw_path(self.preview_points)
+                                self.canvas.scene.update()
+                            except Exception as e:
+                                print(f"Error adding path item to scene: {e}")
                             
                             # Store in Utils and scene_paths
                             Utils.functions[f_id]['paths'][connection_id] = {
@@ -263,23 +320,35 @@ class PathManager:
         self.state_manager.canvas_state.on_idle()
         self.preview_points = []
         self.start_node = None
-    
+            
+    def add_point(self, pos):
+        """Add a waypoint to the preview path"""
+        if not self.start_node:
+            return
+        
+        self.preview_points.insert(-1, (pos.x(), pos.y()))
+        # Update preview path
+        print(f"Preview points: {self.preview_points}")
+        if self.preview_item:
+            self.preview_item.draw_path(self.preview_points)
+            self.canvas.scene.update()
+
     def update_preview_path(self, mouse_pos):
         """Update preview path as mouse moves"""
         if not self.start_node:
             return
-
+        print(f"✓ PathManager.update_preview_path to {mouse_pos}")
         # Calculate waypoints
-        self.preview_points = self.calculate_grid_path(
-            self.start_node['pos'].x(),
-            self.start_node['pos'].y(),
-            mouse_pos.x(),
-            mouse_pos.y()
-        )
-
+        if not self.preview_points:
+            print(" → Initializing preview points")
+            self.preview_points = [(self.start_node['pos'].x(), self.start_node['pos'].y()), (mouse_pos.x(), mouse_pos.y())]
+        else:
+            print(" → Updating last preview point")
+            self.preview_points[-1] = (mouse_pos.x(), mouse_pos.y())
         # Create/update preview item if needed
         if self.preview_item is None:
             # CREATE an instance with a dummy path first
+            print(" → Creating preview item")
             self.preview_item = PathGraphicsItem(
                 self.start_node['widget'], 
                 self.start_node['widget'],  # temp to_block
@@ -291,36 +360,53 @@ class PathManager:
             self.canvas.scene.addItem(self.preview_item)
 
         # Now update the preview path on the instance
-        self.preview_item.update_preview_path(self.preview_points)
+        self.preview_item.draw_path(self.preview_points)
         self.canvas.scene.update()
 
-    
-    def calculate_grid_path(self, x1, y1, x2, y2):
-        """Calculate orthogonal path points snapped to grid"""
-        waypoints = [(x1, y1)]
-        dx = x2 - x1
-        dy = y2 - y1
-        
-        if abs(dx) >= abs(dy):
-            # Horizontal first
-            mid_x = x1 + dx / 2
-            waypoints.append((mid_x, y1))
-            waypoints.append((mid_x, y2))
-        else:
-            # Vertical first
-            mid_y = y1 + dy / 2
-            waypoints.append((x1, mid_y))
-            waypoints.append((x2, mid_y))
-        
-        waypoints.append((x2, y2))
-        return waypoints
-    
     def update_paths_for_widget(self, widget):
         """Update all paths connected to a widget"""
         
         for path_id, path_item in Utils.scene_paths.items():
-            if path_item.from_block == widget or path_item.to_block == widget:
-                path_item.update_path()
+            if path_item.to_block == widget:
+                print(f"Updating to block path: {path_id}")
+                if self.canvas.reference == 'function':
+                    for f_id, f_info in Utils.functions.items():
+                        if self.canvas == f_info.get('canvas'):
+                            for path_id, path_info in Utils.functions[f_id]['paths'].items():
+                                if path_id == path_item.path_id:
+                                    waypoints = path_info['waypoints']
+                                    print(f"    Pos_x: {path_item.to_block.pos().x()+6}, Pos_y: {path_item.to_block.pos().y()}")
+                                    waypoints[-1] = (path_item.to_block.pos().x()+6, path_item.to_block.pos().y() + path_item.to_block.height / 2)
+                                    print(f" → Found waypoints for path {path_id}: {waypoints}")
+                                    path_item.draw_path(waypoints)
+                elif self.canvas.reference == 'canvas':
+                    for path_id, path_info in Utils.main_canvas['paths'].items():
+                        if path_id == path_item.path_id:
+                            waypoints = path_info['waypoints']
+                            print(f"    Pos_x: {path_item.to_block.pos().x()+6}, Pos_y: {path_item.to_block.pos().y()}")
+                            waypoints[-1] = (path_item.to_block.pos().x()+6, path_item.to_block.pos().y() + path_item.to_block.height / 2)
+                            print(f" → Found waypoints for path {path_id}: {waypoints}")
+                            path_item.draw_path(waypoints)
+            elif path_item.from_block == widget:
+                print(f"Updating from block path: {path_id}")
+                if self.canvas.reference == 'function':
+                    for f_id, f_info in Utils.functions.items():
+                        if self.canvas == f_info.get('canvas'):
+                            for path_id, path_info in Utils.functions[f_id]['paths'].items():
+                                if path_id == path_item.path_id:
+                                    waypoints = path_info['waypoints']
+                                    print(f"    Pos_x: {path_item.from_block.pos().x()+6}, Pos_y: {path_item.from_block.pos().y()}")
+                                    waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + path_item.from_block.height / 2)
+                                    print(f" → Found waypoints for path {path_id}: {waypoints}")
+                                    path_item.draw_path(waypoints)
+                elif self.canvas.reference == 'canvas':
+                    for path_id, path_info in Utils.main_canvas['paths'].items():
+                        if path_id == path_item.path_id:
+                            waypoints = path_info['waypoints']
+                            print(f"    Pos_x: {path_item.from_block.pos().x()+6}, Pos_y: {path_item.from_block.pos().y()}")
+                            waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + path_item.from_block.height / 2)
+                            print(f" → Found waypoints for path {path_id}: {waypoints}")
+                            path_item.draw_path(waypoints)
     
     def remove_paths_for_block(self, block_id):
         """Remove all paths connected to a block"""
@@ -356,3 +442,4 @@ class PathManager:
         for path_id in list(Utils.scene_paths.keys()):
             self.remove_path(path_id)
         Utils.paths.clear()
+        

@@ -20,7 +20,7 @@ class BlockSignals(QObject):
     input_clicked = pyqtSignal(object, QPointF, str)  # block, center, type
     output_clicked = pyqtSignal(object, QPointF, str)  # block, center, type
 
-
+#MARK: - BlockGraphicsItem
 class BlockGraphicsItem(QGraphicsItem, QObject):
     """Graphics item representing a block - renders with QPainter for perfect zoom quality"""
 
@@ -36,6 +36,8 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         else:
             self.main_window = QApplication.instance().activeWindow()
         #print(f"Main window in BlockGraphicsItem: {self.main_window}")
+        self.border_color = QColor("black")
+
         self.block_id = block_id
         self.block_type = block_type
         self.canvas = parent_canvas
@@ -62,7 +64,6 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         # Set position
         self.setPos(x, y)
         
-        # Make draggable and selectable
         self.setAcceptHoverEvents(True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
@@ -144,6 +145,8 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         
+        self._calculate_width_from_text(painter)
+
         # Draw main block body
         self._draw_block_body(painter)
         
@@ -153,13 +156,62 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         # Draw connection circles
         self._draw_connection_circles(painter)
 
+    def _calculate_width_from_text(self, painter):
+        """Calculate required width based on text content"""
+        font = QFont("Arial", 8, QFont.Weight.Normal)
+        painter.setFont(font)
+        metrics = painter.fontMetrics()
+        
+        text_to_measure = ""
+        
+        # --- Determine the text string exactly as you do in _draw_text ---
+        if self.block_type in ["If", "While"]:
+            text_to_measure = f"{self.value_1_name} {self.operator} {self.value_2_name}"
+        elif self.block_type == "Timer":
+            text_to_measure = f"Wait {self.sleep_time} ms"
+        elif self.block_type == "Switch":
+            text_to_measure = f"{self.value_1_name}"
+        elif self.block_type == "Button":
+            text_to_measure = f"{self.value_1_name}"
+        elif self.block_type in ["Basic_operations", "Exponential_operations", "Random_number"]:
+            text_to_measure = f"{self.result_var_name} = {self.value_1_name} {self.operator} {self.value_2_name}"
+        elif self.block_type == "Blink_LED":
+            text_to_measure = f"{self.value_1_name} - {self.sleep_time} ms"
+        elif self.block_type == "PWM_LED":
+            text_to_measure = f"{self.value_1_name} - {self.PWM_value}"
+        elif self.block_type == "Toggle_LED":
+            text_to_measure = f"{self.value_1_name}"
+        elif self.block_type == "Function":
+             # Function blocks calculate height in _setup_dimensions, but here we check width
+             longest_line = metrics.horizontalAdvance(self.name)
+             
+             # Check variables
+             if self.canvas_id in Utils.variables['function_canvases']:
+                 for v in Utils.variables['function_canvases'][self.canvas_id].values():
+                     w = metrics.horizontalAdvance(v['name'])
+                     if w > longest_line: longest_line = w
+                     
+             # Check devices
+             if self.canvas_id in Utils.devices['function_canvases']:
+                 for d in Utils.devices['function_canvases'][self.canvas_id].values():
+                     w = metrics.horizontalAdvance(d['name'])
+                     if w > longest_line: longest_line = w
+             
+             text_to_measure = " " * int(longest_line / metrics.averageCharWidth()) # Approximate for below logic
+
+        # --- Update Width ---
+        if text_to_measure:
+            text_width = metrics.horizontalAdvance(text_to_measure)
+
+            self.width = max(self.width, text_width) + 20
+
     def _draw_block_body(self, painter):
         """Draw the main rounded rectangle body"""
         color = self._get_block_color()
         
         # Draw filled rounded rectangle
         painter.setBrush(QBrush(color))
-        painter.setPen(QPen(QColor("black"), self.border_width))
+        painter.setPen(QPen(self.border_color, self.border_width))
         
         # Main body rectangle
         body_rect = QRectF(self.radius, 0, self.width, self.height)
@@ -169,14 +221,13 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         """Draw block label text"""
         #print("Drawing text for block:", self.block_type)
         painter.setPen(QPen(QColor("black")))
-        font = QFont("Arial", 10, QFont.Weight.Normal)
+        font = QFont("Arial", 8, QFont.Weight.Normal)
         painter.setFont(font)
         
         # Determine text
         text = self.block_type
-        
         # Draw text centered
-        if self.block_type in ["If", "While", "Switch"]:
+        if self.block_type in ["If", "While", "Button"]:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter, text)
             text_rect2 = QRectF(self.radius, 0, self.width, self.height)
@@ -184,18 +235,20 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
                 condition_text = f"{self.value_1_name} {self.operator} {self.value_2_name}"
             elif self.block_type == "While":
                 condition_text = f"{self.value_1_name} {self.operator} {self.value_2_name}"
-            elif self.block_type == "Switch":
+            elif self.block_type == "Button":
                 condition_text = f"{self.value_1_name}"
+            len = painter.fontMetrics().boundingRect(condition_text).width()
             painter.drawText(text_rect2, Qt.AlignmentFlag.AlignCenter, condition_text)
         elif self.block_type == "Timer":
             text_rect = QRectF(self.radius, 0, self.width, self.height)
             timer_text = f"Wait {self.sleep_time} ms"
+            len = painter.fontMetrics().boundingRect(timer_text).width()
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, timer_text)
         elif self.block_type == "Button":
             ON_rect = QRectF(self.radius, 5, self.width-10, self.height)
             OFF_rect = QRectF(self.radius, 0, self.width-10, self.height-5)
             device_text = f"{self.value_1_name}"
-            
+            len = painter.fontMetrics().boundingRect(device_text).width()
             painter.drawText(QRectF(self.radius+5, 5, self.width, self.height), Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeading, text)
             painter.drawText(QRectF(self.radius, 0, self.width, self.height), Qt.AlignmentFlag.AlignCenter, device_text)
             painter.drawText(ON_rect, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight, "ON")
@@ -209,19 +262,28 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             small_font = QFont("Arial", 8)
             painter.setFont(small_font)
             y_offset = 20
+            longest = 0
             for v_id, v_info in Utils.variables['function_canvases'][self.canvas_id].items():
                 #print(f"   Drawing variable: {v_info['name']}")
                 var_text = f"{v_info['name']}"
                 var_rect = QRectF(self.radius + 10, y_offset, self.width - 20, 15)
+                current_len = painter.fontMetrics().boundingRect(var_text).width()
+                if current_len > longest:
+                    longest = current_len
                 painter.drawText(var_rect, Qt.AlignmentFlag.AlignLeft, var_text)
                 y_offset += 20
+            len += longest
             y_offset = 20
             for d_id, d_info in Utils.devices['function_canvases'][self.canvas_id].items():
                 #print(f"   Drawing device: {d_info['name']}")
                 dev_text = f"{d_info['name']}"
                 dev_rect = QRectF(self.radius + 10, y_offset, self.width - 20, 15)
+                current_len = painter.fontMetrics().boundingRect(dev_text).width()
+                if current_len > longest:
+                    longest = current_len
                 painter.drawText(dev_rect, Qt.AlignmentFlag.AlignRight, dev_text)
                 y_offset += 20
+            len += longest
 
         elif self.block_type == "Switch":
             small_font = QFont("Arial", 8)
@@ -229,6 +291,11 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             #print(f"Drawing Switch labels, state: {self.switch_state}")
             #print(f"Current block data: {Utils.main_canvas['blocks'].get(self.block_id, {})}")
             
+            dev_text = f"{self.value_1_name}"
+            dev_rect = QRectF(self.radius, 0, self.width, self.height)
+            len = painter.fontMetrics().boundingRect(dev_text).width()
+            painter.drawText(dev_rect, Qt.AlignmentFlag.AlignCenter, dev_text)
+
             on_rect = QRectF(self.radius + self.width - 35, self.height / 2 - 5, 30, 10)
             on_color = QColor("Green") if self.switch_state else QColor("Gray")
             painter.setPen(QPen(on_color))
@@ -242,21 +309,26 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         elif self.block_type in ["Basic_operations", "Exponential_operations", "Random_number"]:
             math_text = f"{self.result_var_name} = {self.value_1_name} {self.operator} {self.value_2_name}"
             math_rect = QRectF(self.radius, 0, self.width, self.height)
+            len = painter.fontMetrics().boundingRect(math_text).width()
             painter.drawText(math_rect, Qt.AlignmentFlag.AlignCenter, math_text)
         elif self.block_type in ["Toggle_LED",]:
             device_text = f"{self.value_1_name}"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
+            len = painter.fontMetrics().boundingRect(device_text).width()
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
         elif self.block_type in ["Blink_LED"]:
             device_text = f"{self.value_1_name} - {self.sleep_time} ms"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
+            len = painter.fontMetrics().boundingRect(device_text).width()
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
         elif self.block_type in ["PWM_LED"]:
             device_text = f"{self.value_1_name} - {self.PWM_value}"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
+            len = painter.fontMetrics().boundingRect(device_text).width()
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
         else:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
+            len = painter.fontMetrics().boundingRect(text).width()
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
 
     def _draw_connection_circles(self, painter):
@@ -297,7 +369,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
                                    out_y - self.radius, 2*self.radius, 2*self.radius)
                 painter.setBrush(QBrush(QColor("red")))
                 painter.drawEllipse(out_circle)
-
+    #MARK: - Event Handling
     def connect_graphics_signals(self):
         """Connect graphics item circle click signals to event handler"""
         #print(f"        Self: {self}")
@@ -340,6 +412,9 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             if self.state_manager.canvas_state.on_moving_item():
                 #print(f"Block {self.block_id} moved to {value}")
+                print(f"Z value before move: {self.zValue()}")
+                self.setZValue(1)  # Bring to front while moving
+                print(f"Z value {self.zValue()} set for moving block {self.block_id}")
                 pos = self.pos()
                 if self.canvas.reference == 'canvas':
                     if self.block_id in Utils.main_canvas['blocks']:
@@ -361,27 +436,30 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
                         self.main_window.update_pos(self.canvas.last_inspector_block)
         
         return super().itemChange(change, value)
-
+    #MARK: - Mouse Events
     def mousePressEvent(self, event):
         """Handle block selection and circle clicks"""
         self.setSelected(True)
         local_pos = event.pos()
         circle_type = self._check_click_on_circle(local_pos)
         
-        #print(f"Mouse press at {local_pos}, detected circle: {circle_type}")
+        print(f"Mouse press at {local_pos}, detected circle: {circle_type}")
         
-        if circle_type:
-            circle_center = self._get_circle_center(circle_type)
-            if isinstance(circle_center, tuple):
-                circle_center = QPointF(circle_center[0], circle_center[1])
-            
-            if circle_type.startswith('in'):
-                print(f" → Input circle clicked: {circle_type} at {circle_center}")
-                self.signals.input_clicked.emit(self, circle_center, circle_type)
-            elif circle_type.startswith('out'):
-                print(f" → Output circle clicked: {circle_type} at {circle_center}")
-                self.signals.output_clicked.emit(self, circle_center, circle_type)
-        
+        if event.button() == Qt.MouseButton.LeftButton:
+            if circle_type:
+                circle_center = self._get_circle_center(circle_type)
+                if isinstance(circle_center, tuple):
+                    circle_center = QPointF(circle_center[0], circle_center[1])
+                
+                if circle_type.startswith('in'):
+                    print(f" → Input circle clicked: {circle_type} at {circle_center}")
+                    self.signals.input_clicked.emit(self, circle_center, circle_type)
+                elif circle_type.startswith('out'):
+                    print(f" → Output circle clicked: {circle_type} at {circle_center}")
+                    self.signals.output_clicked.emit(self, circle_center, circle_type)
+                self.ungrabMouse()
+                event.accept()
+                return  # Prevent further processing if circle clicked
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
@@ -390,9 +468,28 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         print("Current state before release:", self.state_manager.canvas_state.current_state())
         if self.state_manager.canvas_state.current_state() == 'MOVING_ITEM':
             print("Setting state to IDLE after move")
+            self.setZValue(0)  # Reset Z value after moving
             self.state_manager.canvas_state.on_idle()
         super().mouseReleaseEvent(event)
+    
+    #MARK: - Hover Events
+    def hoverEnterEvent(self, event):
+        # Change color or show handle when mouse touches block
+        print("Mouse entered block!")
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
+        self.border_color = QColor("blue")
+        self.update()
+        super().hoverEnterEvent(event)
 
+    def hoverLeaveEvent(self, event):
+        # Reset color when mouse leaves
+        print("Mouse left block!")
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.border_color = QColor("black")
+        self.update()
+        super().hoverLeaveEvent(event)
+
+    #MARK: - Circle Detection
     def _get_circle_center(self, circle_type):
         """Get circle center in scene coordinates"""
         radius = self.radius
@@ -468,6 +565,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         
         return None
     
+#MARK: - spawning_elements
 class spawning_elements:
     """Handles spawning and placing elements on the canvas"""
     def __init__(self, parent, elements_window=None):
@@ -543,7 +641,7 @@ class spawning_elements:
             self.elements_window.is_hidden = True
             self.elements_window.open()
 
-
+#MARK: - Elements_events
 class Elements_events(QObject):
     """Centralized event handler for block interactions"""
     def __init__(self, canvas):
@@ -574,7 +672,7 @@ class Elements_events(QObject):
                 print("Adding path...")
                 self.path_manager.start_connection(block, circle_center, circle_type)
 
-
+#MARK: - Element_spawn
 class Element_spawn:
     """Spawns visual elements"""
     height = 36
