@@ -1,4 +1,4 @@
-from Imports import (QWidget, QLabel, QLineEdit,
+from Imports import (QWidget, QLabel, QLineEdit, math,
 QComboBox, QApplication, QStyleOptionComboBox,
 pyqtProperty, QEasingCurve, QRectF,
 Qt, QPoint, QPropertyAnimation, QRect,
@@ -43,6 +43,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         self.canvas = parent_canvas
         self.canvas_id = None
         self.name = name
+        self.grid_size = 25
         #print(f"self.canvas: {self.canvas}, self.block_id: {self.block_id}, self.block_type: {self.block_type}, self.x: {x}, self.y: {y}, self.name: {self.name}")
         self.value_1_name = "N"
         if self.block_type == "Basic_operations":
@@ -84,7 +85,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             self.height = 54
         elif self.block_type in ["Timer","Basic_operations", "Exponential_operations",
                                 "Random_number", "Blink_LED", "PWM_LED"]:
-            self.width = 140
+            self.width = 150
             self.height = 36
         elif self.block_type in [ "Start", "End", "While_true", "Toggle_LED"]:
             self.width = 100
@@ -105,12 +106,18 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
                 count = v_count
             else:
                 count = d_count
-            self.width = 140
+            self.width = 150
             self.height = 15 + (count * 20)
         else:  #Fallback for other blocks
             print(f"[Warning] Unknown block type '{self.block_type}', using default dimensions.")
             self.width = 100
             self.height = 36
+
+    def _calculate_dimensions(self, painter):
+        """Recalculate block dimensions based on current properties"""
+        self._setup_dimensions()
+        self._calculate_width_from_text(painter)
+        self.prepareGeometryChange()
 
     def _get_block_color(self):
         """Get color for block type"""
@@ -140,12 +147,10 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
     def paint(self, painter, option, widget):
         """Paint the block using QPainter"""
 
-        self._setup_dimensions()
-
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         
-        self._calculate_width_from_text(painter)
+        self._calculate_dimensions(painter)
 
         # Draw main block body
         self._draw_block_body(painter)
@@ -203,7 +208,9 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         if text_to_measure:
             text_width = metrics.horizontalAdvance(text_to_measure)
 
-            self.width = max(self.width, text_width) + 20
+            text_width = (math.ceil(text_width/self.grid_size)*self.grid_size)+25
+            #print(f"Calculated text width for block '{self.block_id}' ({self.block_type}): {text_width}")
+            self.width = max(self.width, text_width)
 
     def _draw_block_body(self, painter):
         """Draw the main rounded rectangle body"""
@@ -407,30 +414,82 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
                 except Exception as e:
                     print(f"Error connecting signals for {self.block_id}: {e}")
 
+    def snap_to_grid(self, x, y):
+        #Snap coordinates to the nearest grid intersection
+        
+        height = self.height     
+        grid_height = (round(height/self.grid_size))*self.grid_size
+        #print(f"Widget height: {height}, Calculated grid height: {grid_height}")
+        if height > grid_height:
+            #print("Increasing grid height by one grid size")
+            grid_height += self.grid_size
+        elif height < self.grid_size:
+            #print("Height less than grid size, setting to grid size")
+            grid_height += self.grid_size
+        if height == self.grid_size:
+            #print("Height equals grid size, centering")
+            height_offset = grid_height/2
+        else:
+            #print("Calculating height offset")
+            height_offset = (grid_height - height)/2
+        #print(f"Height: {height}, Grid height: {grid_height}, Height offset: {height_offset}")
+        """round_x = round(x / self.grid_size)
+        round_y = round(y / self.grid_size) 
+        Grid_rounded_x = (round_x * self.grid_size)
+        Grid_rounded_y = (round_y * self.grid_size)
+        Grid_rounded_y_height_offset = Grid_rounded_y + height_offset
+        snapped_x = int(Grid_rounded_x)
+        snapped_y = int(Grid_rounded_y_height_offset)
+        print(f"snapped before adjustment: {snapped_x}, {snapped_y}")
+        print(f"Differences: {abs(x - snapped_x)}, {abs(y - snapped_y)}")"""
+        
+            
+        snapped_x = int(round(x / self.grid_size) * self.grid_size - self.radius)
+        snapped_y = int((round(y / self.grid_size) * self.grid_size)+ height_offset)
+        if (abs(y - snapped_y)) > (self.grid_size/2):
+            #print("Adjusting snapped_y upwards")
+            snapped_y = int(snapped_y - self.grid_size)
+        """print(f"Original {x}, {y}") 
+        print(f"Rounded {round_x}, {round_y}")
+        print(f"Grid {Grid_rounded_x, Grid_rounded_y}")
+        print(f"Grid + height_offset {Grid_rounded_y_height_offset}")
+        print(f"Snapped {snapped_x}, {snapped_y}")"""
+        return snapped_x, snapped_y
+
     def itemChange(self, change, value):
         """Handle position/selection changes"""
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
+            # Snap to grid on move
+            new_pos = value
+            snapped_x, snapped_y = self.snap_to_grid(new_pos.x(), new_pos.y())
+            return QPointF(snapped_x, snapped_y)
+
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             if self.state_manager.canvas_state.on_moving_item():
                 #print(f"Block {self.block_id} moved to {value}")
-                print(f"Z value before move: {self.zValue()}")
+                #print(f"Z value before move: {self.zValue()}")
                 self.setZValue(1)  # Bring to front while moving
-                print(f"Z value {self.zValue()} set for moving block {self.block_id}")
+                #print(f"Z value {self.zValue()} set for moving block {self.block_id}")
                 pos = self.pos()
+                pos_x = pos.x()
+                pos_y = pos.y()
                 if self.canvas.reference == 'canvas':
                     if self.block_id in Utils.main_canvas['blocks']:
-                        Utils.main_canvas['blocks'][self.block_id]['x'] = pos.x()
-                        Utils.main_canvas['blocks'][self.block_id]['y'] = pos.y()
+                        Utils.main_canvas['blocks'][self.block_id]['x'] = pos_x
+                        Utils.main_canvas['blocks'][self.block_id]['y'] = pos_y
                 else:
                     for f_id, f_info in Utils.functions.items():
                         if self.canvas == f_info.get('canvas'):
                             if self.block_id in f_info['blocks']:
-                                f_info['blocks'][self.block_id]['x'] = pos.x()
-                                f_info['blocks'][self.block_id]['y'] = pos.y()
+                                f_info['blocks'][self.block_id]['x'] = pos_x
+                                f_info['blocks'][self.block_id]['y'] = pos_y
                                 break
                 
                 # Update connected paths
                 if hasattr(self.canvas, 'path_manager'):
                     self.canvas.path_manager.update_paths_for_widget(self)
+                
+
                 if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
                     if self.canvas.last_inspector_block and self.canvas.last_inspector_block.block_id == self.block_id:
                         self.main_window.update_pos(self.canvas.last_inspector_block)

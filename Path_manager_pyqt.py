@@ -21,8 +21,16 @@ class WaypointHandle(QGraphicsEllipseItem):
         self.parent_path = parent  # Reference to the PathGraphicsItem
 
     def itemChange(self, change, value):
-        if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionChange and self.scene():
+            # Snap to grid on move
             new_pos = value
+            grid_size = 25 
+            snapped_x = round(new_pos.x() / grid_size) * grid_size
+            snapped_y = round(new_pos.y() / grid_size) * grid_size
+            return QPointF(snapped_x, snapped_y)
+
+        if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
+            new_pos = self.pos()
             print(f" → New position: {new_pos}")
             self.parent_path.move_waypoint(self.index, new_pos)
         return super().itemChange(change, value)
@@ -344,7 +352,10 @@ class PathManager:
             self.preview_points = [(self.start_node['pos'].x(), self.start_node['pos'].y()), (mouse_pos.x(), mouse_pos.y())]
         else:
             print(" → Updating last preview point")
-            self.preview_points[-1] = (mouse_pos.x(), mouse_pos.y())
+            grid_size = 25
+            snapped_x = round(mouse_pos.x() / grid_size) * grid_size
+            snapped_y = round(mouse_pos.y() / grid_size) * grid_size
+            self.preview_points[-1] = (snapped_x, snapped_y)
         # Create/update preview item if needed
         if self.preview_item is None:
             # CREATE an instance with a dummy path first

@@ -4879,7 +4879,7 @@ class MainWindow(QMainWindow):
                                     to_circle_type=conn_data.get("to_circle_type", "in"),
                                     from_circle_type=conn_data.get("from_circle_type", "out"),
                                     waypoints=conn_data.get("waypoints", [])
-                                )1
+                                )
                                 canvas.scene.addItem(path_item)
                                 # Recreate connection
                                 Utils.functions[function_id]['paths'][conn_id] = {
