@@ -108,6 +108,11 @@ def get_CodeViewer_Window():
     """Lazy import CodeViewerWindow - avoid circular import"""
     from Code_view_window import CodeViewerWindow
     return CodeViewerWindow
+
+def get_Translation_Manager():
+    """Lazy import TranslationManager - avoid circular import"""
+    from Translation_manager import TranslationManager
+    return TranslationManager
 # ============================================================================
 # LAZY IMPORTS (Imported only when needed to avoid circular deps)
 # ============================================================================

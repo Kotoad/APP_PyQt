@@ -20,6 +20,8 @@ class AppSettings:
         self.rpi_model_name = ""
         self.rpi_os = ""
         self.auto_detected = False
+        self.language = "en"  # Default language
+        self.available_languages = ['en', 'cz']  # Populated from TranslationManager
     
     def to_dict(self):
         return {
@@ -29,7 +31,9 @@ class AppSettings:
             'rpi_user': self.rpi_user,
             'rpi_password': self.rpi_password,
             'use_ssh_key': self.use_ssh_key,
-            'ssh_key_path': self.ssh_key_path
+            'ssh_key_path': self.ssh_key_path,
+            'language': self.language,
+            #'available_languages': self.available_languages
         }
     
     @classmethod
@@ -42,4 +46,6 @@ class AppSettings:
         s.rpi_password = data.get('rpi_password', '')
         s.use_ssh_key = data.get('use_ssh_key', True)
         s.ssh_key_path = data.get('ssh_key_path', '~/.ssh/id_rsa')
+        s.language = data.get('language', 'en')
+        #s.available_languages = data.get('available_languages', ['en', 'cz'])
         return s

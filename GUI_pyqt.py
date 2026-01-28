@@ -17,7 +17,7 @@ from PyQt6 import QtGui
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
     get_file_manager, get_path_manager, get_Elements_Window, get_utils,
-    get_Help_Window, get_State_Manager, get_CodeViewer_Window
+    get_Help_Window, get_State_Manager, get_CodeViewer_Window, get_Translation_Manager
 )
 Utils = get_utils()
 Code_Compiler = get_code_compiler()
@@ -32,6 +32,7 @@ ElementsWindow = get_Elements_Window()
 HelpWindow = get_Help_Window()
 StateManager = get_State_Manager()
 CodeViewerWindow = get_CodeViewer_Window()
+TranslationManager = get_Translation_Manager()
     
 #MARK: - RPiExecutionThread
 class RPiExecutionThread(QThread):
@@ -726,7 +727,6 @@ class GridCanvas(QGraphicsView):
         self.state_manager = StateManager.get_instance()
         self.path_manager = PathManager(self)
         self.elements_events = elementevents(self)
-        self.file_manager = FileManager()
         
         # Create graphics scene
         self.scene = GridScene(grid_size=grid_size)  # ✅ Use custom scene
@@ -1301,14 +1301,21 @@ class MainWindow(QMainWindow):
         
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Visual Programming Interface")
-        self.setWindowIcon(QIcon('resources/images/APPicon.ico'))
-        self.resize(1200, 800)
+        
+        FileManager.load_app_settings()
         self.code_compiler = Code_Compiler()
         self.state_manager = StateManager.get_instance()
+        self.translation_manager = TranslationManager.get_instance()
+        self.t = self.translation_manager.translate
         self.path_manager = PathManager(self)
+
+        self.setWindowTitle(self.t("_metadata.app_title"))
+        self.setWindowIcon(QIcon('resources/images/APPicon.ico'))
+        self.resize(1200, 800)
+
         self.create_shortcuts()
         self.setup_auto_save_timer()
+        
         # Style
         self.setStyleSheet("""
             QMainWindow {

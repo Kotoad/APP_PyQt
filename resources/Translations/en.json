@@ -1,0 +1,102 @@
+{
+  "_metadata": {
+    "language_name": "English",
+    "version": "1.0",
+    "app_title": "Visual Programming Interface"
+  },
+  "menu": {
+    "file": "File",
+    "new": "New",
+    "open": "Open",
+    "save": "Save",
+    "save_as": "Save As",
+    "exit": "Exit",
+    "edit": "Edit",
+    "view": "View",
+    "show_canvas": "Show Canvas",
+    "show_variables": "Show Variables",
+    "show_devices": "Show Devices",
+    "settings": "Settings",
+    "help": "Help",
+    "get_started": "Get Started",
+    "examples": "Examples",
+    "faq": "FAQ",
+    "compile": "Compile",
+    "compile_code": "Compile Code",
+    "view_code": "View Generated Code"
+  },
+  "toolbar": {
+    "save": "Save",
+    "open": "Open",
+    "new": "New",
+    "add_block": "Add Block",
+    "settings": "Settings",
+    "compile_upload": "Compile and Upload",
+    "run": "Run",
+    "stop": "Stop Execution"
+  },
+  "sidebar": {
+    "variables": "Variables",
+    "devices": "Devices",
+    "add_variable": "Add Variable",
+    "add_device": "Add Device",
+    "add_internal_var": "Add Internal Variable",
+    "add_internal_dev": "Add Internal Device",
+    "internal_variables": "Internal Variables",
+    "new_canvas": "New Canvas"
+  },
+  "inspector": {
+    "title": "Inspector",
+    "position": "Position",
+    "size": "Size",
+    "interval_ms": "Interval ms",
+    "value_1_name": "Value 1 Name",
+    "operator": "Operator",
+    "value_2_name": "Value 2 Name",
+    "value_name": "Value Name",
+    "led_device_name": "LED Device Name",
+    "pwm_value": "PWM Value 0-255",
+    "first_variable": "First Variable Name",
+    "second_variable": "Second Variable Name",
+    "result_variable": "Result Variable Name",
+    "input_variables": "Input Variables",
+    "input_devices": "Input Devices",
+    "blink_interval_ms": "Blink Interval ms"
+  },
+  "settings": {
+    "window_title": "Settings",
+    "device": "Device Settings",
+    "rpi_model": "Select your RPI model",
+    "rpi_host": "Raspberry Pi Host",
+    "rpi_user": "Username",
+    "rpi_password": "Password",
+    "language": "Language",
+    "rpi_connection": "Raspberry Pi Connection",
+    "auto_detect": "Auto-Detect Raspberry Pi",
+    "manual": "Or enter manually",
+    "status": "Status",
+    "status_not_connected": "Status: Not connected",
+    "additional_settings": "Additional Settings"
+  },
+  "dialogs": {
+    "save_project": "Save Project?",
+    "unsaved_changes": "Do you want to save changes to {name} before closing?",
+    "compiling": "Compiling...",
+    "compilation_message": "Compiling your code and preparing upload...",
+    "execution_started": "Execution Started",
+    "execution_message": "Code is being executed on your Raspberry Pi. Check the status messages for updates.",
+    "compilation_error": "Compilation Error",
+    "success": "Success",
+    "success_message": "Code compiled, executed, and uploaded successfully!",
+    "new_canvas": "New Canvas",
+    "enter_canvas_name": "Enter name for new canvas"
+  },
+  "messages": {
+    "status_not_connected": "Status: Not connected",
+    "status_connected": "Connected!",
+    "status_error": "Status: Error during detection",
+    "no_pi_found": "No Pi detected",
+    "position": "Position {x}, {y}",
+    "size": "Size {width} x {height}"
+  }
+}

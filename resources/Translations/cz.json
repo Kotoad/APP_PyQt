@@ -1,0 +1,102 @@
+{
+  "_metadata": {
+    "language_name": "Čeština",
+    "version": "1.0",
+    "app_title": "Visualní programovací rozhraní"
+  },
+  "menu": {
+    "file": "Soubor",
+    "new": "Nový",
+    "open": "Otevřít",
+    "save": "Uložit",
+    "save_as": "Uložit jako",
+    "exit": "Ukončit",
+    "edit": "Úpravy",
+    "view": "Zobrazit",
+    "show_canvas": "Zobrazit plátno",
+    "show_variables": "Zobrazit proměnné",
+    "show_devices": "Zobrazit zařízení",
+    "settings": "Nastavení",
+    "help": "Nápověda",
+    "get_started": "Začínáme",
+    "examples": "Příklady",
+    "faq": "Často kladené otázky",
+    "compile": "Kompilace",
+    "compile_code": "Kompilovat kód",
+    "view_code": "Zobrazit vygenerovaný kód"
+  },
+  "toolbar": {
+    "save": "Uložit",
+    "open": "Otevřít",
+    "new": "Nový",
+    "add_block": "Přidat blok",
+    "settings": "Nastavení",
+    "compile_upload": "Kompilovat a nahrát",
+    "run": "Spustit",
+    "stop": "Zastavit provádění"
+  },
+  "sidebar": {
+    "variables": "Proměnné",
+    "devices": "Zařízení",
+    "add_variable": "Přidat proměnnou",
+    "add_device": "Přidat zařízení",
+    "add_internal_var": "Přidat interní proměnnou",
+    "add_internal_dev": "Přidat interní zařízení",
+    "internal_variables": "Interní proměnné",
+    "new_canvas": "Nové plátno"
+  },
+  "inspector": {
+    "title": "Inspektor",
+    "position": "Pozice",
+    "size": "Velikost",
+    "interval_ms": "Interval ms",
+    "value_1_name": "Název hodnoty 1",
+    "operator": "Operátor",
+    "value_2_name": "Název hodnoty 2",
+    "value_name": "Název hodnoty",
+    "led_device_name": "Název LED zařízení",
+    "pwm_value": "Hodnota PWM 0-255",
+    "first_variable": "Název první proměnné",
+    "second_variable": "Název druhé proměnné",
+    "result_variable": "Název výsledné proměnné",
+    "input_variables": "Vstupní proměnné",
+    "input_devices": "Vstupní zařízení",
+    "blink_interval_ms": "Interval blikání ms"
+  },
+  "settings": {
+    "window_title": "Nastavení",
+    "device": "Nastavení zařízení",
+    "rpi_model": "Vyberte svůj RPI model",
+    "rpi_host": "Hostitel Raspberry Pi",
+    "rpi_user": "Uživatelské jméno",
+    "rpi_password": "Heslo",
+    "language": "Jazyk",
+    "rpi_connection": "Připojení Raspberry Pi",
+    "auto_detect": "Automaticky detekovat Raspberry Pi",
+    "manual": "Nebo zadejte ručně",
+    "status": "Stav",
+    "status_not_connected": "Stav: Nepřipojeno",
+    "additional_settings": "Další nastavení"
+  },
+  "dialogs": {
+    "save_project": "Uložit projekt?",
+    "unsaved_changes": "Chcete uložit změny projektu {name} před zavřením?",
+    "compiling": "Kompilování...",
+    "compilation_message": "Kompilování kódu a příprava nahrávání...",
+    "execution_started": "Spuštění zahájeno",
+    "execution_message": "Kód se spouští na vašem Raspberry Pi. Podívejte se na stavové zprávy pro aktualizace.",
+    "compilation_error": "Chyba kompilace",
+    "success": "Úspěch",
+    "success_message": "Kód byl úspěšně zkompilován, spuštěn a nahrán!",
+    "new_canvas": "Nové plátno",
+    "enter_canvas_name": "Zadejte název nového plátna"
+  },
+  "messages": {
+    "status_not_connected": "Stav: Nepřipojeno",
+    "status_connected": "Připojeno!",
+    "status_error": "Stav: Chyba během detekce",
+    "no_pi_found": "Pi nebyla nalezena",
+    "position": "Pozice {x}, {y}",
+    "size": "Velikost {width} x {height}"
+  }
+}

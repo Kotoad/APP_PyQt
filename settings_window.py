@@ -1,13 +1,14 @@
 from operator import index
-from Imports import get_utils, get_State_Manager
+from Imports import get_utils, get_State_Manager, get_Translation_Manager
 Utils = get_utils()
 from Imports import (QDialog, QVBoxLayout, QLabel, QTabWidget, QWidget, QMessageBox, QPushButton, QHBoxLayout,
 QComboBox, Qt, QEvent, QFont, QMouseEvent, json, QLineEdit, QApplication, QProgressDialog,
-QObject, pyqtSignal)
+QObject, pyqtSignal, QTimer, sys, os, subprocess)
 # Add to your existing imports
 from rpi_autodiscovery import RPiAutoDiscovery, RPiConnectionWizard
 
 StateManager = get_State_Manager()
+TranslationManager = get_Translation_Manager()
 
 models = ["RPI pico/pico W", "RPI zero/zero W", "RPI 2 zero W", "RPI 1 model B/B+", "RPI 2 model B", "RPI 3 model B/B+", "RPI 4 model B", "RPI 5"]
 
@@ -67,6 +68,7 @@ class DeviceSettingsWindow(QDialog):
         self.parent_canvas = parent
         self.is_hidden = True
         self.state_manager = StateManager.get_instance()
+        self.translation_manager = TranslationManager.get_instance()
         self.setup_ui()
     
     @classmethod
@@ -144,9 +146,42 @@ class DeviceSettingsWindow(QDialog):
         self.tab_widget = QTabWidget()
         layout.addWidget(self.tab_widget)
         
+        self.create_basic_tab()
         self.create_device_tab()
         self.create_rpi_settings_section()
     
+    def create_basic_tab(self):
+        tab = QWidget()
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setSpacing(5)
+
+        title = QLabel("Basic Settings")
+        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        tab_layout.addWidget(title)
+
+        tab_layout.addSpacing(10)
+
+        label = QLabel("Select Language:")
+        tab_layout.addWidget(label)
+
+        self.language_combo = MaxWidthComboBox(self, max_popup_width=358)
+
+        languages = self.translation_manager.get_available_languages()
+        for lang_code, name in languages.items():
+            self.language_combo.addItem(name, lang_code)
+
+        current_lang = Utils.app_settings.language
+        index = self.language_combo.findData(current_lang)
+        if index >= 0:
+            self.language_combo.setCurrentIndex(index)
+        
+        self.language_combo.currentIndexChanged.connect(self.on_language_changed)
+        tab_layout.addWidget(label)
+        tab_layout.addWidget(self.language_combo)
+        tab_layout.addStretch()
+        self.tab_widget.addTab(tab, "Basic")
+
     def create_device_tab(self):
         tab = QWidget()
         tab_layout = QVBoxLayout(tab)
@@ -183,9 +218,9 @@ class DeviceSettingsWindow(QDialog):
         self.rpi_password_input.setPlaceholderText("(optional if using SSH keys)")
 
         # Add to layout and connect save signals
-        self.rpi_host_input.textChanged.connect(lambda text: setattr(Utils.app_settings, 'rpi_host', text) or self.save_settings())
-        self.rpi_user_input.textChanged.connect(lambda text: setattr(Utils.app_settings, 'rpi_user', text) or self.save_settings())
-        self.rpi_password_input.textChanged.connect(lambda text: setattr(Utils.app_settings, 'rpi_password', text) or self.save_settings())
+        self.rpi_host_input.textChanged.connect(lambda text: self.save_settings())
+        self.rpi_user_input.textChanged.connect(lambda text: self.save_settings())
+        self.rpi_password_input.textChanged.connect(lambda text: self.save_settings())
         
         tab_layout.addWidget(self.rpi_model_combo)
         tab_layout.addWidget(rpi_host_label)
@@ -271,6 +306,85 @@ class DeviceSettingsWindow(QDialog):
         self.main_layout.addLayout(pwd_layout)
         self.tab_widget.addTab(tab, "Additional Settings")
     
+    def save_settings(self):
+        
+        filename = os.path.join(os.path.dirname(__file__), 'app_settings.json')
+
+        app_settings_dict = self.build_save_data()
+
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(app_settings_dict, f, indent=2)
+        
+        print("Settings saved.")
+
+    def build_save_data(self):
+        data = {
+            'rpi_model': Utils.app_settings.rpi_model,
+            'rpi_model_index': Utils.app_settings.rpi_model_index,
+            'rpi_host': Utils.app_settings.rpi_host,
+            'rpi_user': Utils.app_settings.rpi_user,
+            'rpi_password': Utils.app_settings.rpi_password,
+            'language': Utils.app_settings.language
+        }
+        return data
+
+    def on_language_changed(self):
+        lang_code = self.language_combo.currentData()
+        self.translation_manager.set_language(lang_code)
+        Utils.app_settings.language = lang_code
+        self.save_settings()
+
+        self.restart_app_dialog()
+    
+    def restart_app_dialog(self):
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Language Changed")
+        msg_box.setText(
+            "Language changed successfully!\n\n"
+            "App will restart in 3 seconds...\n\n"
+            "Click 'OK' to restart now."
+        )
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+        msg_box.setDefaultButton(QMessageBox.StandardButton.Ok)
+
+        self.countdown = 3
+        timer = QTimer()
+
+        def update_countdown():
+            if self.countdown > 0:
+                msg_box.setText(
+                    f"Language changed successfully!\n\n"
+                    f"App will restart in {self.countdown} seconds...\n\n"
+                    "Click 'OK' to restart now."
+                )
+                self.countdown -= 1
+            else:
+                timer.stop()
+                msg_box.close()
+                self.restart_app()
+        
+        timer.timeout.connect(update_countdown)
+        timer.start(1000)
+
+        result = msg_box.exec()
+
+        if result == QMessageBox.StandardButton.Ok:
+            timer.stop()
+            self.restart_app()
+
+    def restart_app(self):
+        
+        # Close current window
+        try:
+            self.close()
+        except:
+            pass
+
+        subprocess.Popen([sys.executable, sys.argv[0]] + sys.argv[1:])
+        sys.exit(0)
+        # Restart with same arguments
+            
+
     def auto_detect_rpi(self):
         """Auto-detect Raspberry Pi on network"""
         #print("🔍 Starting auto-detection...")

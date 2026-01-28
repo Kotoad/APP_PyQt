@@ -524,6 +524,36 @@ class FileManager:
     # ========================================================================
     
     @classmethod
+    def load_app_settings(cls) -> bool:
+        """
+        Load application settings from file and populate Utils.app_settings
+        
+        Args:
+            settings_filename: Path to app settings JSON file
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            filename = os.path.join("app_settings.json")
+            print(f"Loading app settings from: {filename}")
+            with open(filename, 'r') as f:
+                print("App settings file opened successfully.")
+                settings_dict = json.load(f)
+            
+            print(f"App settings JSON loaded: {settings_dict}")
+            cls._populate_app_settings_from_save(settings_dict)
+            #print(f"✓ App settings loaded: {settings_filename}")
+            return True
+            
+        except json.JSONDecodeError as e:
+            print(f"✗ Invalid JSON file: {e}")
+            return False
+        except Exception as e:
+            print(f"✗ Error loading app settings: {e}")
+            return False
+
+    @classmethod
     def load_project(cls, project_name: str, is_autosave: bool = False) -> bool:
         """
         Load project from file and populate Utils
@@ -541,11 +571,14 @@ class FileManager:
             # Determine load location
             if is_autosave:
                 filename = os.path.join(cls.AUTOSAVE_DIR, "autosave" + cls.PROJECT_EXTENSION)
+                app_settings_filename = os.path.join(cls.AUTOSAVE_DIR, "app_settings.json")
             else:
                 filename = os.path.join(cls.PROJECTS_DIR, project_name + cls.PROJECT_EXTENSION)
-            
+                app_settings_filename = os.path.join(os.path.dirname(filename), "app_settings.json")
+
             appdata_filename = os.path.join(cls.APPDATA_DIR, project_name + cls.PROJECT_EXTENSION)
-        
+            appdata_app_settings_filename = os.path.join(cls.APPDATA_DIR, "app_settings.json")
+
             if not os.path.exists(filename):
                 if os.path.exists(appdata_filename):
                     print(f"⚠️  Project not found in main folder, loading from AppData backup...")
@@ -554,12 +587,24 @@ class FileManager:
                     print(f"✗ Project file not found: {filename}")
                     return False
             
+            if not os.path.exists(app_settings_filename):
+                if os.path.exists(appdata_app_settings_filename):
+                    print(f"⚠️  App settings not found in main folder, loading from AppData backup...")
+                    app_settings_filename = appdata_app_settings_filename
+                else:
+                    print(f"✗ App settings file not found: {app_settings_filename}")
+                    return False
+
             # Load JSON
             with open(filename, 'r') as f:
                 project_dict = json.load(f)
             
+            with open(app_settings_filename, 'r') as f:
+                app_settings_dict = json.load(f)
+
             # Populate Utils with loaded data (PURE DATA ONLY)
             cls._populate_utils_from_save(project_dict)
+            cls._populate_app_settings_from_save(app_settings_dict)
             
             #print(f"✓ Project loaded: {filename}")
             return True
@@ -612,6 +657,16 @@ class FileManager:
         #      f"Metadata: {len(Utils.project_data.metadata)}"
         #      )
     
+    @classmethod
+    def _populate_app_settings_from_save(cls, settings_dict: dict):
+        """Populate Utils.app_settings from loaded settings dict"""
+        Utils.app_settings.rpi_model = settings_dict.get('rpi_model', 'Raspberry Pi 4 Model B')
+        Utils.app_settings.rpi_model_index = settings_dict.get('rpi_model_index', 0)
+        Utils.app_settings.rpi_host = settings_dict.get('rpi_host', 'raspberrypi.local')
+        Utils.app_settings.rpi_user = settings_dict.get('rpi_user', 'pi')
+        Utils.app_settings.rpi_password = settings_dict.get('rpi_password', 'rasppberry')    
+        Utils.app_settings.language = settings_dict.get('language', 'en')
+
     # ========================================================================
     # UTILITY OPERATIONS
     # ========================================================================
