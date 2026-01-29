@@ -1,7 +1,8 @@
 from Imports import (QDialog, Qt, QVBoxLayout, QLabel, QTabWidget, QWidget, QFont, QTextEdit,
-                     QScrollArea, QPushButton, os, get_State_Manager)
+                     QScrollArea, QPushButton,Path, os, get_State_Manager, get_Translation_Manager)
 
 StateManager = get_State_Manager()     
+TranslationManager = get_Translation_Manager()
 
 class HelpWindow(QDialog):
     """Singleton Help Window"""
@@ -12,6 +13,8 @@ class HelpWindow(QDialog):
         self.parent_canvas = parent
         self.which = which
         self.state_manager = StateManager.get_instance()
+        self.translation_manager = TranslationManager.get_instance()
+        self.t = self.translation_manager.translate
         self.setup_ui()
     
     @classmethod
@@ -30,7 +33,7 @@ class HelpWindow(QDialog):
     
     def setup_ui(self):
         """Setup the UI"""
-        self.setWindowTitle("Help")
+        self.setWindowTitle(self.t("help_window.window_title"))
         self.resize(600, 400)
         
         self.setWindowFlags(Qt.WindowType.Window)
@@ -97,29 +100,33 @@ class HelpWindow(QDialog):
         layout = QVBoxLayout(tab)
         layout.setSpacing(5)
         
+        html_file_path = self.t("help_window.get_started_tab.content")
+
+        base_dir = Path(os.path.dirname(__file__))
+        full_path = base_dir / html_file_path
+
+        try:
+            with open(full_path, "r", encoding="utf-8") as f:
+                html_content = f.read()
+            
+            # Now use html_content in your QTextEdit or wherever you need it
+            # For example:
+            # self.help_text_widget.setHtml(html_content)
+            
+        except FileNotFoundError:
+            print(f"Help file not found: {full_path}")
+            html_content = "<p>Help content not available.</p>"
+        except Exception as e:
+            print(f"Error loading help content: {e}")
+            html_content = "<p>Error loading help content.</p>"
+
         text_edit = QTextEdit()
         text_edit.setReadOnly(True)
-        text_edit.setHtml("""
-            <h2 style="color:#FFFFFF;">Getting Started</h2>
-            <p>Welcome to the Help Window! Here you can find information to get started with the application.</p>
-            <h3 style="color:#FFFFFF;">Features:</h3>
-            <ul>
-                <li>Feature 1: Description of feature 1.</li>
-                <li>Feature 2: Description of feature 2.</li>
-                <li>Feature 3: Description of feature 3.</li>
-            </ul>
-            <h3 style="color:#FFFFFF;">Tips:</h3>
-            <ol>
-                <li>Tip 1: Description of tip 1.</li>
-                <li>Tip 2: Description of tip 2.</li>
-                <li>Tip 3: Description of tip 3.</li>
-            </ol>
-            <p>For more detailed information, please refer to the FAQ tab.</p>
-        """)
+        text_edit.setHtml(html_content)
         
         layout.addWidget(text_edit)
         #print("Added label to Getting Started tab")
-        self.tab_widget.addTab(tab, "Getting Started")
+        self.tab_widget.addTab(tab, self.t("help_window.getting_started_tab.title"))
 
     def create_examples_tab(self):
         """Create the Examples tab with scrollable vertical examples"""
@@ -130,7 +137,7 @@ class HelpWindow(QDialog):
         
         self.show_examples_list()
         
-        self.tab_widget.addTab(self.examples_tab, "Examples")
+        self.tab_widget.addTab(self.examples_tab, self.t("help_window.examples_tab.title"))
         #print("Added scrollable examples to Examples tab")
 
     def show_examples_list(self):

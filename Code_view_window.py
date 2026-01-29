@@ -1,7 +1,8 @@
 from Imports import (QDialog, QMainWindow, QTextEdit, QVBoxLayout, QWidget, get_State_Manager,
-                     Qt, QScrollArea)
+                     Qt, QScrollArea, get_Translation_Manager)
 
 StateManager = get_State_Manager()
+TranslationManager = get_Translation_Manager()
 
 
 class CodeViewerWindow(QDialog):
@@ -15,6 +16,8 @@ class CodeViewerWindow(QDialog):
         self.text_edit = None
         self.scroll_widget = None
         self.state_manager = StateManager.get_instance()
+        self.translation_manager = TranslationManager.get_instance()
+        self.t = self.translation_manager.translate
         self.create_window()
 
     @classmethod
@@ -37,7 +40,7 @@ class CodeViewerWindow(QDialog):
 
     def create_window(self):
 
-        self.setWindowTitle("Generated Code Viewer")
+        self.setWindowTitle(self.t("code_view_window.window_title"))
         self.resize(600, 400)
         self.setWindowFlag(Qt.WindowType.Window)
 
@@ -107,12 +110,12 @@ class CodeViewerWindow(QDialog):
                 if content.strip():
                     return content
                 else:
-                    return "// Generated code based on the current canvas\n\n"
+                    return self.t("code_view_window.file_empty")
                     
         except FileNotFoundError:
-            return "// File.py not found\n\n"
+            return self.t("code_view_window.file_not_found")
         except Exception as e:
-            return f"// Error reading file: {type(e).__name__}: {str(e)}\n\n"
+            return  self.t("code_view_window.error_reading_file").format(error_type=type(e).__name__, error_message=str(e))
 
     def refresh_content(self):
         """Update the code display without recreating the window"""

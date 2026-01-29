@@ -1309,7 +1309,7 @@ class MainWindow(QMainWindow):
         self.t = self.translation_manager.translate
         self.path_manager = PathManager(self)
 
-        self.setWindowTitle(self.t("_metadata.app_title"))
+        self.setWindowTitle(self.t("main_GUI._metadata.app_title"))
         self.setWindowIcon(QIcon('resources/images/APPicon.ico'))
         self.resize(1200, 800)
 
@@ -1410,110 +1410,98 @@ class MainWindow(QMainWindow):
         menubar = self.menuBar()
         #print(f"Menubar Height: {menubar.height()}")
         # File menu
-        file_menu = menubar.addMenu("File")
+        file_menu = menubar.addMenu(self.t("main_GUI.menu.file"))
         
-        new_action = file_menu.addAction("New")
+        new_action = file_menu.addAction(self.t("main_GUI.menu.new"))
         new_action.triggered.connect(self.on_new_file)
         
-        open_action = file_menu.addAction("Open")
+        open_action = file_menu.addAction(self.t("main_GUI.menu.open"))
         open_action.triggered.connect(self.on_open_file)
         
-        save_action = file_menu.addAction("Save")
+        save_action = file_menu.addAction(self.t("main_GUI.menu.save"))
         save_action.triggered.connect(self.on_save_file)
         
-        save_as_action = file_menu.addAction("Save As")
+        save_as_action = file_menu.addAction(self.t("main_GUI.menu.save_as"))
         save_as_action.triggered.connect(self.on_save_file_as)
         
         file_menu.addSeparator()
         
-        exit_action = file_menu.addAction("Exit")
+        exit_action = file_menu.addAction(self.t("main_GUI.menu.exit"))
         exit_action.triggered.connect(self.close)
         
         # Elements menu
-        elements_menu = menubar.addMenu("Elements")
+        elements_menu = menubar.addMenu(self.t("main_GUI.menu.blocks"))
         
-        add_element = elements_menu.addAction("Add Element")
+        add_element = elements_menu.addAction(self.t("main_GUI.menu.add_block"))
         add_element.triggered.connect(self.open_elements_window)
         
-        # Variables menu
-        view_menu = menubar.addMenu("View")
-
-        canvas_action = view_menu.addAction("Show Canvas")
-        canvas_action.triggered.connect(lambda: self.set_current_tab(0, 'canvas'))
-
-        variables_action = view_menu.addAction("Show Variables")
-        variables_action.triggered.connect(lambda: self.set_current_tab(1, 'variables'))
-
-        devices_action = view_menu.addAction("Show Devices")
-        devices_action.triggered.connect(lambda: self.set_current_tab(2, 'devices'))
-        
-        settings_menu = menubar.addMenu("Settings")
-        settings_menu_action = settings_menu.addAction("Settings")
+        settings_menu = menubar.addMenu(self.t("main_GUI.menu.settings"))
+        settings_menu_action = settings_menu.addAction(self.t("main_GUI.menu.settings"))
         settings_menu_action.triggered.connect(self.open_settings_window)
         
-        Help_menu = menubar.addMenu("Help")
+        Help_menu = menubar.addMenu(self.t("main_GUI.menu.help"))
         
-        Get_stared = Help_menu.addAction("Get Started")
+        Get_stared = Help_menu.addAction(self.t("main_GUI.menu.get_started"))
         Get_stared.triggered.connect(lambda: self.open_help(0))
         
-        examples = Help_menu.addAction("Examples")
+        examples = Help_menu.addAction(self.t("main_GUI.menu.examples"))
         examples.triggered.connect(lambda: self.open_help(1))
         
-        FAQ = Help_menu.addAction("FAQ")
+        FAQ = Help_menu.addAction(self.t("main_GUI.menu.faq"))
         FAQ.triggered.connect(lambda: self.open_help(2))
         
         # Compile menu
-        compile_menu = menubar.addMenu("Compile")
+        compile_menu = menubar.addMenu(self.t("main_GUI.menu.compile"))
         
-        compile_action = compile_menu.addAction("Compile Code")
+        compile_action = compile_menu.addAction(self.t("main_GUI.menu.compile_code"))
         compile_action.triggered.connect(self.compile_and_upload)
 
-        view_code_action = compile_menu.addAction("View Generated Code")
+        view_code_action = compile_menu.addAction(self.t("main_GUI.menu.view_code"))
         view_code_action.triggered.connect(self.view_generated_code)
     
     def create_toolbar(self):
 
         icon_path = "resources/images/Tool_bar/"
 
-        toolbar = self.addToolBar("Main Toolbar")
+        toolbar = self.addToolBar(self.t("main_GUI.toolbar.toolbar"))
         toolbar.setMovable(False)
         toolbar.setIconSize(QSize(16, 16))
 
-        save_icon = QAction(QIcon(icon_path+"Save.png"), "Save", self)
+        save_icon = QAction(QIcon(icon_path+"Save.png"), self.t("main_GUI.toolbar.save"), self)
         save_icon.triggered.connect(self.on_save_file)
         toolbar.addAction(save_icon)
 
-        open_icon = QAction(QIcon(icon_path+"Open_file.png"), "Open", self)
+        open_icon = QAction(QIcon(icon_path+"Open_file.png"), self.t("main_GUI.toolbar.open"), self)
         open_icon.triggered.connect(self.on_open_file)
         toolbar.addAction(open_icon)
 
-        new_icon = QAction(QIcon(icon_path+"New_file.png"), "New", self)
+        new_icon = QAction(QIcon(icon_path+"New_file.png"), self.t("main_GUI.toolbar.new"), self)
         new_icon.triggered.connect(self.on_new_file)
         toolbar.addAction(new_icon)
 
         toolbar.addSeparator()
 
-        add_block_icon = QAction(QIcon(icon_path+"Add_block.png"), "Add block", self)
+        add_block_icon = QAction(QIcon(icon_path+"Add_block.png"), self.t("main_GUI.toolbar.add_block"), self)
         add_block_icon.triggered.connect(self.open_elements_window)
         toolbar.addAction(add_block_icon)
 
         toolbar.addSeparator()
 
-        settings_icon = QAction(QIcon(icon_path+"Settings.png"), "Settings", self)
+        settings_icon = QAction(QIcon(icon_path+"Settings.png"), self.t("main_GUI.toolbar.settings"), self)
         settings_icon.triggered.connect(self.open_settings_window)
         toolbar.addAction(settings_icon)
 
         toolbar.addSeparator()
 
-        run_and_compile_icon = QAction(QIcon(icon_path+"Run_and_compile.png"), "Compile and Upload", self)
+        run_and_compile_icon = QAction(QIcon(icon_path+"Run_and_compile.png"), self.t("main_GUI.toolbar.compile_upload"), self)
         run_and_compile_icon.triggered.connect(self.compile_and_upload)
         toolbar.addAction(run_and_compile_icon)
 
-        run_icon = QAction(QIcon(icon_path+"Run.png"), "Run", self)
+        run_icon = QAction(QIcon(icon_path+"Run.png"), self.t("main_GUI.toolbar.run"), self)
         run_icon.triggered.connect(self.execute_on_rpi_ssh_background)
         toolbar.addAction(run_icon)
 
-        stop_execution_icon = QAction(QIcon(icon_path+"Stop_execution.png"), "Stop Execution", self)
+        stop_execution_icon = QAction(QIcon(icon_path+"Stop_execution.png"), self.t("main_GUI.toolbar.stop"), self)
         stop_execution_icon.triggered.connect(self.stop_execution)
         toolbar.addAction(stop_execution_icon)
 
@@ -1531,6 +1519,7 @@ class MainWindow(QMainWindow):
         self.execution_thread = RPiExecutionThread(ssh_config)
 
         self.execution_thread.kill_process(ssh)
+
     def create_canvas_frame(self):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -1550,7 +1539,7 @@ class MainWindow(QMainWindow):
             print(f"Error setting mainwindow on canvas: {e}")
         
         Utils.canvas_instances[self.canvas] = {
-            'name': "Canvas",
+            'name': self.t("main_GUI.sidebar.canvas"),
             'canvas': self.canvas,
             'index': 0,
             'ref': 'canvas'
@@ -1560,7 +1549,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.sidebar)
         
         # Rest of your code...
-        self.add_tab(tab_name="Canvas", content_widget=self.canvas, reference="canvas")
+        self.add_tab(tab_name=self.t("main_GUI.sidebar.canvas"), content_widget=self.canvas, reference="canvas")
         self.last_canvas = self.canvas
         self.tab_changed.connect(self.on_tab_changed)
         self.set_current_tab(0, 'canvas')
@@ -1592,11 +1581,11 @@ class MainWindow(QMainWindow):
         canvas_reference.layout = QVBoxLayout(canvas_reference.widget)
         canvas_reference.layout.setContentsMargins(10, 10, 10, 10)
         
-        header = QLabel("Variables")
+        header = QLabel(self.t("main_GUI.variables_tab.variables"))
         header.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
         canvas_reference.layout.addWidget(header)
         
-        add_btn = QPushButton("Add Variable")
+        add_btn = QPushButton(self.t("main_GUI.variables_tab.add_variable"))
         add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #1F538D;
@@ -1629,11 +1618,11 @@ class MainWindow(QMainWindow):
         canvas_reference.layout = QVBoxLayout(canvas_reference.widget)
         canvas_reference.layout.setContentsMargins(10, 10, 10, 10)
         
-        header = QLabel("Devices")
+        header = QLabel(self.t("main_GUI.devices_tab.devices"))
         header.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
         canvas_reference.layout.addWidget(header)
         
-        add_btn = QPushButton("Add Device")
+        add_btn = QPushButton(self.t("main_GUI.devices_tab.add_device"))
         add_btn.setStyleSheet("""
             QPushButton {
                 background-color: #1F538D;
@@ -1669,7 +1658,7 @@ class MainWindow(QMainWindow):
         canvas_reference.layout = QVBoxLayout(canvas_reference.widget)
         canvas_reference.layout.setContentsMargins(10, 10, 10, 10)
         
-        header = QLabel("Internal Variables")
+        header = QLabel(self.t("main_GUI.internal_tab.header"))
         header.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
         canvas_reference.layout.addWidget(header)
 
@@ -1679,7 +1668,7 @@ class MainWindow(QMainWindow):
         canvas_reference.internal_layout = QVBoxLayout(canvas_reference.internal_content)
         canvas_reference.internal_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         canvas_reference.internal_layout.addStretch()
-        add_internal_var_btn = QPushButton("Add Internal Variable")
+        add_internal_var_btn = QPushButton(self.t("main_GUI.internal_tab.add_internal_variable"))
         add_internal_var_btn.setStyleSheet("""
             QPushButton {
                 background-color: #1F538D;
@@ -1691,7 +1680,7 @@ class MainWindow(QMainWindow):
         add_internal_var_btn.clicked.connect(lambda: self.add_internal_variable_row(None, None, canvas_reference))
         canvas_reference.internal_layout.insertWidget(canvas_reference.internal_layout.count() - 1, add_internal_var_btn)
         
-        add_internal_dev_btn = QPushButton("Add Internal Device")
+        add_internal_dev_btn = QPushButton(self.t("main_GUI.internal_tab.add_internal_device"))
         add_internal_dev_btn.setStyleSheet("""
             QPushButton {
                 background-color: #1F538D;
@@ -1876,8 +1865,8 @@ class MainWindow(QMainWindow):
             self.add_separator(ref='reference', content_widget=content_widget)
             self.add_new_canvas_tab_button(content_widget=content_widget)
             self.add_separator(content_widget=content_widget)
-            self.add_variable_tab(content_widget, 'Main')
-            self.add_device_tab(content_widget, 'Main')
+            self.add_variable_tab(content_widget, self.t("main_GUI.sidebar.main"))
+            self.add_device_tab(content_widget, self.t("main_GUI.sidebar.main"))
             self.add_separator(ref='reference', content_widget=content_widget)
             self.canvas_added = None
             return tab_index
@@ -1906,23 +1895,23 @@ class MainWindow(QMainWindow):
         """Add a Variables tab to the sidebar"""
         #print("Adding Variables tab")
         variables_panel = self.create_variables_panel(canvas_reference)
-        self.add_tab(name+' variables', variables_panel, reference="variable")
+        self.add_tab(name+' '+self.t("main_GUI.sidebar.variables"), variables_panel, reference="variable")
     
     def add_device_tab(self, canvas_reference, name):
         """Add a Devices tab to the sidebar"""
         #print("Adding Devices tab")
         devices_panel = self.create_devices_panel(canvas_reference)
-        self.add_tab(name+' devices', devices_panel, reference="device")
+        self.add_tab(name+' '+self.t("main_GUI.sidebar.devices"), devices_panel, reference="device")
     
     def add_internal_variable_tab(self, canvas_reference, name):
         """Add an Internal Variables tab to the sidebar"""
         #print("Adding Internal Variables tab")
         internal_vars_panel = self.create_internal_vars_panel(canvas_reference)
-        self.add_tab(name+' internal variables', internal_vars_panel, reference="internal_variable")
+        self.add_tab(name+' '+self.t("main_GUI.sidebar.internal_variables"), internal_vars_panel, reference="internal_variable")
 
     def add_new_canvas_tab_button(self, content_widget=None):
         """Add a special button to create a new canvas tab"""
-        content_widget.new_canvas_button = QPushButton("+ New Canvas")
+        content_widget.new_canvas_button = QPushButton(self.t("main_GUI.sidebar.new_canvas"))
         content_widget.new_canvas_button.setStyleSheet("""
             QPushButton {
                 background-color: #2B2B2B;
@@ -1946,8 +1935,8 @@ class MainWindow(QMainWindow):
 
         name, ok = QInputDialog.getText(
             self,
-            "New Canvas",
-            "Enter name for new canvas:"
+            self.t("main_GUI.dialogs.new_canvas"),
+            self.t("main_GUI.dialogs.enter_canvas_name")
         )
         if not ok or not name.strip():
             return
@@ -2186,14 +2175,14 @@ class MainWindow(QMainWindow):
                 current_canvas.inspector_content_layout.takeAt(i)
         
         # Add new content
-        title = QLabel(f"Inspector - {block.block_type}")
+        title = QLabel(f"{self.t('main_GUI.inspector.title')} - {block.block_type}")
         title.setStyleSheet("font-weight: bold; font-size: 16px; padding: 5px;")
         current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), title)
         
-        self.position_label = QLabel(f"Position: ({int(block.x())}, {int(block.y())})")
+        self.position_label = QLabel(f"{self.t('main_GUI.inspector.position')}: ({int(block.x())}, {int(block.y())})")
         current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.position_label)
         
-        size_label = QLabel(f"Size: ({int(block.boundingRect().width())} x {int(block.boundingRect().height())})")
+        size_label = QLabel(f"{self.t('main_GUI.inspector.size')}: ({int(block.boundingRect().width())} x {int(block.boundingRect().height())})")
         current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), size_label)
         
         self.add_inputs(block)
@@ -2212,7 +2201,7 @@ class MainWindow(QMainWindow):
             position_label = None
         
         if position_label:
-            position_label.setText(f"Position: ({int(block.x())}, {int(block.y())})")
+            position_label.setText(f"{self.t('main_GUI.inspector.position')}: ({int(block.x())}, {int(block.y())})")
 
     def add_inputs(self, block, dev_id=None, var_id=None):
         """Add input fields for block properties"""
@@ -2237,7 +2226,7 @@ class MainWindow(QMainWindow):
         
         if block_data['type'] == 'Timer':
             # Timer block inputs
-            label = QLabel("Interval (ms):")
+            label = QLabel(f"{self.t('main_GUI.inspector.interval_ms')}:")
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), label)
             
             interval_input = QLineEdit()
@@ -2245,7 +2234,7 @@ class MainWindow(QMainWindow):
             validator = QRegularExpressionValidator(regex, self)
             interval_input.setValidator(validator)
             interval_input.setText(block_data.get('sleep_time', '1000'))
-            interval_input.setPlaceholderText("Interval in ms")
+            interval_input.setPlaceholderText(self.t("main_GUI.inspector.interval_ms_placeholder"))
             interval_input.textChanged.connect(lambda text, bd=block_data: self.Block_sleep_interval_changed(text, bd))
             
             current_canvas.inspector_content_layout.insertWidget(
@@ -2253,20 +2242,20 @@ class MainWindow(QMainWindow):
                 interval_input
             )
         if block_data['type'] in ('If', 'While', 'For Loop'):
-            name_label = QLabel("Value 1 Name:")
+            name_label = QLabel(f"{self.t('main_GUI.inspector.value_1_name')}:")
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
             
             self.name_1_input = SearchableLineEdit()
             self.name_1_input.setText(block_data.get('value_1_name', ''))
-            self.name_1_input.setPlaceholderText("Value 1 Name")
+            self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.value_1_name_placeholder"))
             self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
             self.insert_items(block, self.name_1_input)
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
             
-            type_label = QLabel("Operator:")
+            type_label = QLabel(f"{self.t('main_GUI.inspector.operator')}:")
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), type_label)
             
@@ -2277,26 +2266,26 @@ class MainWindow(QMainWindow):
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), type_input)
             
-            value_label = QLabel("Value 2 name:")
+            value_label = QLabel(f"{self.t('main_GUI.inspector.value_2_name')}:")
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), value_label)
             
             self.name_2_input = SearchableLineEdit()
             self.name_2_input.setText(block_data.get('value_2_name', ''))
-            self.name_2_input.setPlaceholderText("Value 2 Name")
+            self.name_2_input.setPlaceholderText(self.t("main_GUI.inspector.value_2_name_placeholder"))
             self.name_2_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_2_name_changed(text, bd))
             
             self.insert_items(block, self.name_2_input)
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_2_input)
         if block_data['type'] == 'Switch':
-            name_label = QLabel("Value Name:")
+            name_label = QLabel(f"{self.t('main_GUI.inspector.device/variable_name')}:")
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
             
             self.name_1_input = SearchableLineEdit()
             self.name_1_input.setText(block_data.get('value_1_name', ''))
-            self.name_1_input.setPlaceholderText("Value Name")
+            self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.device/variable_name_placeholder"))
             self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
             self.insert_items(block, self.name_1_input)
@@ -2320,36 +2309,36 @@ class MainWindow(QMainWindow):
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), row_widget, alignment=Qt.AlignmentFlag.AlignCenter)
         if block_data['type'] == 'Button':
-            name_label = QLabel("Value Name:")
+            name_label = QLabel(self.t("main_GUI.inspector.device_name"))
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
             
             self.name_1_input = SearchableLineEdit()
             self.name_1_input.setText(block_data.get('value_1_name', ''))
-            self.name_1_input.setPlaceholderText("Value Name")
+            self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.device_name_placeholder"))
             self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
             self.insert_items(block, self.name_1_input)
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
         if block_data['type'] == 'Blink_LED':
-            name_label = QLabel("LED device name:")
+            name_label = QLabel(self.t("main_GUI.inspector.led_device_name"))
             
             self.name_1_input = SearchableLineEdit()
             self.name_1_input.setText(block_data.get('value_1_name', ''))
-            self.name_1_input.setPlaceholderText("LED device name")
+            self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.led_device_name_placeholder"))
             self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
             self.insert_items(block, self.name_1_input)
             
-            time_label = QLabel("Blink Interval (ms):")
+            time_label = QLabel(self.t("main_GUI.inspector.blink_interval_ms"))
 
             self.blink_time_input = QLineEdit()
             regex = QRegularExpression(r"^\d*$")
             validator = QRegularExpressionValidator(regex, self)
             self.blink_time_input.setValidator(validator)
             self.blink_time_input.setText(block_data.get('sleep_time', '1000'))
-            self.blink_time_input.setPlaceholderText("Blink Interval in ms")
+            self.blink_time_input.setPlaceholderText(self.t("main_GUI.inspector.blink_interval_ms_placeholder"))
             self.blink_time_input.textChanged.connect(lambda text, bd=block_data: self.Block_sleep_interval_changed(text, bd))
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
@@ -2358,11 +2347,11 @@ class MainWindow(QMainWindow):
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), time_label)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.blink_time_input)
         if block_data['type'] == 'Toggle_LED':
-            name_label = QLabel("LED device name:")
+            name_label = QLabel(self.t("main_GUI.inspector.led_device_name"))
             
             self.name_1_input = SearchableLineEdit()
             self.name_1_input.setText(block_data.get('value_1_name', ''))
-            self.name_1_input.setPlaceholderText("LED device name")
+            self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.led_device_name_placeholder"))
             self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
             self.insert_items(block, self.name_1_input)
@@ -2370,23 +2359,23 @@ class MainWindow(QMainWindow):
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
         if block_data['type'] == 'PWM_LED':
-            name_label = QLabel("LED device name:")
+            name_label = QLabel(self.t("main_GUI.inspector.led_device_name"))
             
             self.name_1_input = SearchableLineEdit()
             self.name_1_input.setText(block_data.get('value_1_name', ''))
-            self.name_1_input.setPlaceholderText("LED device name")
+            self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.led_device_name_placeholder"))
             self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
             self.insert_items(block, self.name_1_input)
 
-            PWM_label = QLabel("PWM Value (0-255):")
+            PWM_label = QLabel(self.t("main_GUI.inspector.pwm_value"))
 
             self.PWM_value_input = QLineEdit()
             regex = QRegularExpression(r"^\d*$")
             validator = QRegularExpressionValidator(regex, self)
             self.PWM_value_input.setValidator(validator)
             self.PWM_value_input.setText(block_data.get('PWM_value', '128'))
-            self.PWM_value_input.setPlaceholderText("PWM Value (0-255)")
+            self.PWM_value_input.setPlaceholderText(self.t("main_GUI.inspector.pwm_value_placeholder"))
             self.PWM_value_input.textChanged.connect(lambda text, bd=block_data: self.Block_PWM_value_changed(text, bd))
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
@@ -2395,22 +2384,22 @@ class MainWindow(QMainWindow):
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), PWM_label)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.PWM_value_input)
         if block_data['type'] in ("Basic_operations", "Exponential_operations", "Random_number"):
-            name_label = QLabel("First Variable Name:")
+            name_label = QLabel(self.t("main_GUI.inspector.first_variable"))
             
             self.value_1_name_input = SearchableLineEdit()
             self.value_1_name_input.setText(block_data.get('value_1_name', ''))
-            self.value_1_name_input.setPlaceholderText("First Variable Name")
+            self.value_1_name_input.setPlaceholderText(self.t("main_GUI.inspector.first_variable_placeholder"))
             self.value_1_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
 
             if block_data['type'] == "Basic_operations":
-                box_label = QLabel("Operator:")
+                box_label = QLabel(self.t("main_GUI.inspector.operator"))
 
                 operator_box = QComboBox()
                 operator_box.addItems(["+", "-", "*", "/", "%"])
                 operator_box.setCurrentText(block_data.get('operator', '+'))
                 operator_box.currentTextChanged.connect(lambda text, bd=block_data: self.Block_operator_changed(text, bd))
             elif block_data['type'] == "Exponential_operations":
-                box_label = QLabel("Operator:")
+                box_label = QLabel(self.t("main_GUI.inspector.operator"))
 
                 operator_box = QComboBox()
                 operator_box.addItems(["^", "√"])
@@ -2419,18 +2408,16 @@ class MainWindow(QMainWindow):
             else:
                 operator_box = None
 
-            name_label_2 = QLabel("Second Variable Name:")
-
+            name_label_2 = QLabel(self.t("main_GUI.inspector.second_variable"))
             self.value_2_name_input = SearchableLineEdit()
             self.value_2_name_input.setText(block_data.get('value_2_name', ''))
-            self.value_2_name_input.setPlaceholderText("Second Variable Name")
+            self.value_2_name_input.setPlaceholderText(self.t("main_GUI.inspector.second_variable_placeholder"))
             self.value_2_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_2_name_changed(text, bd))
 
-            name_label_3 = QLabel("Result Variable Name:")
-
+            name_label_3 = QLabel(self.t("main_GUI.inspector.result_variable"))
             self.result_var_name_input = SearchableLineEdit()
             self.result_var_name_input.setText(block_data.get('result_var_name', ''))
-            self.result_var_name_input.setPlaceholderText("Result Variable Name")
+            self.result_var_name_input.setPlaceholderText(self.t("main_GUI.inspector.result_variable_placeholder"))
             self.result_var_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_result_var_name_changed(text, bd))
 
             self.insert_items(block, self.value_1_name_input)
@@ -2447,7 +2434,7 @@ class MainWindow(QMainWindow):
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.value_2_name_input)
         if block_data['type'] == 'Function':
             
-            var_label = QLabel("Input variables")
+            var_label = QLabel(self.t("main_GUI.inspector.input_variables"))
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), var_label)
 
             for canv, canv_info in Utils.canvas_instances.items():
@@ -2460,14 +2447,13 @@ class MainWindow(QMainWindow):
                 line_layout = QHBoxLayout(line_widget)
                 line_layout.setContentsMargins(0, 0, 0, 0)
                 
-                ref_var_label = QLabel("Ref Variable:")
+                ref_var_label = QLabel(self.t("main_GUI.inspector.ref_variable"))
 
                 ref_var_name = QLabel(var_info['name'])
 
-                main_var_label = QLabel("Main Variable:")
-
+                main_var_label = QLabel(self.t("main_GUI.inspector.main_variable"))
                 main_var_combo = SearchableLineEdit()
-                main_var_combo.setPlaceholderText("Linked Variable Name")
+                main_var_combo.setPlaceholderText(self.t("main_GUI.inspector.main_variables_placeholder"))
 
                 self.insert_items(block, main_var_combo, type='variable_m')
                 line_layout.addWidget(ref_var_label)
@@ -2503,7 +2489,7 @@ class MainWindow(QMainWindow):
             separator.setStyleSheet("background-color: #555555;")
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), separator)
 
-            dev_label = QLabel("Imput devices")
+            dev_label = QLabel(self.t("main_GUI.inspector.input_devices"))
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), dev_label)
 
@@ -2512,14 +2498,13 @@ class MainWindow(QMainWindow):
                 line_layout = QHBoxLayout(line_widget)
                 line_layout.setContentsMargins(0, 0, 0, 0)
                 
-                ref_dev_label = QLabel("Ref Device:")
-
+                ref_dev_label = QLabel(self.t("main_GUI.inspector.ref_device"))
                 ref_dev_name = QLabel(dev_info['name'])
 
-                main_dev_label = QLabel("Main Device:")
+                main_dev_label = QLabel(self.t("main_GUI.inspector.main_device"))
 
                 main_dev_combo = SearchableLineEdit()
-                main_dev_combo.setPlaceholderText("Linked Device Name")
+                main_dev_combo.setPlaceholderText(self.t("main_GUI.inspector.main_devices_placeholder"))
 
                 self.insert_items(block, main_dev_combo, type='device_m')
                 line_layout.addWidget(ref_dev_label)
@@ -2852,7 +2837,7 @@ class MainWindow(QMainWindow):
         canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
 
         name_imput = QLineEdit()
-        name_imput.setPlaceholderText("Name")
+        name_imput.setPlaceholderText(self.t("main_GUI.internal_tab.variable_name_placeholder"))
         if var_data and 'name' in var_data:
             name_imput.setText(var_data['name'])
             for function_id, function_info in Utils.functions.items():
@@ -2861,21 +2846,21 @@ class MainWindow(QMainWindow):
         
         name_imput.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.name_changed(text, v_id, t, r))
         
-        type_input = QComboBox()
-        type_input.addItems(["Int", "Float", "String", "Bool"])
+        self.type_input = QComboBox()
+        self.type_input.addItems(["Int", "Float", "String", "Bool"])
         if var_data and 'type' in var_data:
-            type_input.setCurrentText(var_data['type'])
+            self.type_input.setCurrentText(var_data['type'])
             for function_id, function_info in Utils.functions.items():
                 if function_info['canvas'] == canvas_reference:
                     Utils.variables['function_canvases'][function_id][var_id]['type'] = var_data['type']
         
-        type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable", r=canvas_reference: self.type_changed(text, v_id , t, r))
+        self.type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable", r=canvas_reference: self.type_changed(text, v_id , t, r))
         
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
         
         canvas_reference.row_layout.addWidget(name_imput)
-        canvas_reference.row_layout.addWidget(type_input)
+        canvas_reference.row_layout.addWidget(self.type_input)
         canvas_reference.row_layout.addWidget(delete_btn)
         
         delete_btn.clicked.connect(lambda _, v_id=var_id, rw=canvas_reference.row_widget, t="Variable", r=canvas_reference: self.remove_internal_row(rw, v_id, t, r))
@@ -2884,7 +2869,7 @@ class MainWindow(QMainWindow):
             if function_info['canvas'] == canvas_reference:
                 Utils.variables['function_canvases'][function_id][var_id]['widget'] = canvas_reference.row_widget
                 Utils.variables['function_canvases'][function_id][var_id]['name_imput'] = name_imput
-                Utils.variables['function_canvases'][function_id][var_id]['type_input'] = type_input
+                Utils.variables['function_canvases'][function_id][var_id]['type_input'] = self.type_input
         panel_layout = canvas_reference.internal_layout
         panel_layout.insertWidget(panel_layout.count() - 2 - canvas_reference.internal_devs_rows_count, canvas_reference.row_widget)
         
@@ -2909,7 +2894,8 @@ class MainWindow(QMainWindow):
                                 if dev_id not in Utils.devices['function_canvases'][function_id].keys():
                                     Utils.devices['function_canvases'][function_id][dev_id] = {
                                         'name': '',
-                                        'type': 'Output',
+                                        'type': self.t("main_GUI.internal_tab.Output"),
+                                        'type_index': 0,
                                         'widget': None,
                                         'name_imput': None,
                                         'type_input': None,
@@ -2930,7 +2916,8 @@ class MainWindow(QMainWindow):
                         if function_info['canvas'] == canvas_reference:
                             Utils.devices['function_canvases'][function_id][dev_id] = {
                                 'name': '',
-                                'type': 'Output',
+                                'type': self.t("main_GUI.internal_tab.Output"),
+                                'type_index': 0,
                                 'widget': None,
                                 'name_imput': None,
                                 'type_input': None,
@@ -2943,7 +2930,7 @@ class MainWindow(QMainWindow):
         canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
 
         name_imput = QLineEdit()
-        name_imput.setPlaceholderText("Name")
+        name_imput.setPlaceholderText(self.t("main_GUI.internal_tab.device_name_placeholder"))
         if dev_data and 'name' in dev_data:
             name_imput.setText(dev_data['name'])
             for function_id, function_info in Utils.functions.items():
@@ -2953,12 +2940,13 @@ class MainWindow(QMainWindow):
         name_imput.textChanged.connect(lambda text, v_id=dev_id, t="Device", r=canvas_reference: self.name_changed(text, v_id, t, r))
         
         type_input = QComboBox()
-        type_input.addItems(["Output", "Input", "Button", "PWM"])
+        type_input.addItems([self.t("main_GUI.internal_tab.output"), self.t("main_GUI.internal_tab.input"), self.t("main_GUI.internal_tab.button"), "PWM"])
         if dev_data and 'type' in dev_data:
-            type_input.setCurrentText(dev_data['type'])
+            type_input.setCurrentIndex(dev_data['type_index'])
             for function_id, function_info in Utils.functions.items():
                 if function_info['canvas'] == canvas_reference:
                     Utils.devices['function_canvases'][function_id][dev_id]['type'] = dev_data['type']
+                    Utils.devices['function_canvases'][function_id][dev_id]['type_index'] = dev_data['type_index']
         
         type_input.currentTextChanged.connect(lambda  text, v_id=dev_id, t="Device", r=canvas_reference: self.type_changed(text, v_id , t, r))
         
@@ -3020,7 +3008,7 @@ class MainWindow(QMainWindow):
         canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
 
         name_imput = QLineEdit()
-        name_imput.setPlaceholderText("Name")
+        name_imput.setPlaceholderText(self.t("main_GUI.variables_tab.name_placeholder"))
         if var_data and 'name' in var_data:
             name_imput.setText(var_data['name'])
             Utils.variables['main_canvas'][var_id]['name'] = var_data['name']
@@ -3036,7 +3024,7 @@ class MainWindow(QMainWindow):
         type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable", r=canvas_reference: self.type_changed(text, v_id , t, r))
         
         self.value_var_input = QLineEdit()
-        self.value_var_input.setPlaceholderText("Initial Value")
+        self.value_var_input.setPlaceholderText(self.t("main_GUI.variables_tab.initial_value_placeholder"))
         if var_data and 'value' in var_data:
             print(f"Setting initial value for variable {var_id}: {var_data['value']}")
             self.value_var_input.setText(var_data['value'])
@@ -3108,7 +3096,8 @@ class MainWindow(QMainWindow):
                 if device_id not in Utils.devices['main_canvas'].keys():
                     Utils.devices['main_canvas'][device_id] = {
                         'name': '',
-                        'type': 'Output',
+                        'type': self.t("main_GUI.devices_tab.Output"),
+                        'type_index': 0,
                         'PIN': '',
                         'widget': None,
                         'name_imput': None,
@@ -3122,7 +3111,8 @@ class MainWindow(QMainWindow):
         else:
             Utils.devices['main_canvas'][device_id] = {
                 'name': '',
-                'type': 'Output',
+                'type': self.t("main_GUI.devices_tab.Output"),
+                'type_index': 0,
                 'PIN': '',
                 'widget': None,
                 'name_imput': None,
@@ -3138,23 +3128,23 @@ class MainWindow(QMainWindow):
         canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
  
         name_imput = QLineEdit()
-        name_imput.setPlaceholderText("Name")
+        name_imput.setPlaceholderText(self.t("main_GUI.devices_tab.name_placeholder"))
         if dev_data and 'name' in dev_data:
             name_imput.setText(dev_data['name'])
             Utils.devices['main_canvas'][device_id]['name'] = dev_data['name']
         
         name_imput.textChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference: self.name_changed(text, d_id, t, r))
         
-        type_input = QComboBox()
-        type_input.addItems(["Output", "Input", "PWM", "Button"])
+        self.type_input = QComboBox()
+        self.type_input.addItems([self.t("main_GUI.devices_tab.output"), self.t("main_GUI.devices_tab.input"), self.t("main_GUI.devices_tab.button"), "PWM"])
         if dev_data and 'type' in dev_data:
-            type_input.setCurrentText(dev_data['type'])
+            self.type_input.setCurrentText(dev_data['type'])
             Utils.devices['main_canvas'][device_id]['type'] = dev_data['type']
         
-        type_input.currentTextChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference: self.type_changed(text, d_id, t, r))
+        self.type_input.currentTextChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference: self.type_changed(text, d_id, t, r))
         
         self.value_dev_input = QLineEdit()
-        self.value_dev_input.setPlaceholderText("PIN")
+        self.value_dev_input.setPlaceholderText(self.t("main_GUI.devices_tab.pin"))
         if dev_data and 'PIN' in dev_data:
             print(f"Setting initial PIN value for device {device_id}: {dev_data['PIN']}")
             self.value_dev_input.setText(str(dev_data['PIN']))
@@ -3169,7 +3159,7 @@ class MainWindow(QMainWindow):
         delete_btn.setFixedWidth(30)
         
         canvas_reference.row_layout.addWidget(name_imput)
-        canvas_reference.row_layout.addWidget(type_input)
+        canvas_reference.row_layout.addWidget(self.type_input)
         canvas_reference.row_layout.addWidget(self.value_dev_input)
         canvas_reference.row_layout.addWidget(delete_btn)
         
@@ -3181,7 +3171,7 @@ class MainWindow(QMainWindow):
         canvas_reference.devices_row_count += 1
         Utils.devices['main_canvas'][device_id]['widget'] = canvas_reference.row_widget
         Utils.devices['main_canvas'][device_id]['name_imput'] = name_imput
-        Utils.devices['main_canvas'][device_id]['type_input'] = type_input
+        Utils.devices['main_canvas'][device_id]['type_input'] = self.type_input
         Utils.devices['main_canvas'][device_id]['value_input'] = self.value_dev_input
         
     def Clear_All_Devices(self):
@@ -3434,29 +3424,33 @@ class MainWindow(QMainWindow):
                         Utils.devices['function_canvases'][function_id][d_id]['name_imput'].setStyleSheet(border_col)
             #print("Utils.devices:", Utils.devices)
     
-    def type_changed(self, imput, id, type, canvas_reference=None):
+    def type_changed(self, input, id, type, canvas_reference=None):
         #print(f"Updating variable {imput}")
         if type == "Variable":
             for canvas, info in Utils.canvas_instances.items():
                 if canvas_reference == canvas:
                     if info['ref'] == 'canvas':
-                        Utils.variables['main_canvas'][id]['type'] = imput
+                        Utils.variables['main_canvas'][id]['type'] = input
+                        Utils.variables['main_canvas'][id]['type_index'] = self.type_input.currentIndex()
                         break
                     elif info['ref'] == 'function':
                         for function_id, function_info in Utils.functions.items():
                             if function_info['canvas'] == canvas_reference:
-                                Utils.variables['function_canvases'][function_id][id]['type'] = imput
+                                Utils.variables['function_canvases'][function_id][id]['type'] = input
+                                Utils.variables['function_canvases'][function_id][id]['type_index'] = self.type_input.currentIndex()
                                 break
         elif type == "Device":
             for canvas, info in Utils.canvas_instances.items():
                 if canvas_reference == canvas:
                     if info['ref'] == 'canvas':
-                        Utils.devices['main_canvas'][id]['type'] = imput
+                        Utils.devices['main_canvas'][id]['type'] = input
+                        Utils.devices['main_canvas'][id]['type_index'] = self.type_input.currentIndex()
                         break
                     elif info['ref'] == 'function':
                         for function_id, function_info in Utils.functions.items():
                             if function_info['canvas'] == canvas_reference:
-                                Utils.devices['function_canvases'][function_id][id]['type'] = imput
+                                Utils.devices['function_canvases'][function_id][id]['type'] = input
+                                Utils.devices['function_canvases'][function_id][id]['type_index'] = self.type_input.currentIndex()
                                 break
     
     def value_changed(self, imput, id, type, canvas_reference=None):
@@ -3646,8 +3640,8 @@ class MainWindow(QMainWindow):
     def on_save_file_as(self):
         """Save current project with new name"""
         
-        text, ok = QInputDialog.getText(self, "Save Project As", 
-            "Enter project name:", QLineEdit.EchoMode.Normal, 
+        text, ok = QInputDialog.getText(self, self.t("main_GUI.dialogs.file_dialogs.save_project_as"), 
+            self.t("main_GUI.dialogs.file_dialogs.enter_project_name"), QLineEdit.EchoMode.Normal, 
             Utils.project_data.metadata.get('name', ''))
         
         if ok and text:
@@ -3660,11 +3654,11 @@ class MainWindow(QMainWindow):
         
         projects = FileManager.list_projects()
         if not projects:
-            QMessageBox.information(self, "No Projects", "No saved projects found")
+            QMessageBox.information(self, self.t("main_GUI.dialogs.file_dialogs.no_projects"), self.t("main_GUI.dialogs.file_dialogs.no_saved_projects_found"))
             return
         
         items = [p['name'] for p in projects]
-        item, ok = QInputDialog.getItem(self, "Open Project", 
+        item, ok = QInputDialog.getItem(self, self.t("main_GUI.dialogs.file_dialogs.open_project"), 
             "Select project:", items, 0, False)
         
         if ok and item:
@@ -3840,8 +3834,8 @@ class MainWindow(QMainWindow):
             
             # Has content but untitled
             reply = QMessageBox.question(
-                self, "Save Project?",
-                f"Save untitled project before closing?",
+                self, self.t("main_GUI.dialogs.file_dialogs.save_project"),
+                self.t("main_GUI.dialogs.file_dialogs.save_project_close"),
                 QMessageBox.StandardButton.Save |
                 QMessageBox.StandardButton.Discard |
                 QMessageBox.StandardButton.Cancel,
@@ -3863,8 +3857,8 @@ class MainWindow(QMainWindow):
                 print("Unsaved changes detected, prompting user")
                 change_summary = self.build_change_summary(comparison)
                 reply = QMessageBox.question(
-                    self, "Save Project?",
-                    f"Do you want to save changes to '{name}' before closing?\n\n{change_summary}",
+                    self, self.t("main_GUI.dialogs.save_project"),
+                    f"{self.t('main_GUI.dialogs.unsaved_changes').format(name=name)}\n\n{change_summary}",
                     QMessageBox.StandardButton.Save |
                     QMessageBox.StandardButton.Discard |
                     QMessageBox.StandardButton.Cancel,
@@ -3893,18 +3887,18 @@ class MainWindow(QMainWindow):
             print("Main canvas changes detected")
             main_details = []
             if comparison.main_blocks_added:
-                main_details.append(f"  ✓ {len(comparison.main_blocks_added)} block(s) added")
+                main_details.append(f"  ✓ {len(comparison.main_blocks_added)} {self.t('dialogs.changes_dialogs.blocks_added')}")
             if comparison.main_blocks_removed:
-                main_details.append(f"  ✓ {len(comparison.main_blocks_removed)} block(s) removed")
+                main_details.append(f"  ✓ {len(comparison.main_blocks_removed)} {self.t('dialogs.changes_dialogs.blocks_removed')}")
             if comparison.main_blocks_modified:
-                main_details.append(f"  ✓ {len(comparison.main_blocks_modified)} block(s) modified")
+                main_details.append(f"  ✓ {len(comparison.main_blocks_modified)} {self.t('dialogs.changes_dialogs.blocks_modified')}")
             if comparison.main_connections_added:
-                main_details.append(f"  ✓ {len(comparison.main_connections_added)} connection(s) added")
+                main_details.append(f"  ✓ {len(comparison.main_connections_added)} {self.t('dialogs.changes_dialogs.connections_added')}")
             if comparison.main_connections_removed:
-                main_details.append(f"  ✓ {len(comparison.main_connections_removed)} connection(s) removed")
+                main_details.append(f"  ✓ {len(comparison.main_connections_removed)} {self.t('dialogs.changes_dialogs.connections_removed')}")
             
             if main_details:
-                summary.append("📋 Main Canvas:")
+                summary.append(self.t("main_GUI.dialogs.changes_dialogs.main_canvas_changes"))
                 summary.extend(main_details)
         
         # Function Canvas Changes
@@ -3912,16 +3906,16 @@ class MainWindow(QMainWindow):
             print("Function canvas changes detected")
             func_details = []
             if comparison.function_canvases_added:
-                func_details.append(f"  ✓ {len(comparison.function_canvases_added)} function(s) added")
+                func_details.append(f"  ✓ {len(comparison.function_canvases_added)} {self.t('main_GUI.dialogs.changes_dialogs.function_added')}")
             if comparison.function_canvases_removed:
-                func_details.append(f"  ✓ {len(comparison.function_canvases_removed)} function(s) removed")
+                func_details.append(f"  ✓ {len(comparison.function_canvases_removed)} {self.t('main_GUI.dialogs.changes_dialogs.function_removed')}")
             if comparison.function_blocks_modified:
-                func_details.append(f"  ✓ {len(comparison.function_blocks_modified)} function(s) with block changes")
+                func_details.append(f"  ✓ {len(comparison.function_blocks_modified)} {self.t('main_GUI.dialogs.changes_dialogs.function_blocks_modified')}")
             if comparison.function_connections_modified:
-                func_details.append(f"  ✓ {len(comparison.function_connections_modified)} function(s) with connection changes")
+                func_details.append(f"  ✓ {len(comparison.function_connections_modified)} {self.t('main_GUI.dialogs.changes_dialogs.function_connections_modified')}")
             
             if func_details:
-                summary.append("⚙️ Functions:")
+                summary.append(self.t("main_GUI.dialogs.changes_dialogs.function_canvas_changes"))
                 summary.extend(func_details)
         
         # Variables Changes
@@ -3929,14 +3923,14 @@ class MainWindow(QMainWindow):
             print("Variable changes detected")
             var_details = []
             if comparison.variables_added:
-                var_details.append(f"  ✓ {len(comparison.variables_added)} variable(s) added")
+                var_details.append(f"  ✓ {len(comparison.variables_added)} {self.t('main_GUI.dialogs.changes_dialogs.variables_added')}")
             if comparison.variables_removed:
-                var_details.append(f"  ✓ {len(comparison.variables_removed)} variable(s) removed")
+                var_details.append(f"  ✓ {len(comparison.variables_removed)} {self.t('main_GUI.dialogs.changes_dialogs.variables_removed')}")
             if comparison.variables_modified:
-                var_details.append(f"  ✓ {len(comparison.variables_modified)} variable(s) modified")
+                var_details.append(f"  ✓ {len(comparison.variables_modified)} {self.t('main_GUI.dialogs.changes_dialogs.variables_modified')}")
             
             if var_details:
-                summary.append("📊 Variables:")
+                summary.append(self.t("main_GUI.dialogs.changes_dialogs.variables_changes"))
                 summary.extend(var_details)
         
         # Devices Changes
@@ -3944,25 +3938,25 @@ class MainWindow(QMainWindow):
             print("Device changes detected")
             dev_details = []
             if comparison.devices_added:
-                dev_details.append(f"  ✓ {len(comparison.devices_added)} device(s) added")
+                dev_details.append(f"  ✓ {len(comparison.devices_added)} {self.t('main_GUI.dialogs.changes_dialogs.devices_added')}")
             if comparison.devices_removed:
-                dev_details.append(f"  ✓ {len(comparison.devices_removed)} device(s) removed")
+                dev_details.append(f"  ✓ {len(comparison.devices_removed)} {self.t('main_GUI.dialogs.changes_dialogs.devices_removed')}")
             if comparison.devices_modified:
-                dev_details.append(f"  ✓ {len(comparison.devices_modified)} device(s) modified")
+                dev_details.append(f"  ✓ {len(comparison.devices_modified)} {self.t('main_GUI.dialogs.changes_dialogs.devices_modified')}")
             
             if dev_details:
-                summary.append("🔌 Devices:")
+                summary.append(self.t("main_GUI.dialogs.changes_dialogs.devices_changes"))
                 summary.extend(dev_details)
         
         # Settings Changes
         if comparison.settings_changed:
-            summary.append(f"⚡ Settings: {len(comparison.settings_modified)} setting(s) changed")
+            summary.append(f"{self.t('main_GUI.dialogs.changes_dialogs.settings_changed', len_settings_changes=len(comparison.settings_modified))}")
         
         if not summary:
             print("No changes detected")
-            return "✓ No changes detected."
+            return self.t("main_GUI.dialogs.changes_dialogs.no_changes_detected")
         
-        return "Unsaved Changes Detected:\n\n" + "\n".join(summary)
+        return f"{self.t('main_GUI.dialogs.changes_dialogs.unsaved_changes_detected')}\n\n" + "\n".join(summary)
         
     def close_child_windows(self):
         
@@ -4000,8 +3994,8 @@ class MainWindow(QMainWindow):
             # Show compilation message
             QMessageBox.information(
                 self,
-                "Compiling...",
-                "Compiling your code and preparing upload...",
+                self.t("main_GUI.dialogs.progress_dialogs.compiling"),
+                self.t("main_GUI.dialogs.progress_dialogs.compilation_message"),
                 QMessageBox.StandardButton.Ok
             )
             
@@ -4031,16 +4025,16 @@ class MainWindow(QMainWindow):
                     #print("✓ Code executed successfully!")
                     QMessageBox.information(
                         self,
-                        "Success",
-                        "Code compiled, executed, and uploaded successfully!",
+                        self.t("main_GUI.dialogs.progress_dialogs.success"),
+                        self.t("main_GUI.dialogs.progress_dialogs.success_message"),
                         QMessageBox.StandardButton.Ok
                     )
                 else:
                     #print("⚠️  Execution warning - Check device connection")
                     QMessageBox.warning(
                         self,
-                        "Execution Issue",
-                        "Code compiled but execution encountered issues. Check device connection and try again.",
+                        self.t("main_GUI.dialogs.progress_dialogs.execution_issue"),
+                        self.t("main_GUI.dialogs.progress_dialogs.execution_issue_message"),
                         QMessageBox.StandardButton.Ok
                     )
             
@@ -4053,8 +4047,8 @@ class MainWindow(QMainWindow):
                 # Show info (don't show success here - let thread signals handle it)
                 QMessageBox.information(
                     self,
-                    "Execution Started",
-                    "Code is being executed on your Raspberry Pi.\nCheck the status messages for updates.",
+                    self.t("main_GUI.dialogs.progress_dialogs.execution_started"),
+                    self.t("main_GUI.dialogs.progress_dialogs.execution_message"),
                     QMessageBox.StandardButton.Ok
                 )
             
@@ -4062,8 +4056,8 @@ class MainWindow(QMainWindow):
                 print("❌ Unknown device model")
                 QMessageBox.critical(
                     self,
-                    "Error",
-                    f"Unknown device model: {rpi_model}",
+                    self.t("main_GUI.dialogs.progress_dialogs.error"),
+                    self.t("main_GUI.dialogs.progress_dialogs.unknown_model").format(model=rpi_model),
                     QMessageBox.StandardButton.Ok
                 )
         
@@ -4071,8 +4065,8 @@ class MainWindow(QMainWindow):
             print(f"❌ Error: {str(e)}")
             QMessageBox.critical(
                 self,
-                "Compilation Error",
-                f"Failed to compile code:\n{str(e)}",
+                self.t("main_GUI.dialogs.progress_dialogs.compilation_error"),
+                self.t("main_GUI.dialogs.progress_dialogs.compilation_error_message").format(error_details=str(e)),
                 QMessageBox.StandardButton.Ok
             )
     
@@ -4087,7 +4081,7 @@ class MainWindow(QMainWindow):
         #print(f"[RPi Output] {output}")
         QMessageBox.information(
             self,
-            "Execution Output",
+            self.t("main_GUI.dialogs.progress_dialogs.execution_output"),
             output,
             QMessageBox.StandardButton.Ok
         )
@@ -4097,7 +4091,7 @@ class MainWindow(QMainWindow):
         #print(f"[RPi Error] {error}")
         QMessageBox.critical(
             self,
-            "Execution Error",
+            self.t("main_GUI.dialogs.progress_dialogs.execution_error"),
             error,
             QMessageBox.StandardButton.Ok
         )
@@ -4213,8 +4207,8 @@ class MainWindow(QMainWindow):
             if not rpi_host or not rpi_user:
                 QMessageBox.warning(
                     self,
-                    "Configuration Error",
-                    "Raspberry Pi not configured. Go to Settings.",
+                    self.t("main_GUI.dialogs.progress_dialogs.config_error"),
+                    self.t("main_GUI.dialogs.progress_dialogs.config_error_message"),
                     QMessageBox.StandardButton.Ok
                 )
                 return
@@ -4242,8 +4236,8 @@ class MainWindow(QMainWindow):
             print(f"[MainWindow] ❌ Error: {str(e)}")
             QMessageBox.critical(
                 self,
-                "Execution Error",
-                f"Failed to start execution: {str(e)}",
+                self.t("main_GUI.dialogs.progress_dialogs.execution_error"),
+                self.t("main_GUI.dialogs.progress_dialogs.execution_error_message").format(error_details=str(e)),
                 QMessageBox.StandardButton.Ok
             ) 
     #MARK: - Rebuild UI from Saved Data

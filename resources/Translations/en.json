@@ -1,102 +1,277 @@
 {
-  "_metadata": {
-    "language_name": "English",
-    "version": "1.0",
-    "app_title": "Visual Programming Interface"
+  "main_GUI": {
+    "_metadata": {
+      "language_name": "English",
+      "version": "1.0",
+      "app_title": "Visual Programming Interface"
+    },
+    "menu": {
+      "file": "File",
+      "new": "New",
+      "open": "Open",
+      "save": "Save",
+      "save_as": "Save As",
+      "exit": "Exit",
+      "edit": "Edit",
+      "view": "View",
+      "blocks": "Blocks",
+      "add_block": "Add Block",
+      "settings": "Settings",
+      "help": "Help",
+      "get_started": "Get Started",
+      "examples": "Examples",
+      "faq": "FAQ",
+      "compile": "Compile",
+      "compile_code": "Compile Code",
+      "view_code": "View Generated Code"
+    },
+    "toolbar": {
+      "toolbar": "Main Toolbar",
+      "save": "Save",
+      "open": "Open",
+      "new": "New",
+      "add_block": "Add Block",
+      "settings": "Settings",
+      "compile_upload": "Compile and Upload",
+      "run": "Run",
+      "stop": "Stop Execution"
+    },
+    "sidebar": {
+      "main": "Main",
+      "variables": "Variables",
+      "devices": "Devices",
+      "canvas": "Canvas",
+      "internal_variables": "Internal Variables",
+      "new_canvas": "Add New Canvas"
+    },
+    "variables_tab": {
+      "variables": "Variables",
+      "name_placeholder": "Enter variable name",
+      "type": "Type",
+      "initial_value_placeholder": "Enter initial value",
+      "add_variable": "Add Variable"
+    },
+    "devices_tab": {
+      "devices": "Devices",
+      "name_placeholder": "Enter device name",
+      "type": "Type",
+      "output": "Output",
+      "input": "Input",
+      "button": "Button",
+      "pin": "Pin",
+      "add_device": "Add Device"
+    },
+    "internal_tab": {
+      "header": "Internal Variables and Devices",
+      "variable_name_placeholder": "Enter variable name",
+      "device_name_placeholder": "Enter device name",
+      "Output": "Output",
+      "Input": "Input",
+      "Button": "Button",
+      "initial_value": "Initial Value",
+      "add_internal_variable": "Add Internal Variable",
+      "add_internal_device": "Add Internal Device"
+    },
+    "inspector": {
+      "title": "Inspector",
+      "position": "Position",
+      "size": "Size",
+      "interval_ms": "Interval ms",
+      "interval_ms_placeholder": "Interval in ms",
+      "value_1_name": "Value 1 Name",
+      "value_1_name_placeholder": "Enter name of first variable",
+      "operator": "Operator",
+      "value_2_name": "Value 2 Name",
+      "value_2_name_placeholder": "Enter name of second variable",
+      "device/variable_name": "Device/Variable Name",
+      "device/variable_name_placeholder": "Enter name of device or variable",
+      "device_name": "Device Name",
+      "device_name_placeholder": "Enter device name",
+      "led_device_name": "LED Device Name",
+      "led_device_name_placeholder": "Enter LED device name",
+      "pwm_value": "PWM Value (0-255)",
+      "pwm_value_placeholder": "Enter PWM value (0-255)",
+      "first_variable": "First Variable Name",
+      "first_variable_placeholder": "Enter first variable name",
+      "second_variable": "Second Variable Name",
+      "second_variable_placeholder": "Enter second variable name",
+      "result_variable": "Result Variable Name",
+      "result_variable_placeholder": "Enter result variable name",
+      "input_variables": "Input Variables",
+      "ref_variables": "Reference Variables",
+      "main_variables": "Main Variables",
+      "main_variables_placeholder": "Enter main variable name",
+      "input_devices": "Input Devices",
+      "ref_devices": "Reference Devices",
+      "main_devices": "Main Devices",
+      "main_devices_placeholder": "Enter main device name",
+      "blink_interval_ms": "Blink Interval (ms)",
+      "blink_interval_ms_placeholder": "Enter blink interval in ms"
+    },
+    "settings": {
+      "window_title": "Settings",
+      "device": "Device Settings",
+      "rpi_model": "Select your RPI model",
+      "rpi_host": "Raspberry Pi Host",
+      "rpi_user": "Username",
+      "rpi_password": "Password",
+      "language": "Language",
+      "rpi_connection": "Raspberry Pi Connection",
+      "auto_detect": "Auto-Detect Raspberry Pi",
+      "manual": "Or enter manually",
+      "status": "Status",
+      "status_not_connected": "Status: Not connected",
+      "additional_settings": "Additional Settings"
+    },
+    "dialogs": {
+      "file_dialogs": {
+        "save_project": "Save project?",
+        "save_project_close": "Save untitled project before closing?",
+        "save_project_as": "Save project as?",
+        "enter_project_name": "Enter project name:",
+        "no_projects": "No projects",
+        "no_saved_projects_found": "No saved projects found",
+        "open_project": "Open Project",
+        "unsaved_changes": "Do you want to save changes to {name} before closing?"
+      },
+      "changes_dialogs": {
+        "main_canvas_changes": "Main canvas changes:",
+        "blocks_added": "block(s) added",
+        "blocks_removed": "block(s) removed",
+        "blocks_modified": "block(s) modified",
+        "connections_added": "connection(s) added",
+        "connections_removed": "connection(s) removed",
+        "function_canvas_changes": "Function canvas changes:",
+        "function_added": "function(s) added",
+        "function_removed": "function(s) removed",
+        "function_blocks_modified": "function(s) with blocks modified",
+        "function_connections_modified": "function(s) with connections modified",
+        "variables_changes": "Variables changes:",
+        "variables_added": "variable(s) added",
+        "variables_removed": "variable(s) removed",
+        "variables_modified": "variable(s) modified",
+        "devices_changes": "Devices changes:",
+        "devices_added": "device(s) added",
+        "devices_removed": "device(s) removed",
+        "devices_modified": "device(s) modified",
+        "settings_changes": "Settings: {len_settings_changes} settings changed",
+        "no_changes_detected": "No changes detected",
+        "unsaved_changes_detected": "Unsaved Changes Detected:"
+
+      },
+      "progress_dialogs": {
+        "compiling": "Compiling...",
+        "compilation_message": "Compiling your code and preparing upload...",
+        "compilation_error": "Compilation Error",
+        "compilation_error_message": "An error occurred during code compilation. Please check your blocks and try again.\nError details:\n{error_details}",
+        "execution_started": "Execution Started",
+        "execution_message": "Code is being executed on your Raspberry Pi.\n Check the status messages for updates.",
+        "execution_issue": "Execution Issue",
+        "execution_error": "Execution Error",
+        "execution_output": "Execution Output",
+        "execution_issue_message": "Code compiled but execution encountered issues. Check device connection and try again.",
+        "success": "Success",
+        "success_message": "Code compiled, executed, and uploaded successfully!",
+        "error": "Error",
+        "unknown_model": "Unknown Raspberry Pi model: {model}. Please select your model manually in settings.",
+        "config_error": "Configuration Error",
+        "config_error_message": "Raspberry Pi configuration is incomplete or invalid. Please check your settings."
+      },
+      "new_canvas": "New Canvas",
+      "enter_canvas_name": "Enter name for new canvas"
+    },
+    "messages": {
+      "status_not_connected": "Status: Not connected",
+      "status_connected": "Connected!",
+      "status_error": "Status: Error during detection",
+      "no_pi_found": "No Pi detected",
+      "position": "Position {x}, {y}",
+      "size": "Size {width} x {height}"
+    }
   },
-  "menu": {
-    "file": "File",
-    "new": "New",
-    "open": "Open",
-    "save": "Save",
-    "save_as": "Save As",
-    "exit": "Exit",
-    "edit": "Edit",
-    "view": "View",
-    "show_canvas": "Show Canvas",
-    "show_variables": "Show Variables",
-    "show_devices": "Show Devices",
-    "settings": "Settings",
-    "help": "Help",
-    "get_started": "Get Started",
-    "examples": "Examples",
-    "faq": "FAQ",
-    "compile": "Compile",
-    "compile_code": "Compile Code",
-    "view_code": "View Generated Code"
+  "elements_window": {
+    "window_title": "Elements Window",
+    "basic_blocks_tab": {
+      "tab_title": "Basic blocks",
+      "Start": "Start",
+      "End": "End",
+      "Timer": "Timer",
+      "block_details": "Block Details",
+      "add_block": "Add Block"
+    },
+    "logic_blocks_tab": {
+      "tab_title": "Logic blocks",
+      "If": "If",
+      "While": "While",
+      "While_true": "While true",
+      "Switch": "Switch",
+      "For_Loop": "For Loop",
+      "block_details": "Block Details",
+      "add_block": "Add Block"
+    },
+    "io_blocks_tab": {
+      "tab_title": "I/O blocks",
+      "Button": "Button",
+      "LED": "LED",
+      "Blink_LED": "Blink LED",
+      "Toggle_LED": "Toggle LED",
+      "PWM_LED": "PWM LED control",
+      "block_details": "Block Details",
+      "add_block": "Add Block"
+    },
+    "math_blocks_tab": {
+      "tab_title": "Math blocks",
+      "basic_operations": "Basic operations",
+      "exponential_operations": "Exponential operations",
+      "random_number": "Random Number",
+      "block_details": "Block Details",
+      "add_block": "Add Block"
+    },
+    "function_blocks_tab": {
+      "tab_title": "Function",
+      "block_details": "Block Details",
+      "add_block": "Add Block"
+    },
+    "blocks_descriptions": {
+      "Start": "The starting point of the program execution.",
+      "End": "The endpoint of the program execution.",
+      "Timer": "A block that triggers actions at specified time intervals.",
+      "If": "A conditional block that executes actions based on a true/false condition.",
+      "While": "A loop block that continues executing as long as a condition is true.",
+      "While_true": "A loop that runs indefinitely until externally stopped.",
+      "Switch": "A block that selects one of many possible actions based on a value.",
+      "For_Loop": "A loop that iterates a specific number of times.",
+      "Button": "Represents a physical button input device.",
+      "LED": "Represents a physical LED output device.",
+      "Blink_LED": "Controls an LED to blink at specified intervals.",
+      "Toggle_LED": "Toggles the state of an LED on or off.",
+      "PWM_LED": "Controls the brightness of an LED using PWM (Pulse Width Modulation).",
+      "Basic_operations": "Performs basic arithmetic operations like addition, subtraction, multiplication, and division.",
+      "Exponential_operations": "Performs exponential calculations such as power and square root.",
+      "Random_number": "Generates a random number within a specified range.",
+      "no_description": "No description available."
+    }
   },
-  "toolbar": {
-    "save": "Save",
-    "open": "Open",
-    "new": "New",
-    "add_block": "Add Block",
-    "settings": "Settings",
-    "compile_upload": "Compile and Upload",
-    "run": "Run",
-    "stop": "Stop Execution"
+  "code_view_window": {
+    "window_title": "Generated Code View",
+    "code_label": "Generated Code:",
+    "file_empty": "File is not generated. To generate the file, please compile the code first.",
+    "file_not_found": "File.py not found",
+    "error_reading_file": "Error reading file: {error_type}: {error_message}"
   },
-  "sidebar": {
-    "variables": "Variables",
-    "devices": "Devices",
-    "add_variable": "Add Variable",
-    "add_device": "Add Device",
-    "add_internal_var": "Add Internal Variable",
-    "add_internal_dev": "Add Internal Device",
-    "internal_variables": "Internal Variables",
-    "new_canvas": "New Canvas"
-  },
-  "inspector": {
-    "title": "Inspector",
-    "position": "Position",
-    "size": "Size",
-    "interval_ms": "Interval ms",
-    "value_1_name": "Value 1 Name",
-    "operator": "Operator",
-    "value_2_name": "Value 2 Name",
-    "value_name": "Value Name",
-    "led_device_name": "LED Device Name",
-    "pwm_value": "PWM Value 0-255",
-    "first_variable": "First Variable Name",
-    "second_variable": "Second Variable Name",
-    "result_variable": "Result Variable Name",
-    "input_variables": "Input Variables",
-    "input_devices": "Input Devices",
-    "blink_interval_ms": "Blink Interval ms"
-  },
-  "settings": {
-    "window_title": "Settings",
-    "device": "Device Settings",
-    "rpi_model": "Select your RPI model",
-    "rpi_host": "Raspberry Pi Host",
-    "rpi_user": "Username",
-    "rpi_password": "Password",
-    "language": "Language",
-    "rpi_connection": "Raspberry Pi Connection",
-    "auto_detect": "Auto-Detect Raspberry Pi",
-    "manual": "Or enter manually",
-    "status": "Status",
-    "status_not_connected": "Status: Not connected",
-    "additional_settings": "Additional Settings"
-  },
-  "dialogs": {
-    "save_project": "Save Project?",
-    "unsaved_changes": "Do you want to save changes to {name} before closing?",
-    "compiling": "Compiling...",
-    "compilation_message": "Compiling your code and preparing upload...",
-    "execution_started": "Execution Started",
-    "execution_message": "Code is being executed on your Raspberry Pi. Check the status messages for updates.",
-    "compilation_error": "Compilation Error",
-    "success": "Success",
-    "success_message": "Code compiled, executed, and uploaded successfully!",
-    "new_canvas": "New Canvas",
-    "enter_canvas_name": "Enter name for new canvas"
-  },
-  "messages": {
-    "status_not_connected": "Status: Not connected",
-    "status_connected": "Connected!",
-    "status_error": "Status: Error during detection",
-    "no_pi_found": "No Pi detected",
-    "position": "Position {x}, {y}",
-    "size": "Size {width} x {height}"
+  "help_window": {
+    "window_title": "Help Window",
+    "get_started_tab": {
+      "tab_title": "Get Started",
+      "content": "resources/Translations/help_content_en.html"
+    },
+    "examples_tab": {
+      "tab_title": "Examples",
+      "content": "Here are some example projects to help you understand how to use the interface..."
+    },
+    "faq_tab": {
+      "tab_title": "FAQ",
+      "content": "Frequently Asked Questions:\n1. How do I add a new block?\n2. How do I save my project?\n..."
+    }
   }
 }

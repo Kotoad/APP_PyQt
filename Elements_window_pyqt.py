@@ -3,12 +3,12 @@ from Imports import (QWidget, QDialog, QVBoxLayout, QHBoxLayout,
 QPushButton, QLabel, QFrame, QTabWidget, Qt, QFont,
 pyqtSignal, QListWidget, QScrollArea)
 
-from Imports import get_State_Manager
-from Imports import get_spawn_elements, get_utils
+from Imports import get_State_Manager, get_spawn_elements, get_utils, get_Translation_Manager
 
 Utils = get_utils()
 State_manager = get_State_Manager()
 spawning_elements = get_spawn_elements()[1]
+Translation_Manager = get_Translation_Manager()
 
 background_color = "#2B2B2B"
 border_color = "#3A3A3A"
@@ -26,8 +26,8 @@ class ElementsWindow(QDialog):
         #print(f"Curent canvas in ElementsWindow init: {parent}")
         self.parent_canvas = parent
         self.state_manager = State_manager.get_instance()
-        # Create spawning_elements instance
-        # This now handles BlockGraphicsItem creation internally
+        self.translation_manager = Translation_Manager.get_instance()
+        self.t = self.translation_manager.translate
         
         self.is_hidden = True
         self.f_tab = None
@@ -70,7 +70,7 @@ class ElementsWindow(QDialog):
     
     def setup_ui(self):
         """Setup the UI"""
-        self.setWindowTitle("Add Element")
+        self.setWindowTitle(self.t("elements_window.window_title"))
         self.resize(550, 400)
         self.setWindowFlags(Qt.WindowType.Window)
         
@@ -164,16 +164,16 @@ class ElementsWindow(QDialog):
         right_layout = QVBoxLayout(right_widget)
         left_widget.setMinimumWidth(200)
 
-        left_label = QLabel("Basic Blocks")
+        left_label = QLabel(self.t("elements_window.basic_blocks_tab.tab_title"))
         left_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         left_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         left_layout.addWidget(left_label)
         left_layout.addSpacing(10)
         # Buttons - MAPPED TO SPAWNING ELEMENTS
         basic_elements = [
-            ("Start", "Start"),
-            ("End", "End"),
-            ("Timer", "Timer")
+            (self.t("elements_window.basic_blocks_tab.Start"), "Start"),
+            (self.t("elements_window.basic_blocks_tab.End"), "End"),
+            (self.t("elements_window.basic_blocks_tab.Timer"), "Timer")
         ]
 
         for label, element_type in basic_elements:
@@ -187,21 +187,21 @@ class ElementsWindow(QDialog):
         scroll_area = QScrollArea()
         scroll_area.setWidget(self.basic_description_text)
         scroll_area.setWidgetResizable(True)
-        right_label = QLabel("Block Details")
+        right_label = QLabel(self.t("elements_window.basic_blocks_tab.block_details"))
         right_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         right_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         right_layout.addWidget(right_label)
         right_layout.addSpacing(10)
         right_layout.addWidget(scroll_area)
 
-        add_button = QPushButton("Add Selected Block")
+        add_button = QPushButton(self.t("elements_window.basic_blocks_tab.add_block"))
         add_button.clicked.connect(lambda: self.spawn_element(self.basic_description_text.text().split(":\n\n")[0]))
         right_layout.addWidget(add_button)
 
         left_layout.addStretch()
         layout.addWidget(left_widget)
         layout.addWidget(right_widget)
-        self.tab_widget.addTab(tab, "Basic")
+        self.tab_widget.addTab(tab, self.t("elements_window.basic_blocks_tab.tab_title"))
         self.show_block_details("Start", 'basic')  # Show default details
     
     #MARK: Logic Tab
@@ -221,7 +221,7 @@ class ElementsWindow(QDialog):
         
         
         # Title
-        title = QLabel("Logic Blocks")
+        title = QLabel(self.t("elements_window.logic_blocks_tab.tab_title"))
         title.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         left_layout.addWidget(title)
@@ -229,11 +229,11 @@ class ElementsWindow(QDialog):
         
         # Buttons - MAPPED TO SPAWNING ELEMENTS
         logic_elements = [
-            ("If", "If"),
-            ("While", "While"),
-            ("While true", "While_true"),
-            ("Switch", "Switch"),
-            ("For Loop", "For Loop")
+            (self.t("elements_window.logic_blocks_tab.If"), "If"),
+            (self.t("elements_window.logic_blocks_tab.While"), "While"),
+            (self.t("elements_window.logic_blocks_tab.While_true"), "While_true"),
+            (self.t("elements_window.logic_blocks_tab.Switch"), "Switch"),
+            (self.t("elements_window.logic_blocks_tab.For_Loop"), "For_Loop")
         ]
         
         for label, logic_type in logic_elements:
@@ -246,21 +246,21 @@ class ElementsWindow(QDialog):
         scroll_area = QScrollArea()
         scroll_area.setWidget(self.logic_description_text)
         scroll_area.setWidgetResizable(True)
-        right_label = QLabel("Block Details")
+        right_label = QLabel(self.t("elements_window.logic_blocks_tab.block_details"))
         right_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         right_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         right_layout.addWidget(right_label)
         right_layout.addSpacing(10)
         right_layout.addWidget(scroll_area)
 
-        add_button = QPushButton("Add Selected Block")
+        add_button = QPushButton(self.t("elements_window.logic_blocks_tab.add_block"))
         add_button.clicked.connect(lambda: self.spawn_element(self.logic_description_text.text().split(":\n\n")[0]))
         right_layout.addWidget(add_button)
 
         left_layout.addStretch()
         layout.addWidget(left_widget)
         layout.addWidget(right_widget)
-        self.tab_widget.addTab(tab, "Logic")
+        self.tab_widget.addTab(tab, self.t("elements_window.logic_blocks_tab.tab_title"))
         self.show_block_details("If", 'logic')  # Show default details
     #MARK: I/O Tab
     def create_io_tab(self):
@@ -278,7 +278,7 @@ class ElementsWindow(QDialog):
         
         
         # Title
-        title = QLabel("Input/Output Blocks")
+        title = QLabel(self.t("elements_window.io_blocks_tab.tab_title"))
         title.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.IO_left_layout.addWidget(title)
@@ -287,8 +287,8 @@ class ElementsWindow(QDialog):
         # Buttons - MAPPED TO SPAWNING ELEMENTS
 
         io_elements = {
-            'Button': {'name': 'Button', 'is_dropdown': False},
-            'LED': {'name': 'LED', 'is_dropdown': True},
+            self.t("elements_window.io_blocks_tab.Button"): {'name': 'Button', 'is_dropdown': False},
+            self.t("elements_window.io_blocks_tab.LED"): {'name': 'LED', 'is_dropdown': True},
         }
         
         for label, element in io_elements.items():
@@ -302,21 +302,21 @@ class ElementsWindow(QDialog):
         scroll_area = QScrollArea()
         scroll_area.setWidget(self.IO_description_text)
         scroll_area.setWidgetResizable(True)
-        right_label = QLabel("Block Details")
+        right_label = QLabel(self.t("elements_window.io_blocks_tab.block_details"))
         right_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         right_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         right_layout.addWidget(right_label)
         right_layout.addSpacing(10)
         right_layout.addWidget(scroll_area)
 
-        add_button = QPushButton("Add Selected Block")
+        add_button = QPushButton(self.t("elements_window.io_blocks_tab.add_block"))
         add_button.clicked.connect(lambda: self.spawn_element(self.IO_description_text.text().split(":\n\n")[0]))
         right_layout.addWidget(add_button)
 
         self.IO_left_layout.addStretch()
         layout.addWidget(left_widget)
         layout.addWidget(right_widget)
-        self.tab_widget.addTab(tab, "I/O")
+        self.tab_widget.addTab(tab, self.t("elements_window.io_blocks_tab.tab_title"))
         self.show_block_details("Button", 'io')  # Show default details
     #MARK: Math Tab
     def create_math_tab(self):
@@ -332,7 +332,7 @@ class ElementsWindow(QDialog):
         right_layout = QVBoxLayout(right_widget)
         
         # Title
-        title = QLabel("Math Blocks")
+        title = QLabel(self.t("elements_window.math_blocks_tab.tab_title"))
         title.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         left_layout.addWidget(title)
@@ -340,9 +340,9 @@ class ElementsWindow(QDialog):
         
         # Buttons - MAPPED TO SPAWNING ELEMENTS
         math_elements = [
-            ("Basic operations", "Basic_operations"),
-            ("Exponential operations", "Exponential_operations"), 
-            ("Random Number", "Random_number")
+            (self.t("elements_window.math_blocks_tab.basic_operations"), "Basic_operations"),
+            (self.t("elements_window.math_blocks_tab.exponential_operations"), "Exponential_operations"), 
+            (self.t("elements_window.math_blocks_tab.random_number"), "Random_number")
         ]
         
         for label, element in math_elements:
@@ -356,22 +356,22 @@ class ElementsWindow(QDialog):
         scroll_area = QScrollArea()
         scroll_area.setWidget(self.math_description_text)
         scroll_area.setWidgetResizable(True)
-        right_label = QLabel("Block Details")
+        right_label = QLabel(self.t("elements_window.math_blocks_tab.block_details"))
         right_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         right_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         right_layout.addWidget(right_label)
         right_layout.addSpacing(10)
         right_layout.addWidget(scroll_area)
 
-        add_button = QPushButton("Add Selected Block")
+        add_button = QPushButton(self.t("elements_window.math_blocks_tab.add_block"))
         add_button.clicked.connect(lambda: self.spawn_element(self.math_description_text.text().split(":\n\n")[0]))
         right_layout.addWidget(add_button)
 
         left_layout.addStretch()
         layout.addWidget(left_widget)
         layout.addWidget(right_widget)
-        self.tab_widget.addTab(tab, "Math")
-        self.show_block_details("Sum", 'math')  # Show default details
+        self.tab_widget.addTab(tab, self.t("elements_window.math_blocks_tab.tab_title"))
+        self.show_block_details("Basic_operations", 'math')  # Show default details
     #MARK: Functions Tab
     def create_functions_tab(self):
         """Create functions tab"""
@@ -395,7 +395,7 @@ class ElementsWindow(QDialog):
             self.layout.setSpacing(5)
             self.now_created = True
             # Title
-            title = QLabel("Functions")
+            title = QLabel(self.t("elements_window.functions_tab.tab_title"))
             title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
             title.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.layout.addWidget(title)
@@ -418,7 +418,7 @@ class ElementsWindow(QDialog):
 
         if self.now_created:
             #print("Adding Functions tab to ElementsWindow")
-            self.tab_widget.addTab(self.f_tab, "Functions")
+            self.tab_widget.addTab(self.f_tab, self.t("elements_window.functions_tab.tab_title"))
     #MARK: Block Details
     def on_block_selected(self, element_type, tab_name, is_dropdown=False):
         """Handle selection of basic block from list"""
@@ -432,7 +432,7 @@ class ElementsWindow(QDialog):
         if element_type == "LED":
             if element_type not in self.dropdown_menus:
                 self.dropdown_menus.append(element_type)
-                for blocks in (('Blink LED', 'Blink_LED'), ('Toggle LED', 'Toggle_LED'), ('PWM LED control', 'PWM_LED')):
+                for blocks in ((self.t("elements_window.io_blocks_tab.Blink_LED"), 'Blink_LED'), (self.t("elements_window.io_blocks_tab.Toggle_LED"), 'Toggle_LED'), (self.t("elements_window.io_blocks_tab.PWM_LED"), 'PWM_LED')):
                     label, block_name = blocks
                     btn = QPushButton(label)
                     btn.clicked.connect(lambda checked, e=block_name, t=tab_name: self.on_block_selected(e, t))
@@ -442,7 +442,7 @@ class ElementsWindow(QDialog):
                 self.dropdown_menus.remove(element_type)
                 for i in range(self.IO_left_layout.count() - 1, -1, -1):
                     item = self.IO_left_layout.itemAt(i)
-                    if item and item.widget() and item.widget().text() in ('Blink LED', 'Toggle LED', 'PWM LED control'):
+                    if item and item.widget() and item.widget().text() in (self.t("elements_window.io_blocks_tab.Blink_LED"), self.t("elements_window.io_blocks_tab.Toggle_LED"), self.t("elements_window.io_blocks_tab.PWM_LED")):
                         widget = item.widget()
                         self.IO_left_layout.removeWidget(widget)
                         widget.deleteLater()
@@ -451,65 +451,27 @@ class ElementsWindow(QDialog):
     def show_block_details(self, element_type, tab_name):
         """Show details for selected basic block"""
         # Clear previous details
-        block_data = {
-            "Start": {
-                "description": "The starting point of the flow."
-            },
-            "End": {
-                "description": "The endpoint of the flow."
-            },
-            "Timer": {
-                "description": "A timer that triggers after a set duration."
-            },
-            "Switch": {
-                "description": "A control structure that allows branching based on multiple conditions."
-            },
-            "If": {
-                "description": "A conditional statement that executes a block of code if a specified condition is true."
-            },
-            "While": {
-                "description": "A loop that continues to execute a block of code as long as a specified condition is true."
-            },
-            "While_true": {
-                "description": "A loop that continues to execute a block of code indefinitely until manually stopped."
-            },
-            "For Loop": {
-                "description": "A loop that iterates over a sequence of values for a specified number of times."
-            },
-            "Basic_operations": {
-                "description": "Performs basic arithmetic operations: addition, subtraction, multiplication, division and modulo."
-            },
-            "Exponential_operations": {
-                "description": "Performs exponential operations such as power and square root."
-            },
-            "Random_number": {
-                "description": "Generates a random number within a specified range."
-            },
-            "Button": {
-                "description": "An input block that represents a button press."
-            },
-        }
+        block_data = self.t("elements_window.blocks_descriptions." + element_type)
         # Add details based on element_type
-        if element_type in block_data:
-            data = block_data[element_type]
+        if block_data:
             if tab_name == 'basic':
-                self.basic_description_text.setText(f"{element_type}:\n\n{data['description']}")
+                self.basic_description_text.setText(f"{element_type}:\n\n{block_data}")
             elif tab_name == 'logic':
-                self.logic_description_text.setText(f"{element_type}:\n\n{data['description']}")
+                self.logic_description_text.setText(f"{element_type}:\n\n{block_data}")
             elif tab_name == 'math':
-                self.math_description_text.setText(f"{element_type}:\n\n{data['description']}")
+                self.math_description_text.setText(f"{element_type}:\n\n{block_data}")
             elif tab_name == 'io':
-                self.IO_description_text.setText(f"{element_type}:\n\n{data['description']}")
+                self.IO_description_text.setText(f"{element_type}:\n\n{block_data}")
         else:
-            data = {"description": "No description available."}
+            data = self.t("elements_window.blocks_descriptions.no_description")
             if tab_name == 'basic':
-                self.basic_description_text.setText(f"{element_type}:\n\n{data['description']}")
+                self.basic_description_text.setText(f"{element_type}:\n\n{data}")
             elif tab_name == 'logic':
-                self.logic_description_text.setText(f"{element_type}:\n\n{data['description']}")
+                self.logic_description_text.setText(f"{element_type}:\n\n{data}")
             elif tab_name == 'math':
-                self.math_description_text.setText(f"{element_type}:\n\n{data['description']}")
+                self.math_description_text.setText(f"{element_type}:\n\n{data}")
             elif tab_name == 'io':
-                self.IO_description_text.setText(f"{element_type}:\n\n{data['description']}")
+                self.IO_description_text.setText(f"{element_type}:\n\n{data}")
     #MARK: Spawn Element
     def spawn_element(self, element_type, name=None):
         """

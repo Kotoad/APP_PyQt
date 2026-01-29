@@ -40,11 +40,11 @@ class TranslationManager:
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    lang_name = data.get('_metadata', {}).get('language_name', None)
+                    lang_name = self._get_nested_value(data, 'main_GUI._metadata.language_name')
                     if lang_code and lang_name:
                         self.available_translations[lang_code] = lang_name  
                     else:
-                        print(f"Warning: Missing '_meta.language_name' in {json_file}. Skipping.")
+                        print(f"Warning: Missing 'main_GUI._metadata.language_name' in {json_file}. Skipping.")
             except json.JSONDecodeError:
                 print(f"Warning: Failed to parse {json_file}. Skipping.")
             except Exception as e:

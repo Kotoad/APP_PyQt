@@ -458,6 +458,7 @@ class FileManager:
                     devices_data['main_canvas'][dev_id] = {
                         'name': dev_info.get('name', ''),
                         'type': dev_info.get('type', ''),
+                        'type_index': dev_info.get('type_index', 0),
                         'PIN': dev_info.get('PIN', ''),
                     }
             elif canvas.reference == 'function':
@@ -470,6 +471,7 @@ class FileManager:
                             devices_data['function_canvases'][f_id][dev_id] = {
                                 'name': dev_info.get('name', ''),
                                 'type': dev_info.get('type', ''),
+                                'type_index': dev_info.get('type_index', 0),
                                 'PIN': dev_info.get('PIN', ''),
                             }
         metadata = {
