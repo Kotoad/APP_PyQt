@@ -69,6 +69,7 @@ class DeviceSettingsWindow(QDialog):
         self.is_hidden = True
         self.state_manager = StateManager.get_instance()
         self.translation_manager = TranslationManager.get_instance()
+        self.t = self.translation_manager.translate
         self.setup_ui()
     
     @classmethod
@@ -93,7 +94,7 @@ class DeviceSettingsWindow(QDialog):
     
     def setup_ui(self):
         """Setup the UI"""
-        self.setWindowTitle("Settings")
+        self.setWindowTitle(self.t("setting_window.title"))
         self.resize(400, 300)
         self.setWindowFlags(Qt.WindowType.Window)
     
@@ -155,14 +156,14 @@ class DeviceSettingsWindow(QDialog):
         tab_layout = QVBoxLayout(tab)
         tab_layout.setSpacing(5)
 
-        title = QLabel("Basic Settings")
+        title = QLabel(self.t("setting_window.basic_settings_tab.title"))
         title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         tab_layout.addWidget(title)
 
         tab_layout.addSpacing(10)
 
-        label = QLabel("Select Language:")
+        label = QLabel(self.t("setting_window.basic_settings_tab.select_language"))
         tab_layout.addWidget(label)
 
         self.language_combo = MaxWidthComboBox(self, max_popup_width=358)
@@ -180,21 +181,21 @@ class DeviceSettingsWindow(QDialog):
         tab_layout.addWidget(label)
         tab_layout.addWidget(self.language_combo)
         tab_layout.addStretch()
-        self.tab_widget.addTab(tab, "Basic")
+        self.tab_widget.addTab(tab, self.t("setting_window.basic_settings_tab.title"))
 
     def create_device_tab(self):
         tab = QWidget()
         tab_layout = QVBoxLayout(tab)
         tab_layout.setSpacing(5)
         
-        title = QLabel("Device Settings")
+        title = QLabel(self.t("setting_window.device_settings_tab.title"))
         title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         tab_layout.addWidget(title)
         
         tab_layout.addSpacing(10)
         
-        label = QLabel("Select your RPI model")
+        label = QLabel(self.t("setting_window.device_settings_tab.select_rpi_model"))
         tab_layout.addWidget(label)
         
         self.rpi_model_combo = MaxWidthComboBox(self, max_popup_width=358)
@@ -202,20 +203,20 @@ class DeviceSettingsWindow(QDialog):
         self.rpi_model_combo.setCurrentIndex(Utils.app_settings.rpi_model_index if hasattr(Utils.app_settings, 'rpi_model_index') else 0)
         self.rpi_model_combo.currentIndexChanged.connect(self.on_model_changed)
         
-        rpi_host_label = QLabel("Raspberry Pi Host:")
+        rpi_host_label = QLabel(self.t("setting_window.device_settings_tab.rpi_host"))
         self.rpi_host_input = QLineEdit()
         self.rpi_host_input.setText(Utils.app_settings.rpi_host)
-        self.rpi_host_input.setPlaceholderText("raspberrypi.local or 192.168.1.100")
+        self.rpi_host_input.setPlaceholderText(self.t("setting_window.device_settings_tab.rpi_host_placeholder"))
 
-        rpi_user_label = QLabel("Username:")
+        rpi_user_label = QLabel(self.t("setting_window.device_settings_tab.rpi_user"))
         self.rpi_user_input = QLineEdit()
         self.rpi_user_input.setText(Utils.app_settings.rpi_user)
         self.rpi_user_input.setPlaceholderText("pi")
 
-        rpi_password_label = QLabel("Password:")
+        rpi_password_label = QLabel(self.t("setting_window.device_settings_tab.rpi_password"))
         self.rpi_password_input = QLineEdit()
         self.rpi_password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.rpi_password_input.setPlaceholderText("(optional if using SSH keys)")
+        self.rpi_password_input.setPlaceholderText(self.t("setting_window.device_settings_tab.rpi_password_placeholder"))
 
         # Add to layout and connect save signals
         self.rpi_host_input.textChanged.connect(lambda text: self.save_settings())
@@ -230,7 +231,7 @@ class DeviceSettingsWindow(QDialog):
         tab_layout.addWidget(rpi_password_label)
         tab_layout.addWidget(self.rpi_password_input)
         tab_layout.addStretch()
-        self.tab_widget.addTab(tab, "Devices")
+        self.tab_widget.addTab(tab, self.t("setting_window.device_settings_tab.title"))
     
     def on_model_changed(self, index):
         """Handle model change"""
@@ -243,12 +244,12 @@ class DeviceSettingsWindow(QDialog):
         tab = QWidget()
         self.main_layout = QVBoxLayout(tab)
         # Title
-        rpi_title = QLabel("🔗 Raspberry Pi Connection")
+        rpi_title = QLabel(self.t("setting_window.rpi_settings_tab.title"))
         rpi_title.setStyleSheet("font-weight: bold; font-size: 12px;")
         self.main_layout.addWidget(rpi_title)
         
         # Auto-Detect Button
-        auto_detect_btn = QPushButton("🔍 Auto-Detect Raspberry Pi")
+        auto_detect_btn = QPushButton(self.t("setting_window.rpi_settings_tab.auto_detect"))
         auto_detect_btn.setStyleSheet("""
             QPushButton {
                 background-color: #1F538D;
@@ -265,46 +266,46 @@ class DeviceSettingsWindow(QDialog):
         self.main_layout.addWidget(auto_detect_btn)
         
         # Status label
-        self.rpi_status_label = QLabel("Status: Not connected")
+        self.rpi_status_label = QLabel(self.t("setting_window.rpi_settings_tab.status_not_connected"))
         self.rpi_status_label.setStyleSheet("color: #FF9800; font-size: 10px;")
         self.main_layout.addWidget(self.rpi_status_label)
         
         # Manual settings (fallback)
-        manual_label = QLabel("Or enter manually:")
+        manual_label = QLabel(self.t("setting_window.rpi_settings_tab.manual_entry"))
         manual_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
         self.main_layout.addWidget(manual_label)
         
         # Host input
         host_layout = QHBoxLayout()
-        host_layout.addWidget(QLabel("Host/IP:"))
+        host_layout.addWidget(QLabel(self.t("setting_window.rpi_settings_tab.rpi_host")))
         self.rpi_host_input = QLineEdit()
         self.rpi_host_input.setText(Utils.app_settings.rpi_host)
-        self.rpi_host_input.setPlaceholderText("raspberrypi.local or 192.168.1.100")
+        self.rpi_host_input.setPlaceholderText(self.t("setting_window.rpi_settings_tab.rpi_host_placeholder"))
         self.rpi_host_input.textChanged.connect(lambda: setattr(Utils.app_settings, 'rpi_host', self.rpi_host_input.text()))
         host_layout.addWidget(self.rpi_host_input)
         self.main_layout.addLayout(host_layout)
         
         # Username input
         user_layout = QHBoxLayout()
-        user_layout.addWidget(QLabel("Username:"))
+        user_layout.addWidget(QLabel(self.t("setting_window.rpi_settings_tab.rpi_user")))
         self.rpi_user_input = QLineEdit()
         self.rpi_user_input.setText(Utils.app_settings.rpi_user)
-        self.rpi_user_input.setPlaceholderText("pi")
+        self.rpi_user_input.setPlaceholderText(self.t("setting_window.rpi_settings_tab.rpi_user_placeholder"))
         self.rpi_user_input.textChanged.connect(lambda: setattr(Utils.app_settings, 'rpi_user', self.rpi_user_input.text()))
         user_layout.addWidget(self.rpi_user_input)
         self.main_layout.addLayout(user_layout)
         
         # Password input
         pwd_layout = QHBoxLayout()
-        pwd_layout.addWidget(QLabel("Password:"))
+        pwd_layout.addWidget(QLabel(self.t("setting_window.rpi_settings_tab.rpi_password")))
         self.rpi_password_input = QLineEdit()
         self.rpi_password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.rpi_password_input.setText(Utils.app_settings.rpi_password)
-        self.rpi_password_input.setPlaceholderText("(default: raspberry)")
+        self.rpi_password_input.setPlaceholderText(self.t("setting_window.rpi_settings_tab.rpi_password_placeholder"))
         self.rpi_password_input.textChanged.connect(lambda: setattr(Utils.app_settings, 'rpi_password', self.rpi_password_input.text()))
         pwd_layout.addWidget(self.rpi_password_input)
         self.main_layout.addLayout(pwd_layout)
-        self.tab_widget.addTab(tab, "Additional Settings")
+        self.tab_widget.addTab(tab, self.t("setting_window.rpi_settings_tab.title"))
     
     def save_settings(self):
         
@@ -338,12 +339,8 @@ class DeviceSettingsWindow(QDialog):
     
     def restart_app_dialog(self):
         msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("Language Changed")
-        msg_box.setText(
-            "Language changed successfully!\n\n"
-            "App will restart in 3 seconds...\n\n"
-            "Click 'OK' to restart now."
-        )
+        msg_box.setWindowTitle(self.t("setting_window.restart_dialog.title"))
+        msg_box.setText(self.t("setting_window.restart_dialog.message_default"))
         msg_box.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
         msg_box.setDefaultButton(QMessageBox.StandardButton.Ok)
 
@@ -352,11 +349,7 @@ class DeviceSettingsWindow(QDialog):
 
         def update_countdown():
             if self.countdown > 0:
-                msg_box.setText(
-                    f"Language changed successfully!\n\n"
-                    f"App will restart in {self.countdown} seconds...\n\n"
-                    "Click 'OK' to restart now."
-                )
+                msg_box.setText(self.t("setting_window.restart_dialog.message_countdown").replace("{seconds}", str(self.countdown)))
                 self.countdown -= 1
             else:
                 timer.stop()
@@ -389,7 +382,7 @@ class DeviceSettingsWindow(QDialog):
         """Auto-detect Raspberry Pi on network"""
         #print("🔍 Starting auto-detection...")
         self.lower()
-        self.process = QProgressDialog("Detecting Raspberry Pi on network...", "Cancel", 0, 0, self)
+        self.process = QProgressDialog(self.t("setting_window.auto_detect_dialog.process"), self.t("setting_window.auto_detect_dialog.cancel"), 0, 0, self)
         self.process.setWindowModality(Qt.WindowModality.WindowModal)
         self.process.show()
         
@@ -419,8 +412,8 @@ class DeviceSettingsWindow(QDialog):
             self.lower()
             QMessageBox.critical(
                 self,
-                "Detection Error",
-                f"Failed to auto-detect:\n{str(e)}",
+                self.t("setting_window.auto_detect_dialog.detection_error_title"),
+                self.t("setting_window.auto_detect_dialog.detection_error_message"),
                 QMessageBox.StandardButton.Ok
             )
             self.raise_()
@@ -434,13 +427,13 @@ class DeviceSettingsWindow(QDialog):
             # Validate result
             if result is None:
                 #print("No Raspberry Pi found")
-                self.rpi_status_label.setText("Status: No Pi detected")
+                self.rpi_status_label.setText(self.t("setting_window.rpi_settings_tab.status_not_detected"))
                 self.rpi_status_label.setStyleSheet("color: #F44336; font-size: 10px;")
                 self.lower()
                 self.process.cancel()
                 QMessageBox.warning(
-                    self, "Detection Failed",
-                    "Could not find Raspberry Pi on network.\nPlease enter connection details manually.",
+                    self, self.t("setting_window.auto_detect_dialog.fail_title"),
+                    self.t("setting_window.auto_detect_dialog.fail_message"),
                     QMessageBox.StandardButton.Ok
                 )
                 self.raise_()
@@ -449,19 +442,19 @@ class DeviceSettingsWindow(QDialog):
             # Validate result is a dict
             if not isinstance(result, dict):
                 #print(f"Invalid result type: {type(result)}")
-                self._on_detection_error("Invalid result returned from detection")
+                self._on_detection_error(self.t("setting_window.auto_detect_dialog.invalid_result"))
                 return
             
             if 'ip' not in result or 'hostname' not in result:
                 #print("❌ Result missing required keys")
-                self.rpi_status_label.setText("Status: Incomplete data")
+                self.rpi_status_label.setText(self.t("setting_window.rpi_settings_tab.status_incomplete"))
                 self.rpi_status_label.setStyleSheet("color: #F44336; font-size: 10px;")
                 self.lower()
                 self.process.cancel()
                 QMessageBox.critical(
                     self,
-                    "Error",
-                    "Auto-detection returned incomplete data",
+                    self.t("setting_window.auto_detect_dialog.incomplete_error_title"),
+                    self.t("setting_window.auto_detect_dialog.incomplete_error_message"),
                     QMessageBox.StandardButton.Ok
                 )
                 self.raise_()
@@ -469,10 +462,10 @@ class DeviceSettingsWindow(QDialog):
             
             # Extract values
             ip = str(result.get('ip', ''))
-            hostname = str(result.get('hostname', 'unknown'))
+            hostname = str(result.get('hostname', self.t("setting_window.rpi_settings_tab.unknown_hostname")))
             username = str(result.get('username', 'pi'))
             password = str(result.get('password', ''))
-            model = str(result.get('model', 'Unknown'))
+            model = str(result.get('model', self.t("setting_window.rpi_settings_tab.unknown_model")))
             
             #print(f"✓ Got valid result - IP: {ip}, User: {username}")
             
@@ -501,12 +494,7 @@ class DeviceSettingsWindow(QDialog):
             #print("✓ Updated settings")
             
             # Update status
-            status_text = (
-                f"✓ Connected!\n"
-                f"Hostname: {hostname}\n"
-                f"IP: {ip}\n"
-                f"Model: {model}"
-            )
+            status_text = (self.t("setting_window.rpi_settings_tab.status_connected").format(hostname=hostname, ip=ip, model=model))
             self.rpi_status_label.setText(status_text)
             self.rpi_status_label.setStyleSheet("color: #4CAF50; font-size: 10px;")
             
@@ -516,11 +504,8 @@ class DeviceSettingsWindow(QDialog):
             self.lower()
             QMessageBox.information(
                 self,
-                "Success",
-                f"Found Raspberry Pi!\n"
-                f"Hostname: {hostname}\n"
-                f"IP: {ip}\n"
-                f"Model: {model}",
+                self.t("setting_window.auto_detect_dialog.success_title"),
+                self.t("setting_window.auto_detect_dialog.success_message").format(hostname=hostname, ip=ip, model=model),
                 QMessageBox.StandardButton.Ok
             )
             self.raise_()
@@ -536,15 +521,15 @@ class DeviceSettingsWindow(QDialog):
         """SLOT - Called on main thread when detection fails"""
         print(f"❌ Detection error: {error_msg}")
         
-        self.rpi_status_label.setText("Status: Error during detection")
+        self.rpi_status_label.setText(self.t("setting_window.rpi_settings_tab.status_error"))
         self.rpi_status_label.setStyleSheet("color: #F44336; font-size: 10px;")
         
         self.lower()
         self.process.cancel()
         QMessageBox.critical(
             self,
-            "Error",
-            f"Detection error:\n{error_msg}",
+            self.t("setting_window.auto_detect_dialog.detection_error_title"),
+            self.t("setting_window.auto_detect_dialog.detection_error_message"),
             QMessageBox.StandardButton.Ok
         )
         self.raise_()

@@ -576,7 +576,7 @@ class FileManager:
                 app_settings_filename = os.path.join(cls.AUTOSAVE_DIR, "app_settings.json")
             else:
                 filename = os.path.join(cls.PROJECTS_DIR, project_name + cls.PROJECT_EXTENSION)
-                app_settings_filename = os.path.join(os.path.dirname(filename), "app_settings.json")
+                app_settings_filename = os.path.join(os.path.dirname(__file__), "app_settings.json")
 
             appdata_filename = os.path.join(cls.APPDATA_DIR, project_name + cls.PROJECT_EXTENSION)
             appdata_app_settings_filename = os.path.join(cls.APPDATA_DIR, "app_settings.json")

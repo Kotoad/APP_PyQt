@@ -100,14 +100,18 @@ class HelpWindow(QDialog):
         layout = QVBoxLayout(tab)
         layout.setSpacing(5)
         
-        html_file_path = self.t("help_window.get_started_tab.content")
+        css = self.get_content_stylesheet()
+
+        html_file_path = self.t("help_window.getting_started_tab.content")
 
         base_dir = Path(os.path.dirname(__file__))
         full_path = base_dir / html_file_path
 
         try:
             with open(full_path, "r", encoding="utf-8") as f:
-                html_content = f.read()
+                html_template = f.read()
+
+                html_content = html_template.format(css=css)
             
             # Now use html_content in your QTextEdit or wherever you need it
             # For example:
@@ -115,10 +119,10 @@ class HelpWindow(QDialog):
             
         except FileNotFoundError:
             print(f"Help file not found: {full_path}")
-            html_content = "<p>Help content not available.</p>"
+            html_content = self.t("help_window.getting_started_tab.file_not_found")
         except Exception as e:
             print(f"Error loading help content: {e}")
-            html_content = "<p>Error loading help content.</p>"
+            html_content = self.t("help_window.getting_started_tab.error_loading_file")
 
         text_edit = QTextEdit()
         text_edit.setReadOnly(True)
@@ -164,11 +168,11 @@ class HelpWindow(QDialog):
         
         # Add examples
         examples = [
-            ("Example 1: Blinking LED", "Create basic blinking LED.", "1"),
-            ("Example 2: Button controlled LED", "Learn how to use conditional logic in your diagrams.", "2"),
-            ("Example 3: LED lighthouse", "Working with different LED patterns and timings.", "3"),
-            ("Example 4: Complex Logic", "Combine multiple elements for advanced workflows.", "4"),
-            ("Example 5: Data Processing", "Process input/output in your flowcharts.", "5"),
+            (self.t("help_window.examples_tab.examples.example_1.title"), self.t("help_window.examples_tab.examples.example_1.description"), "1"),
+            (self.t("help_window.examples_tab.examples.example_2.title"), self.t("help_window.examples_tab.examples.example_2.description"), "2"),
+            (self.t("help_window.examples_tab.examples.example_3.title"), self.t("help_window.examples_tab.examples.example_3.description"), "3"),
+            (self.t("help_window.examples_tab.examples.example_4.title"), self.t("help_window.examples_tab.examples.example_4.description"), "4"),
+            (self.t("help_window.examples_tab.examples.example_5.title"), self.t("help_window.examples_tab.examples.example_5.description"), "5"),
         ]
         
         for title, description, example_id in examples:
@@ -194,7 +198,7 @@ class HelpWindow(QDialog):
         desc_label.setWordWrap(True)
         desc_label.setStyleSheet("color: #CCCCCC;")
         
-        view_btn = QPushButton("View Example")
+        view_btn = QPushButton(self.t("help_window.examples_tab.show_example_button"))
         view_btn.setMaximumWidth(120)
         view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
@@ -222,7 +226,7 @@ class HelpWindow(QDialog):
         detail_layout.setSpacing(10)
         
         # Back button
-        back_btn = QPushButton("← Back to Examples")
+        back_btn = QPushButton(self.t("help_window.examples_tab.back_to_examples_button"))
         back_btn.setMaximumWidth(150)
         back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         back_btn.clicked.connect(self.show_examples_list)
@@ -255,172 +259,143 @@ class HelpWindow(QDialog):
                 Blinking_LED_Flowchart = os.path.join(current_dir, "resources", "images", "Blinking_LED", "blinking_led_flowchart.png")
                 Blinking_LED_Flowchart = os.path.abspath(Blinking_LED_Flowchart)
                 Blinking_LED_Flowchart = Blinking_LED_Flowchart.replace("\\", "/")
+
+                html_file_path = self.t("help_window.examples_tab.examples.example_1.content")
+
+                base_dir = Path(os.path.dirname(__file__))
+                full_path = base_dir / html_file_path
+
+                try:
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        html_template = f.read()
+                        html_content = html_template.format(
+                            css=css,
+                            Blinking_LED_Diagram=Blinking_LED_Diagram,
+                            Blinking_LED_Flowchart=Blinking_LED_Flowchart
+                        )
+                    # Now use html_content in your QTextEdit or wherever you need it
+                    # For example:
+                    # self.help_text_widget.setHtml(html_content)
+                    
+                except FileNotFoundError:
+                    print(f"Help file not found: {full_path}")
+                    html_content = self.t("help_window.examples_tab.file_not_found")
+                except Exception as e:
+                    print(f"Error loading help content: {e}")
+                    html_content = self.t("help_window.examples_tab.error_loading_file")
                 #print(f"Image path for help content: {Blinking_LED_Diagram}")
-                content.setHtml(
-                    f"""
-                        {css}
-                        <p>
-                            Goal of this example is to demonstrate how to create a blinking LED using basic flowchart elements.<br>
-                        </p>
-                        <h2>You will need:</h2>
-                        <ul>
-                            <li>Any Raspberry Pi board</li>
-                            <li>USB cable to connect the board to your computer</li>
-                            <li>Any LED</li>
-                            <li>220 Ohm resistor</li>
-                            <li>Breadboard and jumper wires</li>
-                        </ul>
-                        <h2>Wiring Diagram:</h2>
-                        <div align="left">
-                            <img src="{Blinking_LED_Diagram}" style="max-width: 100%; height: auto; image-rendering: crisp-edges;" />
-                        </div>
-                        <h2>How to make it work:</h2>
-                        <p>
-                            <h3>The flowchart will consists of the following elements:</h3>
-                            <ul>
-                                <li><span class="highlight">1x Start</span>: Initializes the program.</li>
-                                <li><span class="highlight">2x Switch</span>: Controls the LED state (ON/OFF).</li>
-                                <li><span class="highlight">2x Wait</span>: Introduces delays for blinking effect.</li>
-                                <li><span class="highlight">1x End</span>: Terminates the program.</li>
-                            </ul>
-                            <h3>Flowchart Logic:</h3>
-                            <ol>
-                                <li>The program starts with the <span class="code">Start</span> element.</li>
-                                <li>It then enters a loop where it turns the LED ON using the first <span class="code">Switch</span> element.</li>
-                                <li>The program waits for 1 second using the first <span class="code">Wait</span> element.</li>
-                                <li>Next, it turns the LED OFF using the second <span class="code">Switch</span> element.</li>
-                                <li>It waits for another 1 second using the second <span class="code">Wait</span> element.</li>
-                                <li>This loop continues indefinitely until the program is manually stopped or terminated using the <span class="code">End</span> element.</li>
-                            </ol>
-                            <h3>Creating the Flowchart:</h3>
-                            <ol>
-                                <li>Create new varible by clicking the "Variables" button in the main window toolbar.<br>Name it <span class="highlight">however u want</span> and set its type to <span class="highlight">Boolean</span>.</li>
-                                <li>Create new device by clicking the "Devices" button in the main window toolbar.<br>Name it <span class="highlight">LED</span> for convenience and set its type to <span class="highlight">Output</span>.</li>
-                                <li>To add new elements to the canvas, click the "Elements" button in the main window toolbar, then click "add Element".</li>
-                                <li>Select the required elements from the list and place them on the canvas.</li>
-                                <li>Connect the elements in the following order:<br>
-                                    <ul>
-                                        <li>"<span class="code">Start → While</span>", make sure to set the condition to <span class="code">True</span> to create an infinite loop.</li>
-                                        <li>"<span class="code">While</span> (Connect to top connection point) <span class="code">→ Switch</span> (LED ON)"</li>
-                                        <li>"<span class="code">While</span> (Connect to bottom connection point) <span class="code">→ End</span>"</li>
-                                        <li>"<span class="code">Switch</span> (LED ON) <span class="code">→ Wait</span> (1s)", this will keep the LED on for 1 second.</li>
-                                        <li>"<span class="code">Wait</span> (1s) <span class="code">→ Switch</span> (LED OFF)", this will turn the LED off.</li>
-                                        <li>"<span class="code">Switch</span> (LED OFF) <span class="code">→ Wait</span> (1s)", this will keep the LED off for 1 second.</li>
-                                        <li>"<span class="code">Wait</span> (1s) <span class="code">→ End</span>", always make sure to properly terminate the program.</li>
-                                    </ul>
-                                </li>
-                            </ol>
-                            <h3>Flowchart Diagram:</h3>
-                            <div align="left">
-                                <img src="{Blinking_LED_Flowchart}" style="max-width: 100%; height: auto; image-rendering: crisp-edges;" />   
-                        </p>  
-                    """)
+
+                content.setHtml(html_content)
             case "2":
-                #print("Filling content for Example 2")
-                content.setHtml(
-                    f"""
-                        {css}
-                        <p>Goal is to teach you how to use conditional logic in your diagrams.</p>
-                        <h2>You will need:</h2>
-                        <ul>
-                            <li>Any Raspberry Pi board</li>
-                            <li>USB cable to connect the board to your computer</li>
-                            <li>Any LED</li>
-                            <li>220 Ohm resistor</li>
-                            <li>Push button</li>
-                            <li>Breadboard and jumper wires</li>
-                        </ul>
-                        <h2>Wiring Diagram:</h2>
-                        <p>(Wiring diagram image would go here)</p>
-                        <h2>How to make it work:</h2>
-                        <p>
-                            <h3>The flowchart will consists of the following elements:</h3>
-                            <ol>
-                                <li><span class="highlight">1x Start</span>: Initializes the program.</li>
-                                <li><span class="highlight">2x Switch</span>: Controls the LED state (ON/OFF).</li>
-                                <li><span class="highlight">1x If</span>: Checks the button state.</li>
-                                <li><span class="highlight">1x While</span>: Creates an infinite loop.</li>
-                                <li><span class="highlight">1x End</span>: Terminates the program.</li>
-                            </ol>
-                            <h3>Flowchart Logic:</h3>
-                            <ol>
-                                <li>The program starts with the <span class="code">Start</span> element.</li>
-                                <li>It then enters a loop where it checks the state of the button using the <span class="code">If</span> element.</li>
-                                <li>If the button is pressed, it turns the LED ON using the first <span class="code">Switch</span> element.</li>
-                                <li>If the button is not pressed, it turns the LED OFF using the second <span class="code">Switch</span> element.</li>
-                                <li>This loop continues indefinitely until the program is manually stopped or terminated using the <span class="code">End</span> element.</li>
-                            </ol>
-                            <h3>Creating the Flowchart:</h3>
-                            <ol>
-                                <li>Create new varible by clicking the "Variables" button in the main window toolbar.<br>Name it <span class="highlight">however u want</span> and set its type to <span class="highlight">Boolean</span>.</li>
-                                <li>Create new device by clicking the "Devices" button in the main window toolbar.<br>Name it <span class="highlight">LED</span> for convenience and set its type to <span class="highlight">Output</span>.<li>
-                                <li>Create another device named <span class="highlight">Button</span> and set its type to <span class="highlight">Input</span>.<li>
-                                <li>Then add the required elements to the canvas as described in the previous example.</li>
-                                <li>Connect the elements in the following order:<br>
-                                <ul>
-                                    <li>"<span class="code">Start → While</span>", make sure to set the condition to <span class="code">True</span> to create an infinite loop.</li>
-                                    <li>"<span class="code">While</span> (Connect to top connection point) <span class="code">→ If</span>"</li>
-                                    <li>"<span class="code">While</span> (Connect to bottom connection point) <span class="code">→ End</span>"</li>
-                                    <li>"<span class="code">If</span> (True) <span class="code">→ Switch</span> (LED ON)"</li>
-                                    <li>"<span class="code">If</span> (False) <span class="code">→ Switch</span> (LED OFF)"</li>
-                                    <li>"<span class="code">Switch</span> (LED ON) <span class="code">→ End</span>"</li>
-                                    <li>"<span class="code">Switch</span> (LED OFF) <span class="code">→ End</span>"</li>
-                                </ul>
-                                </li>
-                            </ol>
-                        </p>
-                    """)
+                html_file_path = self.t("help_window.examples_tab.examples.example_2.content")
+
+                base_dir = Path(os.path.dirname(__file__))
+                full_path = base_dir / html_file_path
+
+                try:
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        html_template = f.read()
+
+                        html_content = html_template.format(css=css)
+
+                except FileNotFoundError:
+                    print(f"Help file not found: {full_path}")
+                    html_content = self.t("help_window.examples_tab.file_not_found")
+                except Exception as e:
+                    print(f"Error loading help content: {e}")
+                    html_content = self.t("help_window.examples_tab.error_loading_file")
+
+                    #print("Filling content for Example 2")
+                content.setHtml(html_content)
             case "3":
+                html_file_path = self.t("help_window.examples_tab.examples.example_3.content")
+                
+                base_dir = Path(os.path.dirname(__file__))
+                full_path = base_dir / html_file_path
+
+                try:
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        html_template = f.read()
+
+                        html_content = html_template.format(css=css)
+                except FileNotFoundError:
+                    print(f"Help file not found: {full_path}")
+                    html_content = self.t("help_window.examples_tab.file_not_found")
+                except Exception as e:
+                    print(f"Error loading help content: {e}")
+                    html_content = self.t("help_window.examples_tab.error_loading_file")
                 #print("Filling content for Example 3")
-                content.setHtml(
-                    f"""
-                        {css}
-                        <p>Goal is to demonstrate different LED patterns and timings.</p>
-                        <h2>You will need:</h2>
-                        <ul>
-                            <li>Any Raspberry Pi board</li>
-                            <li>USB cable to connect the board to your computer</li>
-                            <li>3x Any LED (different colors recommended)</li>
-                            <li>3x 220 Ohm resistor</li>
-                            <li>Breadboard and jumper wires</li>
-                        </ul>
-                        <h2>Wiring Diagram:</h2>
-                        <p>(Wiring diagram image would go here)</p>
-                        <h2>How to make it work:</h2>
-                        <p>
-                        <ol>
-                            <li>Create new varibles by clicking the "Variables" button in the main window toolbar.<br>Name them <span class="highlight">however u want</span> and set their type to <span class="highlight">Boolean</span>.</li>
-                            <li>Create new devices by clicking the "Devices" button in the main window toolbar.<br>Name them <span class="highlight">LED1</span>, <span class="highlight">LED2</span>, and <span class="highlight">LED3</span> for convenience and set their type to <span class="highlight">Output</span>.<li>
-                            <li>Add the required elements to the canvas as described in the previous examples.</li>
-                            <li>Connect the elements to create different LED patterns with varying timings.</li>
-                        </ol>
-                        </p>
-                    """)
+                content.setHtml(html_content)
             case "4":
+                html_file_path = self.t("help_window.examples_tab.examples.example_4.content")
+
+                base_dir = Path(os.path.dirname(__file__))
+                full_path = base_dir / html_file_path
+
+                try:
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        html_template = f.read()
+
+                        html_content = html_template.format(css=css)
+                except FileNotFoundError:
+                    print(f"Help file not found: {full_path}")
+                    html_content = self.t("help_window.examples_tab.file_not_found")
+                except Exception as e:
+                    print(f"Error loading help content: {e}")
+                    html_content = self.t("help_window.examples_tab.error_loading_file")
+    
                 #print("Filling content for Example 4")
-                content.setHtml(
-                    f"""
-                        {css}
-                        <h2>Example 4 content goes here.</h2>
-                    """)
+                content.setHtml(html_content)
             case "5":
+                html_file_path = self.t("help_window.examples_tab.examples.example_5.content")
+
+                base_dir = Path(os.path.dirname(__file__))
+                full_path = base_dir / html_file_path
+
+                try:
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        html_template = f.read()
+
+                        html_content = html_template.format(css=css)
+                except FileNotFoundError:
+                    print(f"Help file not found: {full_path}")
+                    html_content = self.t("help_window.examples_tab.file_not_found")
+                except Exception as e:
+                    print(f"Error loading help content: {e}")
+                    html_content = self.t("help_window.examples_tab.error_loading_file")
+
                 #print("Filling content for Example 5")
-                content.setHtml(
-                    f"""
-                        {css}
-                        <h2>Example 5 content goes here.</h2>
-                    """)
+                content.setHtml(html_content)
         
     def create_faq_tab(self):
         """Create the FAQ tab"""
         #print("Creating FAQ tab")
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        label = QLabel("This is the FAQ help content.")
-        label.setWordWrap(True)
-        layout.addWidget(label)
+        text_edit = QTextEdit()
+        text_edit.setReadOnly(True)
+        css = self.get_content_stylesheet()
+
+        html_file_path = self.t("help_window.faq_tab.content")
+        base_dir = Path(os.path.dirname(__file__))
+        full_path = base_dir / html_file_path
+
+        try:
+            with open(full_path, "r", encoding="utf-8") as f:
+                html_template = f.read()
+
+                html_content = html_template.format(css=css)
+        except FileNotFoundError:
+            print(f"Help file not found: {full_path}")
+            html_content = self.t("help_window.faq_tab.file_not_found")
+        except Exception as e:
+            print(f"Error loading FAQ content: {e}")
+            html_content = self.t("help_window.faq_tab.error_loading_file")
+        
+        text_edit.setHtml(html_content)
+        layout.addWidget(text_edit)
         #print("Added label to FAQ tab")
-        self.tab_widget.addTab(tab, "FAQ")
+        self.tab_widget.addTab(tab, self.t("help_window.faq_tab.title"))
     
     def get_content_stylesheet(self):
         """Return CSS stylesheet for QTextEdit content"""

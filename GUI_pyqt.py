@@ -195,8 +195,8 @@ class RPiExecutionThread(QThread):
             try:
                 # Execute Python file with timeout
                 stdin, stdout, stderr = ssh.exec_command(
-                    f"python3 {remote_path}",
-                    timeout=30  # Overall timeout for command
+                    f"python3 -u {remote_path}",
+                    timeout=None, get_pty=True
                 )
                 
                 # Store channel for potential interruption
@@ -217,7 +217,23 @@ class RPiExecutionThread(QThread):
                         return
                     
                     # Check timeout
-                    
+                    if self.channel.recv_ready():
+                        # Read available data (byte by byte or chunks, but readline is easier if PTY)
+                        # Since recv_ready is true, we can read.
+                        # CAUTION: readline() might block if a line isn't complete. 
+                        # Ideally, use a non-blocking read pattern:
+                        try:
+                            line = self.channel.recv(4096).decode('utf-8')
+                            if line:
+                                # Check if it contains your report tag
+                                if '__REPORT__' in line:
+                                    # Extract the JSON part and emit it specifically if needed
+                                    # Or just emit raw output for now
+                                    self.output.emit(line)
+                                else:
+                                    self.output.emit(line)
+                        except Exception as e:
+                            print(f"Read error: {e}")
                     # Sleep briefly to avoid busy-waiting
                     time.sleep(0.1)
                 
@@ -280,6 +296,7 @@ class RPiExecutionThread(QThread):
         try:
             # Kill any existing python processes that might be running old code
             # This ensures old code stops before new code starts
+            print(f"SSH object in kill_process: {ssh}")
             kill_command = "pkill -f 'python3.*File.py' || true"
             stdin, stdout, stderr = ssh.exec_command(kill_command, timeout=5)
             kill_status = stdout.channel.recv_exit_status()
@@ -325,7 +342,7 @@ class GridScene(QGraphicsScene):
             y += self.grid_size
         
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-
+#MARK: - CustomSwitch
 class CustomSwitch(QWidget):
     """
     YOUR CustomSwitch - Has FULL control over circle size!
@@ -1506,19 +1523,17 @@ class MainWindow(QMainWindow):
         toolbar.addAction(stop_execution_icon)
 
     def stop_execution(self):
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        if self.execution_thread and self.execution_thread.isRunning():
+            print("[MainWindow] Stopping execution thread...")
+            self.execution_thread.stop()
 
-        ssh_config = {
-            'filepath': 'File.py',  # Your compiled file
-            'rpi_host': Utils.app_settings.rpi_host,
-            'rpi_user': Utils.app_settings.rpi_user,
-            'rpi_password': Utils.app_settings.rpi_password,
-        }
-        
-        self.execution_thread = RPiExecutionThread(ssh_config)
-
-        self.execution_thread.kill_process(ssh)
+            if not self.execution_thread.wait(5000):
+                print("[MainWindow] Execution thread did not stop in time.")
+            else:
+                print("[MainWindow] Execution thread stopped successfully.")
+                self.execution_thread = None
+        else:
+            print("[MainWindow] No execution thread is running.")
 
     def create_canvas_frame(self):
         self.central_widget = QWidget()
@@ -3031,12 +3046,17 @@ class MainWindow(QMainWindow):
             Utils.variables['main_canvas'][var_id]['value'] = var_data['value']
         self.value_var_input.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.value_changed(text, v_id, t, r))
         
+        self.current_value = QLineEdit()
+        self.current_value.setReadOnly(True)
+        self.current_value.setPlaceholderText(self.t("main_GUI.variables_tab.current_value_placeholder"))
+
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
         
         canvas_reference.row_layout.addWidget(name_imput)
         canvas_reference.row_layout.addWidget(type_input)
         canvas_reference.row_layout.addWidget(self.value_var_input)
+        canvas_reference.row_layout.addWidget(self.current_value)
         canvas_reference.row_layout.addWidget(delete_btn)
         
         delete_btn.clicked.connect(lambda _, v_id=var_id, rw=canvas_reference.row_widget, t="Variable", r=canvas_reference: self.remove_row(rw, v_id, t, r))
@@ -4074,17 +4094,22 @@ class MainWindow(QMainWindow):
     
     def on_execution_status(self, status):
         """Handle status updates from execution thread"""
-        #print(f"[RPi Status] {status}")
+        print(f"[RPi Status] {status}")
     
     def on_execution_output(self, output):
         """Handle output from execution thread"""
         #print(f"[RPi Output] {output}")
-        QMessageBox.information(
-            self,
-            self.t("main_GUI.dialogs.progress_dialogs.execution_output"),
-            output,
-            QMessageBox.StandardButton.Ok
-        )
+
+        if '__REPORT__' not in str(output):
+            QMessageBox.information(
+                self,
+                self.t("main_GUI.dialogs.progress_dialogs.execution_output"),
+                output,
+                QMessageBox.StandardButton.Ok
+            )
+        else:
+            print(f"[RPi Report] {output}")
+            #pass
     
     def on_execution_error(self, error):
         """Handle errors from execution thread"""
@@ -4192,7 +4217,7 @@ class MainWindow(QMainWindow):
                 
                 # Wait for thread to finish (max 5 seconds)
                 if not self.execution_thread.wait(5000):
-                    #print("[MainWindow] ⚠️  Warning: Thread didn't stop gracefully")
+                    print("[MainWindow] ⚠️  Warning: Thread didn't stop gracefully")
                     # Optional: Force terminate (not recommended, but available)
                     # self.execution_thread.terminate()
                     pass
@@ -4230,7 +4255,7 @@ class MainWindow(QMainWindow):
             
             # ===== STEP 4: Start execution =====
             self.execution_thread.start()
-            #print("[MainWindow] ✓ New execution started")
+            print("[MainWindow] ✓ New execution started")
         
         except Exception as e:
             print(f"[MainWindow] ❌ Error: {str(e)}")

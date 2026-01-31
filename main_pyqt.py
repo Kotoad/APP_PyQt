@@ -1,11 +1,15 @@
-from Imports import (QApplication, sys)
+from Imports import (QApplication, sys, get_Translation_Manager)
 from GUI_pyqt import MainWindow
+
+TranlationManager = get_Translation_Manager()
 
 def main():
     """Main entry point"""
     # Create application
+    Tranlation_Manager = get_Translation_Manager().get_instance()
+    t = Tranlation_Manager.translate
     app = QApplication(sys.argv)
-    app.setApplicationName("Visual Programming Interface")
+    app.setApplicationName(t("_metadata.app_title"))
     
     # Create and show main window
     window = MainWindow()

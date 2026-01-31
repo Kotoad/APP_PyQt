@@ -110,7 +110,11 @@ class CodeCompiler:
 
         self.write_imports()
         self.write_setup()
+        if self.GPIO_compile:
+            self.write_reporting_system()
+        
         self.current_lines = self.main_lines
+        self.writeline("data_reporter()\n")
         # Find Start block
         start_block = self.find_block_by_type('Start')
         if start_block:
@@ -176,29 +180,32 @@ class CodeCompiler:
         else:
             print(f"Unknown block type: {block['type']}")
             pass
-    #MARK: Code Headers and Setup
+    #MARK: Code Setup
     def write_imports(self):
         #print("Writing import statements...")
         if self.GPIO_compile:
             self.writeline("import RPi.GPIO as GPIO")
-            self.writeline("import time\n")
+            self.writeline("import time")
+            self.writeline("import threading")
+            self.writeline("import json\n")
             
         elif self.MC_compile:
             self.writeline("from machine import Pin")
-            self.writeline("import time\n")
+            self.writeline("import time")
+            self.writeline("import threading")
+            self.writeline("import json\n")
 
     def write_setup(self):
         #print("Writing setup code...")
         if self.GPIO_compile:
             self.writeline("GPIO.setmode(GPIO.BCM)\n")
-            if len(Utils.devices['main_canvas'].keys()) > 0:
-                self.writeline("Devices_main = {")
-                self.indent_level+=1
-                for dev_name, dev_info in Utils.devices['main_canvas'].items():
-                    text = f"\"{dev_info['name']}\":{{\"name\":\"{dev_info['name']}\", \"PIN\": {dev_info['PIN']}, \"type\":\"{dev_info['type']}\"}},"
-                    self.writeline(text)
-                self.indent_level-=1
-                self.writeline("}\n")
+            self.writeline("Devices_main = {")
+            self.indent_level+=1
+            for dev_name, dev_info in Utils.devices['main_canvas'].items():
+                text = f"\"{dev_info['name']}\":{{\"name\":\"{dev_info['name']}\", \"PIN\": {dev_info['PIN']}, \"type\":\"{dev_info['type']}\"}},"
+                self.writeline(text)
+            self.indent_level-=1
+            self.writeline("}\n")
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level+=1
             self.writeline("if dev_config['type'] == 'Output':")
@@ -223,33 +230,30 @@ class CodeCompiler:
             self.writeline("dev_config['name'].CurrentDutyCycle = 0")
             self.indent_level-=3
             
-            if len(Utils.variables['main_canvas'].keys()) > 0:
-                self.writeline("Variables_main = {")
-                self.indent_level+=1
-                for var_name, var_info in Utils.variables['main_canvas'].items():
-                    text = f"\"{var_info['name']}\":{{"f"\"value\": {var_info['value']}}},"
-                    self.writeline(text)
-                self.indent_level-=1
-                self.writeline("}\n")
+            self.writeline("Variables_main = {")
+            self.indent_level+=1
+            for var_name, var_info in Utils.variables['main_canvas'].items():
+                text = f"\"{var_info['name']}\":{{"f"\"value\": {var_info['value']}}},"
+                self.writeline(text)
+            self.indent_level-=1
+            self.writeline("}\n")
             
         elif self.MC_compile:
-            if len(Utils.devices['main_canvas'].keys()) > 0:
-                self.writeline("Devices_main = {")
-                self.indent_level+=1
-                for dev_name, dev_info in Utils.devices['main_canvas'].items():
-                    text = f"\"{dev_info['name']}\":{{"f"\"PIN\": {dev_info['PIN'] if dev_info['PIN'] else 'None'}, \"type\":\"{dev_info['type']}\"}},"
-                    self.writeline(text)
-                self.indent_level-=1
-                self.writeline("}")
+            self.writeline("Devices_main = {")
+            self.indent_level+=1
+            for dev_name, dev_info in Utils.devices['main_canvas'].items():
+                text = f"\"{dev_info['name']}\":{{"f"\"PIN\": {dev_info['PIN'] if dev_info['PIN'] else 'None'}, \"type\":\"{dev_info['type']}\"}},"
+                self.writeline(text)
+            self.indent_level-=1
+            self.writeline("}")
 
-            if len(Utils.variables['main_canvas'].keys()) > 0:
-                self.writeline("Variables_main = {")
-                self.indent_level+=1
-                for var_name, var_info in Utils.variables['main_canvas'].items():
-                    text = f"\"{var_info['name']}\":{{"f"\"value\": {var_info['value']}}},"
-                    self.writeline(text)
-                self.indent_level-=1
-                self.writeline("}\n")
+            self.writeline("Variables_main = {")
+            self.indent_level+=1
+            for var_name, var_info in Utils.variables['main_canvas'].items():
+                text = f"\"{var_info['name']}\":{{"f"\"value\": {var_info['value']}}},"
+                self.writeline(text)
+            self.indent_level-=1
+            self.writeline("}\n")
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level+=1
             self.writeline("if dev_config['type'] == 'Output':")
@@ -277,7 +281,54 @@ class CodeCompiler:
             self.create_btn_class()
         if self.led_in_code:
             self.create_led_class()
-                
+
+    def write_reporting_system(self):
+        """Injects a background thread to report state via stdout"""
+        self.writeline("\n# --- Real-time Reporting Thread ---")
+        
+        self.writeline("def data_reporter():")
+        self.indent_level += 1
+        self.writeline("while True:")
+        self.indent_level += 1
+        
+        # 1. Sanitize Devices_main (remove non-serializable objects like GPIO instances)
+        self.writeline("sanitized_devices = {}")
+        self.writeline("for k, v in Devices_main.items():")
+        self.indent_level += 1
+        self.writeline("sanitized_devices[k] = {")
+        self.indent_level += 1
+        self.writeline("'name': v.get('name', ''),")
+        self.writeline("'PIN': v.get('PIN', ''),")
+        self.writeline("'type': v.get('type', ''),")
+        # Add duty cycle for PWM if it exists
+        self.writeline("'value': v.get('CurrentDutyCycle', 0) if v.get('type') == 'PWM' else 0")
+        self.indent_level -= 2
+        self.writeline("}")
+        
+        # 2. Prepare Report Data
+        self.writeline("report = {")
+        self.indent_level += 1
+        self.writeline("'variables': Variables_main,")
+        self.writeline("'devices': sanitized_devices,")
+        # Add active block ID if you track it in your logic
+        self.indent_level -= 1
+        self.writeline("}")
+        
+        # 3. Print with Prefix (flush=True is critical for real-time SSH)
+        self.writeline("try:")
+        self.indent_level += 1
+        self.writeline("print('__REPORT__' + json.dumps(report), flush=True)")
+        self.indent_level -= 1
+        self.writeline("except Exception as e: pass")
+        
+        self.writeline("time.sleep(0.5)")
+        self.indent_level -= 2 
+
+        # Start the thread
+        self.writeline("report_thread = threading.Thread(target=data_reporter, daemon=True)")
+        self.writeline("report_thread.start()")
+        self.writeline("# --------------------------------\n")
+
     def write_cleanup(self):
         self.writeline("\nexcept KeyboardInterrupt:")
         self.indent_level += 1

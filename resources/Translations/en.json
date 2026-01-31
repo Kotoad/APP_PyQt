@@ -157,7 +157,6 @@
         "settings_changes": "Settings: {len_settings_changes} settings changed",
         "no_changes_detected": "No changes detected",
         "unsaved_changes_detected": "Unsaved Changes Detected:"
-
       },
       "progress_dialogs": {
         "compiling": "Compiling...",
@@ -261,17 +260,108 @@
   },
   "help_window": {
     "window_title": "Help Window",
-    "get_started_tab": {
-      "tab_title": "Get Started",
-      "content": "resources/Translations/help_content_en.html"
+    "getting_started_tab": {
+      "title": "Get Started",
+      "content": "resources/Translations/Getting_started_en.html",
+      "file_not_found": "<p>Getting Started file not found.</p>",
+      "error_loading_file": "<p>Error loading Getting Started file.</p>"
     },
     "examples_tab": {
-      "tab_title": "Examples",
-      "content": "Here are some example projects to help you understand how to use the interface..."
+      "title": "Examples",
+      "show_example_button": "View Example",
+      "back_to_examples_button": "← Back to Examples",
+      "file_not_found": "<p>Example file not found.</p>",
+      "error_loading_file": "<p>Error loading example file.</p>",
+      "examples": {
+        "example_1": {
+          "title": "Blinking LED",
+          "description": "This example demonstrates how to blink an LED connected to your Raspberry Pi.",
+          "content": "resources/Translations/example_1_en.html"
+        },
+        "example_2": {
+          "title": "Button Controlled LED",
+          "description": "This example shows how to control an LED using a button input.",
+          "content": "resources/Translations/example_2_en.html"
+        },
+        "example_3": {
+          "title": "LED lighthouse",
+          "description": "Working with different LED patterns and timings.",
+          "content": "resources/Translations/example_3_en.html"
+        },
+        "example_4": {
+          "title": "Complex Logic",
+          "description": "Combine multiple elements for advanced workflows.",
+          "content": "resources/Translations/example_4_en.html"
+        },
+        "example_5": {
+          "title": "Using Variables",
+          "description": "Learn how to use variables to store and manipulate data.",
+          "content": "resources/Translations/example_5_en.html"
+        }
+      }
     },
     "faq_tab": {
-      "tab_title": "FAQ",
-      "content": "Frequently Asked Questions:\n1. How do I add a new block?\n2. How do I save my project?\n..."
+      "title": "FAQ",
+      "content": "resources/Translations/FAQ_en.html",
+      "file_not_found": "<p>FAQ file not found.</p>",
+      "error_loading_file": "<p>Error loading FAQ file.</p>"
+      }
+  },
+  "setting_window": {
+    "title": "Settings",
+    "basic_settings_tab": {
+      "title": "Basic Settings",
+      "select_language": "Select Language"
+    },
+    "device_settings_tab": {
+      "title": "Device Settings",
+      "select_rpi_model": "Select your RPI model",
+      "rpi_host": "Raspberry Pi Host",
+      "rpi_host_placeholder": "raspberrypi.local or 192.168.1.100",
+      "rpi_user": "Username",
+      "rpi_password": "Password",
+      "rpi_password_placeholder": "(optional if using SSH keys)",
+      "auto_detect": "Auto-Detect Raspberry Pi"
+    },
+    "rpi_settings_tab": {
+      "title": "Raspberry Pi Settings",
+      "connection_method": "Connection Method",
+      "auto_detect": "Auto-Detect Raspberry Pi",
+      "manual_entry": "Or enter manually",
+      "status": "Status",
+      "status_not_connected": "Status: Not connected",
+      "status_not_detected": "Status: No RPI detected",
+      "status_error": "Status: Error during detection",
+      "status_incomplete": "Status: Incomplete configuration",
+      "status_connected": "Status: Connected!\nHostname: {hostname}\nIP: {ip}\nModel: {model}",
+      "rpi_host": "Host/IP",
+      "rpi_host_placeholder": "raspberrypi.local or 192.168.1.100",
+      "rpi_user": "Username",
+      "rpi_user_placeholder": "pi",
+      "rpi_password": "Password",
+      "rpi_password_placeholder": "(optional if using SSH keys)",
+      "unknown_hostname": "Unknown hostname",
+      "unknown_model": "Unknown model"
+    },
+    "restart_dialog": {
+      "title": "Language change",
+      "message_default": "Language changed successfully!\nApp will restart in 3 seconds...\n\nClick 'OK' to restart now.",
+      "message_countdown": "Language changed successfully!\nApp will restart in {seconds} seconds...\n\nClick 'OK' to restart now.",
+      "restart_now": "Restart Now",
+      "restart_later": "Restart Later"
+    },
+    "auto_detect_dialog": {
+      "process": "Detecting Raspberry Pi on network.",
+      "cancel": "Cancel",
+      "detection_error_title": "Detection Error",
+      "detection_error_message": "Failed to detect Raspberry Pi on the network. Please check your network connection and try again.",
+      "fail_title": "Detection Failed",
+      "fail_message": "No Raspberry Pi found on the network.\n Please ensure your Raspberry Pi is powered on and connected to the same network or enter details manually.",
+      "invalid_result": "Invalid result returned from detection",
+      "incomplete_error_title": "Error",
+      "incomplete_error_message": "Raspberry Pi detection returned incomplete data.",
+      "sucess_title": "Detection Successful",
+      "sucess_message": "Found Raspberry Pi!\nHostname: {hostname}\nIP: {ip}\nModel: {model}"
     }
   }
 }
