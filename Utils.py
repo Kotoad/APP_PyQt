@@ -1,5 +1,5 @@
 from ctypes import windll, wintypes, byref
-from Imports import AppSettings, ProjectData
+from Imports import AppSettings, ProjectData, sys, os, Path
 app_settings = AppSettings()
 project_data = ProjectData()
 # ============================================================================
@@ -29,6 +29,7 @@ scene_paths = {}
 functions = {}
 main_canvas = {}
 canvas_instances = {}
+reports = {}
 
 config = {
     'grid_size': 25,  # Snap-to-grid pixel size
@@ -96,3 +97,14 @@ def get_dpi_for_monitor(window_id):
         #   - Window handle invalid
         # Safe fallback: assume no scaling needed (96 DPI standard)
         return (1.0, 1.0)
+
+def get_base_path():
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    if getattr(sys, 'frozen', False):
+        # If the application is run as a bundle (compiled .exe),
+        # the PyInstaller bootloader sets the sys.frozen attribute
+        # and sys.executable points to the .exe file itself.
+        return Path(os.path.dirname(sys.executable))
+    else:
+        # If running as a normal Python script
+        return Path(os.path.dirname(os.path.abspath(__file__)))

@@ -4,7 +4,6 @@ Utils = get_utils()
 from Imports import (QDialog, QVBoxLayout, QLabel, QTabWidget, QWidget, QMessageBox, QPushButton, QHBoxLayout,
 QComboBox, Qt, QEvent, QFont, QMouseEvent, json, QLineEdit, QApplication, QProgressDialog,
 QObject, pyqtSignal, QTimer, sys, os, subprocess)
-# Add to your existing imports
 from rpi_autodiscovery import RPiAutoDiscovery, RPiConnectionWizard
 
 StateManager = get_State_Manager()
@@ -77,6 +76,7 @@ class DeviceSettingsWindow(QDialog):
         """Get or create singleton instance"""
         if cls._instance is not None:
             try:
+                _ = cls._instance.isVisible()
                 if not cls._instance.is_hidden:
                     if cls._instance.parent_canvas != parent:
                         cls._instance.parent_canvas = parent

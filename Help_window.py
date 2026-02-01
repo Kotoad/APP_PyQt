@@ -1,8 +1,9 @@
 from Imports import (QDialog, Qt, QVBoxLayout, QLabel, QTabWidget, QWidget, QFont, QTextEdit,
-                     QScrollArea, QPushButton,Path, os, get_State_Manager, get_Translation_Manager)
+                     QScrollArea, QPushButton,Path, os, get_State_Manager, get_Translation_Manager, get_utils)
 
 StateManager = get_State_Manager()     
 TranslationManager = get_Translation_Manager()
+Utils = get_utils()
 
 class HelpWindow(QDialog):
     """Singleton Help Window"""
@@ -15,6 +16,7 @@ class HelpWindow(QDialog):
         self.state_manager = StateManager.get_instance()
         self.translation_manager = TranslationManager.get_instance()
         self.t = self.translation_manager.translate
+        self.base_path = Utils.get_base_path()
         self.setup_ui()
     
     @classmethod
@@ -104,7 +106,7 @@ class HelpWindow(QDialog):
 
         html_file_path = self.t("help_window.getting_started_tab.content")
 
-        base_dir = Path(os.path.dirname(__file__))
+        base_dir = self.base_path
         full_path = base_dir / html_file_path
 
         try:
@@ -252,7 +254,7 @@ class HelpWindow(QDialog):
         match example_id:
             case "1":
                 #print("Filling content for Example 1")
-                current_dir = os.path.dirname(os.path.abspath(__file__))
+                current_dir = self.base_path
                 Blinking_LED_Diagram = os.path.join(current_dir, "resources", "images", "Blinking_LED", "blinking_led_diagram.png")
                 Blinking_LED_Diagram = os.path.abspath(Blinking_LED_Diagram)  # Convert to absolute path
                 Blinking_LED_Diagram = Blinking_LED_Diagram.replace("\\", "/")
@@ -261,9 +263,8 @@ class HelpWindow(QDialog):
                 Blinking_LED_Flowchart = Blinking_LED_Flowchart.replace("\\", "/")
 
                 html_file_path = self.t("help_window.examples_tab.examples.example_1.content")
-
-                base_dir = Path(os.path.dirname(__file__))
-                full_path = base_dir / html_file_path
+ 
+                full_path = current_dir / html_file_path
 
                 try:
                     with open(full_path, "r", encoding="utf-8") as f:
@@ -289,8 +290,7 @@ class HelpWindow(QDialog):
             case "2":
                 html_file_path = self.t("help_window.examples_tab.examples.example_2.content")
 
-                base_dir = Path(os.path.dirname(__file__))
-                full_path = base_dir / html_file_path
+                full_path = self.base_path / html_file_path
 
                 try:
                     with open(full_path, "r", encoding="utf-8") as f:
@@ -310,8 +310,7 @@ class HelpWindow(QDialog):
             case "3":
                 html_file_path = self.t("help_window.examples_tab.examples.example_3.content")
                 
-                base_dir = Path(os.path.dirname(__file__))
-                full_path = base_dir / html_file_path
+                full_path = self.base_path / html_file_path
 
                 try:
                     with open(full_path, "r", encoding="utf-8") as f:
@@ -329,8 +328,7 @@ class HelpWindow(QDialog):
             case "4":
                 html_file_path = self.t("help_window.examples_tab.examples.example_4.content")
 
-                base_dir = Path(os.path.dirname(__file__))
-                full_path = base_dir / html_file_path
+                full_path = self.base_path / html_file_path
 
                 try:
                     with open(full_path, "r", encoding="utf-8") as f:
@@ -349,8 +347,7 @@ class HelpWindow(QDialog):
             case "5":
                 html_file_path = self.t("help_window.examples_tab.examples.example_5.content")
 
-                base_dir = Path(os.path.dirname(__file__))
-                full_path = base_dir / html_file_path
+                full_path = self.base_path / html_file_path
 
                 try:
                     with open(full_path, "r", encoding="utf-8") as f:
@@ -377,8 +374,7 @@ class HelpWindow(QDialog):
         css = self.get_content_stylesheet()
 
         html_file_path = self.t("help_window.faq_tab.content")
-        base_dir = Path(os.path.dirname(__file__))
-        full_path = base_dir / html_file_path
+        full_path = self.base_path / html_file_path
 
         try:
             with open(full_path, "r", encoding="utf-8") as f:

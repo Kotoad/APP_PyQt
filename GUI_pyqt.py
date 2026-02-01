@@ -1,4 +1,3 @@
-from os import name
 from random import random
 from Imports import (
     sys, QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, threading,
@@ -10,10 +9,8 @@ from Imports import (
     QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication, QSizePolicy,
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
     QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent,
-    QStackedWidget, QSplitter, QIcon, QKeySequence, QShortcut
+    QStackedWidget, QSplitter, QIcon, QKeySequence, QShortcut, json
 )
-import typing
-from PyQt6 import QtGui
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
     get_file_manager, get_path_manager, get_Elements_Window, get_utils,
@@ -178,7 +175,7 @@ class RPiExecutionThread(QThread):
             # ===== STEP 7: Execute code on RPi =====
             self.status.emit("🔪 Killing old processes...")
 
-            self.kill_process(ssh)
+            self.kill_process()
             # Check if stop was called while killing
             if not self.should_continue():
                 ssh.close()
@@ -187,7 +184,7 @@ class RPiExecutionThread(QThread):
                 return
 
             # Give the old process time to die
-            time.sleep(0.5)
+            time.sleep(2.0)
 
             self.status.emit("🚀 Executing code...")
             
@@ -292,17 +289,70 @@ class RPiExecutionThread(QThread):
                 self.error.emit(f"Thread error: {str(e)}")
                 self.execution_completed.emit(False)
 
-    def kill_process(self, ssh):
+    def kill_process(self):
+        """
+        Gracefully terminate old Python processes with verification.
+        Uses SIGTERM to allow GPIO cleanup, then verifies termination.
+        """
         try:
-            # Kill any existing python processes that might be running old code
-            # This ensures old code stops before new code starts
-            print(f"SSH object in kill_process: {ssh}")
-            kill_command = "pkill -f 'python3.*File.py' || true"
-            stdin, stdout, stderr = ssh.exec_command(kill_command, timeout=5)
+            print("Terminating old processes...")
+            
+            # Step 1: Send SIGTERM (allows cleanup handlers to run)
+            kill_command = "pkill -TERM -f 'python3.*File.py' 2>/dev/null || true"
+            stdin, stdout, stderr = self.ssh.exec_command(kill_command, timeout=5)
             kill_status = stdout.channel.recv_exit_status()
-            print(f"[RPiExecutionThread] Kill command executed (exit code: {kill_status})")
+            print(f"SIGTERM sent, exit status: {kill_status}")
+            
+            # Step 2: Wait for graceful shutdown (allow GPIO.cleanup() to execute)
+            time.sleep(2.0)  # Increased from 1.0 to ensure cleanup completes
+            
+            # Step 3: Verify process termination
+            check_cmd = "pgrep -f 'python3.*File.py' | wc -l"
+            stdin, stdout, stderr = self.ssh.exec_command(check_cmd, timeout=3)
+            count = int(stdout.read().decode().strip())
+            
+            if count > 0:
+                print(f"Warning: {count} process(es) still running after SIGTERM")
+                
+                # Step 4: If still running, escalate to SIGKILL (last resort)
+                print("Escalating to SIGKILL...")
+                kill_command = "pkill -KILL -f 'python3.*File.py' 2>/dev/null || true"
+                stdin, stdout, stderr = self.ssh.exec_command(kill_command, timeout=5)
+                time.sleep(0.5)
+                
+                print("Warning: GPIO cleanup may not have completed. Pin state may be dirty.")
+                self.reset_gpio_remotely()
+            else:
+                print("Process terminated gracefully")
+                self.reset_gpio_remotely()
+                
         except Exception as e:
-            print(f"[RPiExecutionThread] Warning: Could not kill old processes: {e}")
+            print(f"Error during process termination: {e}")
+    
+    def reset_gpio_remotely(self):
+        """
+        Execute remote GPIO cleanup before uploading new code.
+        This ensures pins are reset even if previous cleanup failed.
+        """
+        try:
+            cleanup_script = """
+            python3 << 'EOF'
+            import RPi.GPIO as GPIO
+            try:
+                GPIO.setwarnings(False)
+                GPIO.setmode(GPIO.BCM)
+                GPIO.cleanup()
+                print("GPIO cleanup completed")
+            except Exception as e:
+                print(f"GPIO cleanup error: {e}")
+            EOF
+            """
+            stdin, stdout, stderr = self.ssh.exec_command(cleanup_script, timeout=5)
+            output = stdout.read().decode()
+            print(f"Remote GPIO reset: {output}")
+            time.sleep(0.5)
+        except Exception as e:
+            print(f"Remote GPIO reset failed: {e}")
 
 
 class GridScene(QGraphicsScene):
@@ -2909,7 +2959,7 @@ class MainWindow(QMainWindow):
                                 if dev_id not in Utils.devices['function_canvases'][function_id].keys():
                                     Utils.devices['function_canvases'][function_id][dev_id] = {
                                         'name': '',
-                                        'type': self.t("main_GUI.internal_tab.Output"),
+                                        'type': self.t("main_GUI.internal_tab.output"),
                                         'type_index': 0,
                                         'widget': None,
                                         'name_imput': None,
@@ -2931,7 +2981,7 @@ class MainWindow(QMainWindow):
                         if function_info['canvas'] == canvas_reference:
                             Utils.devices['function_canvases'][function_id][dev_id] = {
                                 'name': '',
-                                'type': self.t("main_GUI.internal_tab.Output"),
+                                'type': self.t("main_GUI.internal_tab.output"),
                                 'type_index': 0,
                                 'widget': None,
                                 'name_imput': None,
@@ -3001,7 +3051,8 @@ class MainWindow(QMainWindow):
                         'widget': None,
                         'name_imput': None,
                         'type_input': None,
-                        'value_input': None
+                        'value_input': None,
+                        'current_value_display': None
                     }
                     id_var_generated = True
                     break
@@ -3015,7 +3066,8 @@ class MainWindow(QMainWindow):
                 'widget': None,
                 'name_imput': None,
                 'type_input': None,
-                'value_input': None
+                'value_input': None,
+                'current_value_display': None
             }
         #print(f"Utils.variables after adding new variable: {Utils.variables}")
         canvas_reference.row_widget = QWidget()
@@ -3046,9 +3098,9 @@ class MainWindow(QMainWindow):
             Utils.variables['main_canvas'][var_id]['value'] = var_data['value']
         self.value_var_input.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.value_changed(text, v_id, t, r))
         
-        self.current_value = QLineEdit()
-        self.current_value.setReadOnly(True)
-        self.current_value.setPlaceholderText(self.t("main_GUI.variables_tab.current_value_placeholder"))
+        current_value = QLineEdit()
+        current_value.setReadOnly(True)
+        current_value.setPlaceholderText(self.t("main_GUI.variables_tab.current_value_placeholder"))
 
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
@@ -3056,7 +3108,7 @@ class MainWindow(QMainWindow):
         canvas_reference.row_layout.addWidget(name_imput)
         canvas_reference.row_layout.addWidget(type_input)
         canvas_reference.row_layout.addWidget(self.value_var_input)
-        canvas_reference.row_layout.addWidget(self.current_value)
+        canvas_reference.row_layout.addWidget(current_value)
         canvas_reference.row_layout.addWidget(delete_btn)
         
         delete_btn.clicked.connect(lambda _, v_id=var_id, rw=canvas_reference.row_widget, t="Variable", r=canvas_reference: self.remove_row(rw, v_id, t, r))
@@ -3065,7 +3117,7 @@ class MainWindow(QMainWindow):
         Utils.variables['main_canvas'][var_id]['name_imput'] = name_imput
         Utils.variables['main_canvas'][var_id]['type_input'] = type_input
         Utils.variables['main_canvas'][var_id]['value_input'] = self.value_var_input
-
+        Utils.variables['main_canvas'][var_id]['current_value_display'] = current_value
         panel_layout = canvas_reference.var_layout
         panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
         
@@ -3116,13 +3168,14 @@ class MainWindow(QMainWindow):
                 if device_id not in Utils.devices['main_canvas'].keys():
                     Utils.devices['main_canvas'][device_id] = {
                         'name': '',
-                        'type': self.t("main_GUI.devices_tab.Output"),
+                        'type': self.t("main_GUI.devices_tab.output"),
                         'type_index': 0,
                         'PIN': '',
                         'widget': None,
                         'name_imput': None,
                         'type_input': None,
-                        'value_input': None
+                        'value_input': None,
+                        'current_state_display': None
                     }
                     id_dev_generated = True
                     break
@@ -3131,13 +3184,14 @@ class MainWindow(QMainWindow):
         else:
             Utils.devices['main_canvas'][device_id] = {
                 'name': '',
-                'type': self.t("main_GUI.devices_tab.Output"),
+                'type': self.t("main_GUI.devices_tab.output"),
                 'type_index': 0,
                 'PIN': '',
                 'widget': None,
                 'name_imput': None,
                 'type_input': None,
-                'value_input': None
+                'value_input': None,
+                'current_state_display': None
             }
         #print(f"Generated device_id: {device_id}")
         self.device_id = device_id
@@ -3175,12 +3229,17 @@ class MainWindow(QMainWindow):
         self.value_dev_input.setValidator(validator)
         self.value_dev_input.textChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference: self.value_changed(text, d_id, t, r))
         
+        current_state = QLineEdit()
+        current_state.setReadOnly(True)
+        current_state.setPlaceholderText(self.t("main_GUI.devices_tab.current_state_placeholder"))
+
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
         
         canvas_reference.row_layout.addWidget(name_imput)
         canvas_reference.row_layout.addWidget(self.type_input)
         canvas_reference.row_layout.addWidget(self.value_dev_input)
+        canvas_reference.row_layout.addWidget(current_state)
         canvas_reference.row_layout.addWidget(delete_btn)
         
         delete_btn.clicked.connect(lambda _, d_id=device_id, rw=canvas_reference.row_widget, t="Device", r=canvas_reference: self.remove_row(rw, d_id, t, r))
@@ -3193,7 +3252,8 @@ class MainWindow(QMainWindow):
         Utils.devices['main_canvas'][device_id]['name_imput'] = name_imput
         Utils.devices['main_canvas'][device_id]['type_input'] = self.type_input
         Utils.devices['main_canvas'][device_id]['value_input'] = self.value_dev_input
-        
+        Utils.devices['main_canvas'][device_id]['current_state_display'] = current_state
+
     def Clear_All_Devices(self):
         #print("Clearing all devices")
         dev_ids_to_remove = []
@@ -3557,6 +3617,19 @@ class MainWindow(QMainWindow):
                             if function_info['canvas'] == canvas_reference:
                                 Utils.devices['function_canvases'][function_id][id]['PIN'] = imput
                                 break    
+                                
+    def update_current_values(self):
+        for var_name, var in Utils.reports['variables'].items():
+            for var_id in Utils.variables['main_canvas'].keys():
+                if Utils.variables['main_canvas'][var_id]['name'] == var_name:
+                    widget = Utils.variables['main_canvas'][var_id]['current_value_display']
+                    widget.setText(str(var['value']))
+        for dev_name, dev in Utils.reports['devices'].items():
+            for dev_id in Utils.devices['main_canvas'].keys():
+                if Utils.devices['main_canvas'][dev_id]['name'] == dev_name:
+                    widget = Utils.devices['main_canvas'][dev_id]['current_state_display']
+                    widget.setText(str(dev['state']))
+        
     #MARK: - Other Methods
     def open_elements_window(self):
         """Open the elements window"""
@@ -3828,6 +3901,7 @@ class MainWindow(QMainWindow):
         # Stop execution thread
         if hasattr(self, 'execution_thread') and self.execution_thread is not None:
             if self.execution_thread.isRunning():
+                self.execution_thread.kill_process()
                 self.execution_thread.stop()
                 self.execution_thread.wait(3000)
                 self.execution_thread.terminate()
@@ -3877,8 +3951,8 @@ class MainWindow(QMainWindow):
                 print("Unsaved changes detected, prompting user")
                 change_summary = self.build_change_summary(comparison)
                 reply = QMessageBox.question(
-                    self, self.t("main_GUI.dialogs.save_project"),
-                    f"{self.t('main_GUI.dialogs.unsaved_changes').format(name=name)}\n\n{change_summary}",
+                    self, self.t("main_GUI.dialogs.file_dialogs.save_project"),
+                    f"{self.t('main_GUI.dialogs.file_dialogs.unsaved_changes').format(name=name)}\n\n{change_summary}",
                     QMessageBox.StandardButton.Save |
                     QMessageBox.StandardButton.Discard |
                     QMessageBox.StandardButton.Cancel,
@@ -3907,15 +3981,15 @@ class MainWindow(QMainWindow):
             print("Main canvas changes detected")
             main_details = []
             if comparison.main_blocks_added:
-                main_details.append(f"  ✓ {len(comparison.main_blocks_added)} {self.t('dialogs.changes_dialogs.blocks_added')}")
+                main_details.append(f"  ✓ {len(comparison.main_blocks_added)} {self.t('main_GUI.dialogs.changes_dialogs.blocks_added')}")
             if comparison.main_blocks_removed:
-                main_details.append(f"  ✓ {len(comparison.main_blocks_removed)} {self.t('dialogs.changes_dialogs.blocks_removed')}")
+                main_details.append(f"  ✓ {len(comparison.main_blocks_removed)} {self.t('main_GUI.dialogs.changes_dialogs.blocks_removed')}")
             if comparison.main_blocks_modified:
-                main_details.append(f"  ✓ {len(comparison.main_blocks_modified)} {self.t('dialogs.changes_dialogs.blocks_modified')}")
+                main_details.append(f"  ✓ {len(comparison.main_blocks_modified)} {self.t('main_GUI.dialogs.changes_dialogs.blocks_modified')}")
             if comparison.main_connections_added:
-                main_details.append(f"  ✓ {len(comparison.main_connections_added)} {self.t('dialogs.changes_dialogs.connections_added')}")
+                main_details.append(f"  ✓ {len(comparison.main_connections_added)} {self.t('main_GUI.dialogs.changes_dialogs.connections_added')}")
             if comparison.main_connections_removed:
-                main_details.append(f"  ✓ {len(comparison.main_connections_removed)} {self.t('dialogs.changes_dialogs.connections_removed')}")
+                main_details.append(f"  ✓ {len(comparison.main_connections_removed)} {self.t('main_GUI.dialogs.changes_dialogs.connections_removed')}")
             
             if main_details:
                 summary.append(self.t("main_GUI.dialogs.changes_dialogs.main_canvas_changes"))
@@ -3983,7 +4057,8 @@ class MainWindow(QMainWindow):
         # Close Elements window if it exists
         try:
             if ElementsWindow._instance is not None:
-                if ElementsWindow._instance.isVisible():
+                if ElementsWindow._instance.is_hidden == False:
+                    print("Closing elements window")
                     ElementsWindow._instance.close()
                 ElementsWindow._instance = None
         except:
@@ -3993,17 +4068,35 @@ class MainWindow(QMainWindow):
         # Close Device Settings window if it exists
         try:
             device_settings_window = DeviceSettingsWindow.get_instance(self.current_canvas)
-            if device_settings_window.isVisible():
+            print("Device settings window instance:", device_settings_window)
+            if device_settings_window.is_hidden == False:
+                print("Closing device settings window")
                 device_settings_window.close()
+            DeviceSettingsWindow._instance = None
         except:
+            DeviceSettingsWindow._instance = None
             pass
         
         try:
             help_window = HelpWindow.get_instance(self.current_canvas)
-            if help_window.isVisible():
+            if help_window.is_hidden == False:
+                print("Closing help window")
                 help_window.close()
+            HelpWindow._instance = None
         except:
+            HelpWindow._instance = None
             pass
+
+        try:
+            code_viewer_window = CodeViewerWindow.get_instance(self.current_canvas)
+            if code_viewer_window.is_hidden == False:
+                print("Closing code viewer window")
+                code_viewer_window.close()
+            CodeViewerWindow._instance = None
+        except:
+            CodeViewerWindow._instance = None
+            pass
+
     #MARK: - Compile and Upload Methods
     def compile_and_upload(self):
         """
@@ -4109,6 +4202,11 @@ class MainWindow(QMainWindow):
             )
         else:
             print(f"[RPi Report] {output}")
+            output = output.replace('__REPORT__', '').strip()
+            Utils.reports = json.loads(output)
+
+            print("Reports received:", Utils.reports)
+            self.update_current_values()
             #pass
     
     def on_execution_error(self, error):

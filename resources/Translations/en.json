@@ -49,7 +49,8 @@
       "name_placeholder": "Enter variable name",
       "type": "Type",
       "initial_value_placeholder": "Enter initial value",
-      "add_variable": "Add Variable"
+      "add_variable": "Add Variable",
+      "current_value_placeholder": "Current value"
     },
     "devices_tab": {
       "devices": "Devices",
@@ -59,15 +60,16 @@
       "input": "Input",
       "button": "Button",
       "pin": "Pin",
-      "add_device": "Add Device"
+      "add_device": "Add Device",
+      "current_state_placeholder": "Current value"
     },
     "internal_tab": {
       "header": "Internal Variables and Devices",
       "variable_name_placeholder": "Enter variable name",
       "device_name_placeholder": "Enter device name",
-      "Output": "Output",
-      "Input": "Input",
-      "Button": "Button",
+      "output": "Output",
+      "input": "Input",
+      "button": "Button",
       "initial_value": "Initial Value",
       "add_internal_variable": "Add Internal Variable",
       "add_internal_device": "Add Internal Device"
@@ -360,8 +362,8 @@
       "invalid_result": "Invalid result returned from detection",
       "incomplete_error_title": "Error",
       "incomplete_error_message": "Raspberry Pi detection returned incomplete data.",
-      "sucess_title": "Detection Successful",
-      "sucess_message": "Found Raspberry Pi!\nHostname: {hostname}\nIP: {ip}\nModel: {model}"
+      "success_title": "Detection Successful",
+      "success_message": "Found Raspberry Pi!\nHostname: {hostname}\nIP: {ip}\nModel: {model}"
     }
   }
 }

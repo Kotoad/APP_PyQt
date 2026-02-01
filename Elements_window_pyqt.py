@@ -42,6 +42,7 @@ class ElementsWindow(QDialog):
         if cls._instance is not None:
             #print("ElementsWindow instance exists, checking visibility")
             try:
+                _ = cls._instance.isVisible()
                 #print(" Checking if instance is hidden")
                 #print(f" Instance is hidden: {cls._instance.is_hidden}")
                 if cls._instance.is_hidden:

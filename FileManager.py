@@ -53,9 +53,9 @@ class FileManager:
     """Manages project file operations with auto-save capabilities"""
     
     # Directory structure
-    PROJECTS_DIR = "projects"
-    AUTOSAVE_DIR = "autosave"
-    COMPARE_DIR = "compare"
+    PROJECTS_DIR = Utils.get_base_path() / "projects"
+    AUTOSAVE_DIR = Utils.get_base_path() / "autosave"
+    COMPARE_DIR = Utils.get_base_path() / "compare"
     APPDATA_DIR = os.path.expanduser("~\\AppData\\Local\\Visual Programming\\projects")
     PROJECT_EXTENSION = ".project"
     
@@ -100,11 +100,11 @@ class FileManager:
             project_dict = cls._build_save_data(project_name)
             
             # Write to file
-            with open(filename, 'w') as f:
-                json.dump(project_dict, f, indent=2)
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(project_dict, f, indent=2, ensure_ascii=False)
             if not is_autosave and not is_compare:
-                with open(filename2, 'w') as f:
-                    json.dump(project_dict, f, indent=2)
+                with open(filename2, 'w', encoding='utf-8') as f:
+                    json.dump(project_dict, f, indent=2, ensure_ascii=False)
 
             print(f"✓ Project saved: {filename}")
             return True
@@ -115,6 +115,7 @@ class FileManager:
     
     @classmethod
     def _build_save_data(cls, project_name: str, for_dict=True) -> dict:
+
         """
         Build complete project data for serialization
         
@@ -537,7 +538,7 @@ class FileManager:
             True if successful, False otherwise
         """
         try:
-            filename = os.path.join("app_settings.json")
+            filename = os.path.join(Utils.get_base_path(), "app_settings.json")
             print(f"Loading app settings from: {filename}")
             with open(filename, 'r') as f:
                 print("App settings file opened successfully.")
@@ -576,7 +577,7 @@ class FileManager:
                 app_settings_filename = os.path.join(cls.AUTOSAVE_DIR, "app_settings.json")
             else:
                 filename = os.path.join(cls.PROJECTS_DIR, project_name + cls.PROJECT_EXTENSION)
-                app_settings_filename = os.path.join(os.path.dirname(__file__), "app_settings.json")
+                app_settings_filename = os.path.join(Utils.get_base_path(), "app_settings.json")
 
             appdata_filename = os.path.join(cls.APPDATA_DIR, project_name + cls.PROJECT_EXTENSION)
             appdata_app_settings_filename = os.path.join(cls.APPDATA_DIR, "app_settings.json")
@@ -598,10 +599,10 @@ class FileManager:
                     return False
 
             # Load JSON
-            with open(filename, 'r') as f:
+            with open(filename, 'r', encoding='utf-8') as f:
                 project_dict = json.load(f)
             
-            with open(app_settings_filename, 'r') as f:
+            with open(app_settings_filename, 'r', encoding='utf-8') as f:
                 app_settings_dict = json.load(f)
 
             # Populate Utils with loaded data (PURE DATA ONLY)

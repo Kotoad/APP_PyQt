@@ -24,6 +24,7 @@ class CodeViewerWindow(QDialog):
     def get_instance(cls, canvas):
         if cls._instance is not None:
             try:
+                _ = cls._instance.isVisible()
                 if not cls._instance.is_hidden:
                     if cls._instance.parent_canvas != canvas:
                         cls._instance.parent_canvas = canvas

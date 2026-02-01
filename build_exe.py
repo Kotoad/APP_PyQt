@@ -95,7 +95,7 @@ def build_exe():
 
 def verify_build():
     """Check if exe was created"""
-    exe_path = Path('dist/main_pyqt.exe')
+    exe_path = Path('dist/Visual Programming Interface.exe')
     if exe_path.exists():
         size_mb = exe_path.stat().st_size / (1024 * 1024)
         print(f"\n[✓] Executable created: {exe_path} ({size_mb:.1f} MB)")

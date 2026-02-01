@@ -21,7 +21,8 @@ class TranslationManager:
             return
 
         self._isinitialized = True
-        self.translation_dir = Path(os.path.dirname(__file__)) / 'resources' / 'Translations'
+        base_path = Utils.get_base_path()
+        self.translation_dir = base_path / 'resources' / 'Translations'
         self._load_available_translations()
         if Utils.app_settings.language in self.available_translations:
             self._load_translation(Utils.app_settings.language)  # Default to English

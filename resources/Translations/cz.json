@@ -49,7 +49,8 @@
       "name_placeholder": "Zadejte název proměnné",
       "type": "Typ",
       "initial_value_placeholder": "Zadejte počáteční hodnotu",
-      "add_variable": "Přidat proměnnou"
+      "add_variable": "Přidat proměnnou",
+      "current_value_placeholder": "Aktuální hodnota"
     },
     "devices_tab": {
       "devices": "Zařízení",
@@ -59,15 +60,16 @@
       "input": "Vstup",
       "button": "Tlačítko",
       "pin": "Pin",
-      "add_device": "Přidat zařízení"
+      "add_device": "Přidat zařízení",
+      "current_state_placeholder": "Aktuální hodnota"
     },
     "internal_tab": {
       "header": "Interní proměnné a zařízení",
       "variable_name_placeholder": "Zadejte název proměnné",
       "device_name_placeholder": "Zadejte název zařízení",
-      "Output": "Výstup",
-      "Input": "Vstup",
-      "Button": "Tlačítko",
+      "output": "Výstup",
+      "input": "Vstup",
+      "button": "Tlačítko",
       "initial_value": "Počáteční hodnota",
       "add_internal_variable": "Přidat interní proměnnou",
       "add_internal_device": "Přidat interní zařízení"
@@ -360,8 +362,8 @@
       "invalid_result": "Detekce vrátila neplatný výsledek",
       "incomplete_error_title": "Chyba",
       "incomplete_error_message": "Detekce Raspberry Pi vrátila neúplná data.",
-      "sucess_title": "Detekce úspěšná",
-      "sucess_message": "Nalezen Raspberry Pi!\nHostname: {hostname}\nIP: {ip}\nModel: {model}"
+      "success_title": "Detekce úspěšná",
+      "success_message": "Nalezen Raspberry Pi!\nHostname: {hostname}\nIP: {ip}\nModel: {model}"
     }
   }
 }

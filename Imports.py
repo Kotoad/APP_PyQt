@@ -113,6 +113,7 @@ def get_Translation_Manager():
     """Lazy import TranslationManager - avoid circular import"""
     from Translation_manager import TranslationManager
     return TranslationManager
+
 # ============================================================================
 # LAZY IMPORTS (Imported only when needed to avoid circular deps)
 # ============================================================================
