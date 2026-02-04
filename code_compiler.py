@@ -123,10 +123,12 @@ class CodeCompiler:
                 self.writeline("\nled = LED()")
             self.writeline("try:")
             self.indent_level += 1
+            self.writeline("while not shutdown:")
+            self.indent_level += 1
             next_id = self.get_next_block(start_block['id'])
             #print(f"Processing blocks starting from: {next_id}")
             self.process_block(next_id)
-            self.indent_level -= 1
+            self.indent_level -= 2
         if self.GPIO_compile:
             self.current_lines = self.footer_lines
             self.write_cleanup()
@@ -202,12 +204,15 @@ class CodeCompiler:
     def write_setup(self):
         #print("Writing setup code...")
         if self.GPIO_compile:
+            self.writeline("shutdown = False")
             self.writeline("# Gracefully handle SIGTERM (pkill)")
             self.writeline("def handle_sigterm(signum, frame):")
             self.indent_level += 1
-            self.writeline("raise KeyboardInterrupt()")
+            self.writeline("global shutdown")
+            self.writeline("shutdown = True")
             self.indent_level -= 1
             self.writeline("signal.signal(signal.SIGTERM, handle_sigterm)\n")
+            self.writeline("signal.signal(signal.SIGINT, handle_sigterm)\n")
             self.writeline("# Preventive cleanup to reset any dirty pins")
             # Smart Cleanup: Silence warnings just for this preventive step
             self.writeline("GPIO.setwarnings(False)")
@@ -217,7 +222,6 @@ class CodeCompiler:
             self.indent_level -= 1
             self.writeline("except: pass")
             # Re-enable warnings so you still see legitimate errors later
-            self.writeline("GPIO.setwarnings(True)")
             self.writeline("GPIO.setmode(GPIO.BCM)\n")
             self.writeline("Devices_main = {")
             self.indent_level+=1
@@ -234,6 +238,19 @@ class CodeCompiler:
                 self.writeline(text)
             self.indent_level-=1
             self.writeline("}\n")
+            self.writeline("# Force reinitialization of GPIO pins")
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['type'] in ['Output', 'PWM']:")
+            self.indent_level += 1
+            self.writeline("try:")
+            self.indent_level += 1
+            self.writeline("GPIO.cleanup(dev_config['PIN'])")
+            self.indent_level -= 1
+            self.writeline("except: pass")
+            self.indent_level -= 2
+            #self.writeline("GPIO.setwarnings(True)\n")
+            self.writeline("")
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level+=1
             self.writeline("if dev_config['type'] == 'Output':")
@@ -257,7 +274,8 @@ class CodeCompiler:
             self.indent_level+=1
             self.writeline("dev_config['name'].CurrentDutyCycle = 0")
             self.indent_level-=3
-            
+            self.writeline("GPIO.setwarnings(True)")
+
             self.writeline("Variables_main = {")
             self.indent_level+=1
             for var_name, var_info in Utils.variables['main_canvas'].items():

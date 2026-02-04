@@ -19,7 +19,7 @@ def build_installer():
         'installer_gui.py',
         '--onefile',
         '--windowed',
-        '--name=Visual Programming Installer',
+        '--name=OmniBoard Studio Installer',
         '--distpath=dist',
         '--noconfirm',
         # Keep basic UI imports available
@@ -35,7 +35,7 @@ def build_installer():
     try:
         PyInstaller.__main__.run(args)
         print("\n[✓] Installer built successfully!")
-        print(f"    Output: dist/Visual Programming Installer.exe")
+        print(f"    Output: dist/OmniBoard Studio Installer.exe")
         print(f"    Type: Online Installer (downloads from GitHub)")
         return True
     except Exception as e:

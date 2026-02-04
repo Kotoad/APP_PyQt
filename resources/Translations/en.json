@@ -3,7 +3,7 @@
     "_metadata": {
       "language_name": "English",
       "version": "1.0",
-      "app_title": "Visual Programming Interface"
+      "app_title": "OmniBoard Studio"
     },
     "menu": {
       "file": "File",
@@ -38,8 +38,8 @@
     },
     "sidebar": {
       "main": "Main",
-      "variables": "Variables",
-      "devices": "Devices",
+      "variables": "variables",
+      "devices": "devices",
       "canvas": "Canvas",
       "internal_variables": "Internal Variables",
       "new_canvas": "Add New Canvas"
@@ -170,6 +170,7 @@
         "execution_issue": "Execution Issue",
         "execution_error": "Execution Error",
         "execution_output": "Execution Output",
+        "execution_report": "Execution Report",
         "execution_issue_message": "Code compiled but execution encountered issues. Check device connection and try again.",
         "success": "Success",
         "success_message": "Code compiled, executed, and uploaded successfully!",

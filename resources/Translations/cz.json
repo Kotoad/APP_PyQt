@@ -3,7 +3,7 @@
     "_metadata": {
       "language_name": "Čeština",
       "version": "1.0",
-      "app_title": "Vizuální programovací rozhraní"
+      "app_title": "OmniBoard Studio"
     },
     "menu": {
       "file": "Soubor",
@@ -38,8 +38,8 @@
     },
     "sidebar": {
       "main": "Hlavní",
-      "variables": "Proměnné",
-      "devices": "Zařízení",
+      "variables": "proměnné",
+      "devices": "zařízení",
       "canvas": "Plátno",
       "internal_variables": "Interní proměnné",
       "new_canvas": "Přidat nové plátno"
@@ -170,6 +170,7 @@
         "execution_issue": "Problém s vykonáváním",
         "execution_error": "Chyba vykonávání",
         "execution_output": "Výstup vykonávání",
+        "execution_report": "Zpráva z vykonávání",
         "execution_issue_message": "Kód byl zkompilován, ale vykonávání narazilo na problémy. Zkontrolujte připojení zařízení a zkuste to znovu.",
         "success": "Úspěch",
         "success_message": "Kód byl úspěšně zkompilován, vykonán a nahrán!",

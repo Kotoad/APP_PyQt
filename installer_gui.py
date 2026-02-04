@@ -29,7 +29,7 @@ except ImportError:
 
 # ================= CONFIGURATION =================
 # REPLACE THIS WITH YOUR GITHUB RELEASE ASSET URL
-GITHUB_ZIP_URL = "https://github.com/Kotoad/APP_PyQt/releases/download/Testing/app_package.zip"
+GITHUB_ZIP_URL = "https://github.com/Kotoad/APP_PyQt/releases/download/V0.1/app_package.zip"
 # =================================================
 
 class InstallerWorker(QThread):
@@ -42,7 +42,7 @@ class InstallerWorker(QThread):
         super().__init__()
         self.install_path = install_path
         self.create_shortcut = create_shortcut
-        self.app_name = "Visual Programming Interface"
+        self.app_name = "OmniBoard Studio"
         self.company_name = "Developer"
         self.download_url = GITHUB_ZIP_URL
         
@@ -77,7 +77,7 @@ class InstallerWorker(QThread):
         self.progress.emit(5)
         install_dir.mkdir(parents=True, exist_ok=True)
         
-        backup_dir = Path(os.path.expanduser("~\\AppData\\Local\\Visual Programming"))
+        backup_dir = Path(os.path.expanduser("~\\AppData\\Local\\OmniBoard Studio"))
         backup_dir.mkdir(parents=True, exist_ok=True)
         
         # Step 2: Download the ZIP file
@@ -116,7 +116,7 @@ class InstallerWorker(QThread):
         # This fixes the "FileNotFound" error by looking inside subfolders recursively
         self.status.emit("Locating application...")
         
-        target_name = "Visual Programming Interface.exe"
+        target_name = "OmniBoard Studio.exe"
         found_exes = list(install_dir.rglob("*.exe")) # rglob searches recursively
         
         dest_exe = None
@@ -229,7 +229,7 @@ class InstallerWindow(QMainWindow):
     """Professional installer UI"""
     def __init__(self):
         super().__init__()
-        self.app_name = "Visual Programming Interface"
+        self.app_name = "OmniBoard Studio"
         self.setWindowTitle(f"{self.app_name} - Online Installer")
         self.setGeometry(100, 100, 600, 450)
         self._setup_ui()
@@ -252,7 +252,7 @@ class InstallerWindow(QMainWindow):
         layout.addWidget(QLabel("Installation Directory:"))
         path_layout = QHBoxLayout()
         self.path_input = QLineEdit()
-        self.path_input.setText(os.path.expanduser("~\\AppData\\Local\\Visual Programming"))
+        self.path_input.setText(os.path.expanduser(os.path.join(os.path.dirname(sys.executable), f"{self.app_name}")))
         path_layout.addWidget(self.path_input)
         browse_btn = QPushButton("Browse...")
         browse_btn.clicked.connect(self._browse)

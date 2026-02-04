@@ -3,7 +3,7 @@ from Imports import get_utils, get_State_Manager, get_Translation_Manager
 Utils = get_utils()
 from Imports import (QDialog, QVBoxLayout, QLabel, QTabWidget, QWidget, QMessageBox, QPushButton, QHBoxLayout,
 QComboBox, Qt, QEvent, QFont, QMouseEvent, json, QLineEdit, QApplication, QProgressDialog,
-QObject, pyqtSignal, QTimer, sys, os, subprocess)
+QObject, pyqtSignal, QTimer, sys, os, subprocess, time)
 from rpi_autodiscovery import RPiAutoDiscovery, RPiConnectionWizard
 
 StateManager = get_State_Manager()
@@ -61,6 +61,8 @@ class MaxWidthComboBox(QComboBox):
 
 class DeviceSettingsWindow(QDialog):
     _instance = None
+
+    reload_requested = pyqtSignal(bool)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -309,7 +311,7 @@ class DeviceSettingsWindow(QDialog):
     
     def save_settings(self):
         
-        filename = os.path.join(os.path.dirname(__file__), 'app_settings.json')
+        filename = os.path.join(Utils.get_base_path(), 'app_settings.json')
 
         app_settings_dict = self.build_save_data()
 
@@ -335,48 +337,8 @@ class DeviceSettingsWindow(QDialog):
         Utils.app_settings.language = lang_code
         self.save_settings()
 
-        self.restart_app_dialog()
+        self.reload_requested.emit(True)
     
-    def restart_app_dialog(self):
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle(self.t("setting_window.restart_dialog.title"))
-        msg_box.setText(self.t("setting_window.restart_dialog.message_default"))
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
-        msg_box.setDefaultButton(QMessageBox.StandardButton.Ok)
-
-        self.countdown = 3
-        timer = QTimer()
-
-        def update_countdown():
-            if self.countdown > 0:
-                msg_box.setText(self.t("setting_window.restart_dialog.message_countdown").replace("{seconds}", str(self.countdown)))
-                self.countdown -= 1
-            else:
-                timer.stop()
-                msg_box.close()
-                self.restart_app()
-        
-        timer.timeout.connect(update_countdown)
-        timer.start(1000)
-
-        result = msg_box.exec()
-
-        if result == QMessageBox.StandardButton.Ok:
-            timer.stop()
-            self.restart_app()
-
-    def restart_app(self):
-        
-        # Close current window
-        try:
-            self.close()
-        except:
-            pass
-
-        subprocess.Popen([sys.executable, sys.argv[0]] + sys.argv[1:])
-        sys.exit(0)
-        # Restart with same arguments
-            
 
     def auto_detect_rpi(self):
         """Auto-detect Raspberry Pi on network"""

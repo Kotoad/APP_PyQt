@@ -1,6 +1,7 @@
 # Ignore all .project files
 *.project
 *.spec
+*.zip
 
 # Ignore project directories
 projects/
@@ -8,7 +9,7 @@ autosave/
 compare/
 build/
 dist/
-
+New Folder/
 
 # Python cache files
 __pycache__/

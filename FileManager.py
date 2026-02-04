@@ -573,8 +573,8 @@ class FileManager:
             
             # Determine load location
             if is_autosave:
-                filename = os.path.join(cls.AUTOSAVE_DIR, "autosave" + cls.PROJECT_EXTENSION)
-                app_settings_filename = os.path.join(cls.AUTOSAVE_DIR, "app_settings.json")
+                filename = os.path.join(cls.AUTOSAVE_DIR, project_name + cls.PROJECT_EXTENSION)
+                app_settings_filename = os.path.join(Utils.get_base_path(), "app_settings.json")
             else:
                 filename = os.path.join(cls.PROJECTS_DIR, project_name + cls.PROJECT_EXTENSION)
                 app_settings_filename = os.path.join(Utils.get_base_path(), "app_settings.json")

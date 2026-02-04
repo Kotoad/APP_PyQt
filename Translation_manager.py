@@ -5,7 +5,7 @@ Utils = get_utils()
 class TranslationManager:
     _instance = None
     _isinitialized = False
-    _current_language = 'en'
+    _current_language = Utils.app_settings.language
     _translations = {}
     available_translations = {}
 
@@ -25,9 +25,11 @@ class TranslationManager:
         self.translation_dir = base_path / 'resources' / 'Translations'
         self._load_available_translations()
         if Utils.app_settings.language in self.available_translations:
-            self._load_translation(Utils.app_settings.language)  # Default to English
+            print("Loading user preferred language:", Utils.app_settings.language)
+            self._load_translation(Utils.app_settings.language) 
         else:
-            self._load_translation('en')
+            print("User preferred language not available. Loading default (English).")
+            self._load_translation(Utils.app_settings.language)
 
     def _load_available_translations(self):
 
@@ -121,5 +123,3 @@ class TranslationManager:
 
     def get_available_languages(self):
         return self.available_translations.copy()
-
-Translation = TranslationManager()

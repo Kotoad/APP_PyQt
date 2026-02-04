@@ -1,7 +1,7 @@
 from random import random
 from Imports import (
     sys, QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, threading,
-    QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea, QListWidget,
+    QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea, QListWidget, QMovie,
     QLineEdit, QComboBox, QDialog, QPainter, QPen, QColor, QBrush, pyqtProperty,
     QPropertyAnimation, QEasingCurve, QStyledItemDelegate, os, QThread, paramiko,
     QPalette, QMouseEvent, QRegularExpression, QRegularExpressionValidator, time,
@@ -9,7 +9,7 @@ from Imports import (
     QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication, QSizePolicy,
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
     QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent,
-    QStackedWidget, QSplitter, QIcon, QKeySequence, QShortcut, json
+    QStackedWidget, QSplitter, QIcon, QKeySequence, QShortcut, json, QSplashScreen, QProgressBar
 )
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
@@ -31,6 +31,125 @@ StateManager = get_State_Manager()
 CodeViewerWindow = get_CodeViewer_Window()
 TranslationManager = get_Translation_Manager()
     
+# --- WORKER THREAD (Background Data Loading) ---
+class LoaderThread(QThread):
+    """
+    Handles heavy non-GUI initialization in the background.
+    Move file reading, API calls, or config loading here.
+    """
+    progress = pyqtSignal(int)
+    status = pyqtSignal(str)
+    finished = pyqtSignal()
+
+    def run(self):
+        # PHASE 1: Load Settings (Example of moving logic to thread)
+        self.status.emit("Loading App Settings...")
+        FileManager.load_app_settings() # <--- You can move this here if FileManager is thread-safe
+        time.sleep(0.5) # Simulated delay (remove this in production)
+        self.progress.emit(20)
+
+        # PHASE 2: Check Resources
+        self.status.emit("Checking Resources...")
+        time.sleep(0.5) 
+        self.progress.emit(40)
+
+        # PHASE 3: Initialize Compiler
+        self.status.emit("Initializing Compiler...")
+        #self.compiler = Code_Compiler() # <--- Pre-initialize objects here if they don't use QWidgets
+        time.sleep(0.5)
+        self.progress.emit(60)
+        
+        # PHASE 4: Preparing UI
+        self.status.emit("Preparing Interface...")
+        time.sleep(0.5)
+        self.progress.emit(80)
+
+        # Done
+        self.finished.emit()
+
+class NativeSplash(QSplashScreen):
+    def __init__(self):
+        # Create a basic pixmap for the window size
+        # We fill it with your app's dark background color
+        pixmap = QPixmap(400, 300)
+        pixmap.fill(QColor("#1F1F1F")) 
+        super().__init__(pixmap)
+        
+        self.angle = 0
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.rotate_spinner)
+        self.timer.start(30) # Update every 30ms for smooth animation
+
+        # UI Setup (Progress Bar)
+        self.progressBar = QProgressBar(self)
+        self.progressBar.setGeometry(20, 260, 360, 10)
+        self.progressBar.setStyleSheet("""
+            QProgressBar {
+                border: none;
+                background-color: #333;
+                border-radius: 5px;
+            }
+            QProgressBar::chunk {
+                background-color: #1F538D;
+                border-radius: 5px;
+            }
+        """)
+        self.progressBar.setTextVisible(False)
+        self.loading_text = "Initializing..."
+
+    def rotate_spinner(self):
+        self.angle = (self.angle + 10) % 360
+        self.repaint() # Force a redraw
+
+    def paintEvent(self, event):
+        # 1. Draw Background
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.fillRect(self.rect(), QColor("#1F1F1F"))
+        
+        # 2. Draw Loading Spinner
+        center_x = self.width() // 2
+        center_y = (self.height() // 2) - 20 # Slightly up to make room for text
+        radius = 30
+        
+        painter.translate(center_x, center_y)
+        painter.rotate(self.angle)
+        
+        # Draw 8 "spokes"
+        for i in range(8):
+            painter.rotate(45) # 360 / 8 = 45 degrees
+            # Fade transparency
+            opacity = int(255 * (i / 8))
+            color = QColor("#1F538D") 
+            color.setAlpha(opacity)
+            
+            pen = QPen(color)
+            pen.setWidth(6)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            painter.setPen(pen)
+            
+            # Draw line segment
+            painter.drawLine(radius - 10, 0, radius, 0)
+            
+        painter.resetTransform()
+        
+        # 3. Draw Text
+        painter.setPen(QColor("white"))
+        font = painter.font()
+        font.setPointSize(10)
+        painter.setFont(font)
+        
+        # Draw text centered below spinner
+        text_rect = QRectF(0, 220, 400, 30)
+        painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, self.loading_text)
+
+    def update_progress(self, value):
+        self.progressBar.setValue(value)
+
+    def update_status(self, text):
+        self.loading_text = text
+        self.repaint()
+
 #MARK: - RPiExecutionThread
 class RPiExecutionThread(QThread):
     """
@@ -131,7 +250,7 @@ class RPiExecutionThread(QThread):
                 ssh.close()
                 self.status.emit("⏹️  Execution cancelled during connection")
                 return
-            
+
             self.status.emit("✓ Connected to RPi")
             
             # ===== STEP 4: Upload file via SFTP =====
@@ -183,6 +302,8 @@ class RPiExecutionThread(QThread):
                 self.execution_completed.emit(False)
                 return
 
+            self.reset_gpio_remotely()
+            
             # Give the old process time to die
             time.sleep(2.0)
 
@@ -291,68 +412,146 @@ class RPiExecutionThread(QThread):
 
     def kill_process(self):
         """
-        Gracefully terminate old Python processes with verification.
-        Uses SIGTERM to allow GPIO cleanup, then verifies termination.
+        Gracefully terminate old Python processes with proper delays.
         """
         try:
             print("Terminating old processes...")
             
-            # Step 1: Send SIGTERM (allows cleanup handlers to run)
-            kill_command = "pkill -TERM -f 'python3.*File.py' 2>/dev/null || true"
-            stdin, stdout, stderr = self.ssh.exec_command(kill_command, timeout=5)
-            kill_status = stdout.channel.recv_exit_status()
-            print(f"SIGTERM sent, exit status: {kill_status}")
+            # Step 1: Find the process ID (PID) first
+            find_pid_cmd = "pgrep -f 'python3.*File.py'"
+            stdin, stdout, stderr = self.ssh.exec_command(find_pid_cmd, timeout=3)
+            pids = stdout.read().decode().strip().split('\n')
+            pids = [p for p in pids if p]  # Filter empty strings
             
-            # Step 2: Wait for graceful shutdown (allow GPIO.cleanup() to execute)
-            time.sleep(2.0)  # Increased from 1.0 to ensure cleanup completes
+            if not pids:
+                print("No processes to terminate")
+                return
             
-            # Step 3: Verify process termination
-            check_cmd = "pgrep -f 'python3.*File.py' | wc -l"
-            stdin, stdout, stderr = self.ssh.exec_command(check_cmd, timeout=3)
-            count = int(stdout.read().decode().strip())
+            print(f"Found {len(pids)} process(es): {pids}")
             
-            if count > 0:
-                print(f"Warning: {count} process(es) still running after SIGTERM")
-                
-                # Step 4: If still running, escalate to SIGKILL (last resort)
+            # Step 2: Send SIGTERM to each process
+            for pid in pids:
+                kill_cmd = f"kill -TERM {pid} 2>/dev/null || true"
+                self.ssh.exec_command(kill_cmd, timeout=2)
+            
+            print("SIGTERM sent, waiting for graceful shutdown...")
+            time.sleep(3.0)  # INCREASED: Give more time for cleanup
+            
+            # Step 3: Check if processes still running
+            stdin, stdout, stderr = self.ssh.exec_command(find_pid_cmd, timeout=3)
+            remaining = stdout.read().decode().strip().split('\n')
+            remaining = [p for p in remaining if p]
+            
+            if remaining:
+                print(f"Warning: {len(remaining)} process(es) still running")
                 print("Escalating to SIGKILL...")
-                kill_command = "pkill -KILL -f 'python3.*File.py' 2>/dev/null || true"
-                stdin, stdout, stderr = self.ssh.exec_command(kill_command, timeout=5)
-                time.sleep(0.5)
                 
-                print("Warning: GPIO cleanup may not have completed. Pin state may be dirty.")
-                self.reset_gpio_remotely()
-            else:
-                print("Process terminated gracefully")
-                self.reset_gpio_remotely()
+                for pid in remaining:
+                    kill_cmd = f"kill -9 {pid} 2>/dev/null || true"
+                    self.ssh.exec_command(kill_cmd, timeout=2)
                 
+                time.sleep(1.0)
+                print("⚠️  GPIO cleanup may not have completed. Pin state may be dirty.")
+            
+            # Final check to ensure port/file descriptors are released
+            time.sleep(0.5)
+            print("✓ Process termination logic complete")
         except Exception as e:
-            print(f"Error during process termination: {e}")
-    
+            print(f"Process termination error: {e}")
+
+
+
     def reset_gpio_remotely(self):
         """
-        Execute remote GPIO cleanup before uploading new code.
-        This ensures pins are reset even if previous cleanup failed.
+        Reset GPIO pins at Linux kernel level using sysfs interface.
+        This works regardless of which Python process configured the pins.
         """
         try:
-            cleanup_script = """
-            python3 << 'EOF'
-            import RPi.GPIO as GPIO
-            try:
-                GPIO.setwarnings(False)
-                GPIO.setmode(GPIO.BCM)
-                GPIO.cleanup()
-                print("GPIO cleanup completed")
-            except Exception as e:
-                print(f"GPIO cleanup error: {e}")
-            EOF
-            """
-            stdin, stdout, stderr = self.ssh.exec_command(cleanup_script, timeout=5)
-            output = stdout.read().decode()
-            print(f"Remote GPIO reset: {output}")
-            time.sleep(0.5)
+            print("Executing kernel-level GPIO reset...")
+            
+            # Get list of all GPIO pins your application uses
+            # You need to collect these from Utils.devices
+            pins_to_reset = self.get_configured_pins()
+            
+            if not pins_to_reset:
+                pins_to_reset = [17]  # Fallback to default if detection fails
+            
+            print(f"Resetting pins: {pins_to_reset}")
+            
+            # Build compound command to reset all pins
+            reset_commands = []
+            for pin in pins_to_reset:
+                # Step 1: Unexport pin (releases from userspace control)
+                reset_commands.append(f"echo {pin} > /sys/class/gpio/unexport 2>/dev/null || true")
+            
+            # Execute all commands in one SSH call
+            full_command = " && ".join(reset_commands)
+            full_command += " && echo 'GPIO reset complete'"
+            
+            stdin, stdout, stderr = self.ssh.exec_command(full_command, timeout=5)
+            stdout.channel.recv_exit_status()  # Wait for completion
+            
+            output = stdout.read().decode().strip()
+            errors = stderr.read().decode().strip()
+            
+            if output:
+                print(f"Remote GPIO reset: {output}")
+            if errors and "No such file" not in errors:  # Ignore "file not found" for unexported pins
+                print(f"Remote GPIO errors: {errors}")
+                
+            time.sleep(0.5)  # Allow kernel to process changes
+            
         except Exception as e:
             print(f"Remote GPIO reset failed: {e}")
+
+    def get_configured_pins(self):
+        """
+        Extract list of GPIO pins used in current project.
+        Returns list of pin numbers.
+        """
+        pins = []
+        
+        try:
+            # Collect from main canvas devices
+            for dev_id, dev_info in Utils.devices.get('main_canvas', {}).items():
+                pin = dev_info.get('PIN')
+                if pin is not None and pin not in pins:
+                    pins.append(pin)
+            
+            # Collect from function canvas devices
+            for func_id, func_devices in Utils.devices.get('function_canvases', {}).items():
+                for dev_id, dev_info in func_devices.items():
+                    pin = dev_info.get('PIN')
+                    if pin is not None and pin not in pins:
+                        pins.append(pin)
+            
+            print(f"Detected pins in project: {pins}")
+        except Exception as e:
+            print(f"Error detecting pins: {e}")
+        
+        return pins
+    
+    def reset_gpio_hardware(self):
+        """
+        Reset GPIO pins at the Linux kernel level.
+        This bypasses RPi.GPIO library and directly manipulates kernel GPIO interface.
+        """
+        try:
+            print("🔧 Resetting GPIO hardware state...")
+            
+            # Get list of pins to reset (from your devices)
+            pins_to_reset = [17]  # Add all pins your application uses
+            
+            for pin in pins_to_reset:
+                # Unexport pin if it exists (releases kernel control)
+                unexport_cmd = f"echo {pin} | sudo tee /sys/class/gpio/unexport 2>/dev/null || true"
+                self.ssh.exec_command(unexport_cmd, timeout=2)
+            
+            time.sleep(0.5)
+            print("✓ GPIO hardware reset complete")
+            
+        except Exception as e:
+            print(f"⚠️  GPIO hardware reset warning: {e}")
 
 
 class GridScene(QGraphicsScene):
@@ -1252,17 +1451,24 @@ class GridCanvas(QGraphicsView):
                 print(f"Path connects {in_part} to {out_part}")
                 if self.main_window.current_canvas.reference == "canvas":
                     if in_part in Utils.main_canvas['blocks']:
+                        print(f"Removing path from block {in_part} in main_canvas")
                         del Utils.main_canvas['blocks'][in_part]['in_connections'][path_id]
                     if out_part in Utils.main_canvas['blocks']:
+                        print(f"Removing path from block {out_part} in main_canvas")
                         del Utils.main_canvas['blocks'][out_part]['out_connections'][path_id]
+                    
                 elif self.main_window.current_canvas.reference == "function":
                     for f_id, f_info in Utils.functions.items():
                         if self.main_window.current_canvas == f_info.get('canvas'):
+                            print(f"Found matching function canvas for path removal: {f_id}")
                             if in_part in Utils.functions[f_id]['blocks']:
+                                print(f"Removing path from block {in_part} in function {f_id}")
                                 del Utils.functions[f_id]['blocks'][in_part]['in_connections'][path_id]
                             if out_part in Utils.functions[f_id]['blocks']:
+                                print(f"Removing path from block {out_part} in function {f_id}")
                                 del Utils.functions[f_id]['blocks'][out_part]['out_connections'][path_id]
                             break
+                    
                 del paths[path_id]
     
     def show_block_context_menu(self, block, scene_pos):
@@ -1369,9 +1575,9 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        FileManager.load_app_settings()
         self.code_compiler = Code_Compiler()
         self.state_manager = StateManager.get_instance()
+        self.state_manager.app_state.window_closed.connect(self.on_window_closed)
         self.translation_manager = TranslationManager.get_instance()
         self.t = self.translation_manager.translate
         self.path_manager = PathManager(self)
@@ -1430,6 +1636,7 @@ class MainWindow(QMainWindow):
                 padding: 4px;
             }
         """)
+        self.opend_project = None
         self.help_window_instance = None
         self.variable_frame = None
         self.variable_frame_visible = False
@@ -1452,6 +1659,7 @@ class MainWindow(QMainWindow):
         self.last_f_var = None
         self.last_type_var = None
         self.last_type_dev = None
+        self.opend_windows = []
 
         self.reset_file()
 
@@ -1470,14 +1678,20 @@ class MainWindow(QMainWindow):
                 f.write("")
         except Exception as e:
             print(f"Error resetting File.py: {e}")
+        Reports_path = Utils.get_base_path()/"resources"
+        try:
+            with open(Reports_path/"last_report.json", "w") as f:
+                f.write("")
+        except Exception as e:
+            print(f"Error resetting last_report.json: {e}")
 
     #MARK: - UI Creation Methods
     def create_menu_bar(self):
         """Create the menu bar"""
-        menubar = self.menuBar()
+        self.menubar = self.menuBar()
         #print(f"Menubar Height: {menubar.height()}")
         # File menu
-        file_menu = menubar.addMenu(self.t("main_GUI.menu.file"))
+        file_menu = self.menubar.addMenu(self.t("main_GUI.menu.file"))
         
         new_action = file_menu.addAction(self.t("main_GUI.menu.new"))
         new_action.triggered.connect(self.on_new_file)
@@ -1497,16 +1711,16 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
         
         # Elements menu
-        elements_menu = menubar.addMenu(self.t("main_GUI.menu.blocks"))
+        elements_menu = self.menubar.addMenu(self.t("main_GUI.menu.blocks"))
         
         add_element = elements_menu.addAction(self.t("main_GUI.menu.add_block"))
         add_element.triggered.connect(self.open_elements_window)
         
-        settings_menu = menubar.addMenu(self.t("main_GUI.menu.settings"))
+        settings_menu = self.menubar.addMenu(self.t("main_GUI.menu.settings"))
         settings_menu_action = settings_menu.addAction(self.t("main_GUI.menu.settings"))
         settings_menu_action.triggered.connect(self.open_settings_window)
         
-        Help_menu = menubar.addMenu(self.t("main_GUI.menu.help"))
+        Help_menu = self.menubar.addMenu(self.t("main_GUI.menu.help"))
         
         Get_stared = Help_menu.addAction(self.t("main_GUI.menu.get_started"))
         Get_stared.triggered.connect(lambda: self.open_help(0))
@@ -1518,7 +1732,7 @@ class MainWindow(QMainWindow):
         FAQ.triggered.connect(lambda: self.open_help(2))
         
         # Compile menu
-        compile_menu = menubar.addMenu(self.t("main_GUI.menu.compile"))
+        compile_menu = self.menubar.addMenu(self.t("main_GUI.menu.compile"))
         
         compile_action = compile_menu.addAction(self.t("main_GUI.menu.compile_code"))
         compile_action.triggered.connect(self.compile_and_upload)
@@ -1530,47 +1744,47 @@ class MainWindow(QMainWindow):
 
         icon_path = "resources/images/Tool_bar/"
 
-        toolbar = self.addToolBar(self.t("main_GUI.toolbar.toolbar"))
-        toolbar.setMovable(False)
-        toolbar.setIconSize(QSize(16, 16))
+        self.toolbar = self.addToolBar(self.t("main_GUI.toolbar.toolbar"))
+        self.toolbar.setMovable(False)
+        self.toolbar.setIconSize(QSize(16, 16))
 
         save_icon = QAction(QIcon(icon_path+"Save.png"), self.t("main_GUI.toolbar.save"), self)
         save_icon.triggered.connect(self.on_save_file)
-        toolbar.addAction(save_icon)
+        self.toolbar.addAction(save_icon)
 
         open_icon = QAction(QIcon(icon_path+"Open_file.png"), self.t("main_GUI.toolbar.open"), self)
         open_icon.triggered.connect(self.on_open_file)
-        toolbar.addAction(open_icon)
+        self.toolbar.addAction(open_icon)
 
         new_icon = QAction(QIcon(icon_path+"New_file.png"), self.t("main_GUI.toolbar.new"), self)
         new_icon.triggered.connect(self.on_new_file)
-        toolbar.addAction(new_icon)
+        self.toolbar.addAction(new_icon)
 
-        toolbar.addSeparator()
+        self.toolbar.addSeparator()
 
         add_block_icon = QAction(QIcon(icon_path+"Add_block.png"), self.t("main_GUI.toolbar.add_block"), self)
         add_block_icon.triggered.connect(self.open_elements_window)
-        toolbar.addAction(add_block_icon)
+        self.toolbar.addAction(add_block_icon)
 
-        toolbar.addSeparator()
+        self.toolbar.addSeparator()
 
         settings_icon = QAction(QIcon(icon_path+"Settings.png"), self.t("main_GUI.toolbar.settings"), self)
         settings_icon.triggered.connect(self.open_settings_window)
-        toolbar.addAction(settings_icon)
+        self.toolbar.addAction(settings_icon)
 
-        toolbar.addSeparator()
+        self.toolbar.addSeparator()
 
         run_and_compile_icon = QAction(QIcon(icon_path+"Run_and_compile.png"), self.t("main_GUI.toolbar.compile_upload"), self)
         run_and_compile_icon.triggered.connect(self.compile_and_upload)
-        toolbar.addAction(run_and_compile_icon)
+        self.toolbar.addAction(run_and_compile_icon)
 
         run_icon = QAction(QIcon(icon_path+"Run.png"), self.t("main_GUI.toolbar.run"), self)
         run_icon.triggered.connect(self.execute_on_rpi_ssh_background)
-        toolbar.addAction(run_icon)
+        self.toolbar.addAction(run_icon)
 
         stop_execution_icon = QAction(QIcon(icon_path+"Stop_execution.png"), self.t("main_GUI.toolbar.stop"), self)
         stop_execution_icon.triggered.connect(self.stop_execution)
-        toolbar.addAction(stop_execution_icon)
+        self.toolbar.addAction(stop_execution_icon)
 
     def stop_execution(self):
         if self.execution_thread and self.execution_thread.isRunning():
@@ -2120,6 +2334,42 @@ class MainWindow(QMainWindow):
                         #print(f"Set Utils.courent_canvas to tab '{Utils.courent_canvas}'")
                 self.state_manager.app_state.current_tab_reference = reference
                 self.tab_changed.emit(tab_index)
+
+    def reload_ui_language(self):
+        
+        self.auto_save_project()
+
+        self.setWindowTitle(self.t("main_GUI._metadata.app_title"))
+
+        self.menubar.clear()
+        self.create_menu_bar()
+
+        if hasattr(self, 'toolbar'):
+            self.removeToolBar(self.toolbar)
+            self.toolbar.deleteLater()
+            del self.toolbar
+        self.create_toolbar()
+
+        self.wipe_canvas()
+
+        self.open_project()
+
+        for window in self.opend_windows:
+            if window == 'Elements':
+                self.open_elements_window()
+            elif window == 'Settings':
+                self.open_settings_window()
+            elif window == 'Help':
+                self.open_help()
+            elif window == 'CodeViewer':
+                self.view_generated_code()
+        
+        
+
+    def open_project(self):
+        if FileManager.load_project(self.opend_project, is_autosave=True) and self.opend_project is not None:
+            self.rebuild_from_data()
+
     #MARK: - Inspector Panel Methods
     def toggle_inspector_frame(self, block):
         """Toggle inspector panel based on block selection"""
@@ -3631,6 +3881,12 @@ class MainWindow(QMainWindow):
                     widget.setText(str(dev['state']))
         
     #MARK: - Other Methods
+
+    def on_window_closed(self, window_name):
+        """Handle window closed event"""
+        if window_name in self.opend_windows:
+            self.opend_windows.remove(window_name)
+
     def open_elements_window(self):
         """Open the elements window"""
         #print("Opening elements window")
@@ -3640,6 +3896,7 @@ class MainWindow(QMainWindow):
             print("Checking if elements dialog can be opened...")
             if self.state_manager.app_state.on_elements_dialog_open():
                 print("Opening elements dialog...")
+                self.opend_windows.append('Elements')
                 elements_window.open()
         except Exception as e:
             print(f"Error opening elements window: {e}")
@@ -3647,20 +3904,24 @@ class MainWindow(QMainWindow):
     def open_settings_window(self):
         """Open the device settings window"""
         settings_window = DeviceSettingsWindow.get_instance(self.current_canvas)
+        settings_window.reload_requested.connect(self.on_reload_reqested)
         if self.state_manager.app_state.on_settings_dialog_open():
             settings_window.open()
-    
+            self.opend_windows.append('Settings')
+
     def open_help(self, which):
         """Open the help window"""
         help_window = HelpWindow.get_instance(self.current_canvas, which)
         if self.state_manager.app_state.on_help_dialog_open():
             help_window.open()
+            self.opend_windows.append('Help')
     
     def view_generated_code(self):
         """View the generated code"""
         code_viewer = CodeViewerWindow.get_instance(self.current_canvas)
         if self.state_manager.app_state.on_code_viewer_dialog_open():
             code_viewer.open()
+            self.opend_windows.append('CodeViewer')
 
     def block_management(self, block_id, window):
         """Track block windows"""
@@ -3708,10 +3969,11 @@ class MainWindow(QMainWindow):
     def auto_save_project(self):
         """Auto-save current project"""
         name = Utils.project_data.metadata.get('name', 'Untitled')
-        #print(f"Auto-saving project '{name}'")
+        print(f"Auto-saving project '{name}'")
+        self.opend_project = name
         try:
             if FileManager.save_project(name, is_autosave=True):
-                #print(f"✓ Auto-saved '{name}' at {self.get_current_time()}")
+                print(f"✓ Auto-saved '{name}' at {self.get_current_time()}")
                 pass
             else:
                 print(f"✗ Auto-save failed for '{name}'")
@@ -3724,11 +3986,13 @@ class MainWindow(QMainWindow):
         name = Utils.project_data.metadata.get('name', 'Untitled')
         if name == 'Untitled':
             self.on_save_file_as()
+            self.opend_project = name
             return
         #print(f"Metadata: {Utils.project_data.metadata}")
         #print(f"Saving project as '{name}'")
         if FileManager.save_project(name):
             print(f"✓ Project '{name}' saved")
+            self.opend_project = name
 
     def on_save_file_as(self):
         """Save current project with new name"""
@@ -3757,15 +4021,21 @@ class MainWindow(QMainWindow):
         if ok and item:
             self.wipe_canvas()
             if FileManager.load_project(item):
+                self.opend_project = item
                 self.rebuild_from_data()
                 #print(f"✓ Project '{item}' loaded")
+
+    def on_reload_reqested(self, reqested):
+        if reqested:
+            self.reload_ui_language()
 
     def clear_canvas(self):
         """Clear the canvas of all blocks and connections"""
         self.Clear_All_Variables()
         self.Clear_All_Devices()
+        print(f"Canvas instances to clear: {list(Utils.canvas_instances.keys())}")
         for canvas in Utils.canvas_instances.keys():
-            #print("Clearing canvas:", canvas)
+            print("Clearing canvas:", canvas)
             if canvas:
                 canvas.path_manager.clear_all_paths()
                 #print("Cleared all paths")
@@ -3834,6 +4104,7 @@ class MainWindow(QMainWindow):
     
     def on_new_file(self):
         """Create new project"""
+        self.opend_project = None
         self.wipe_canvas()
         
         self.create_canvas_frame()
@@ -4202,11 +4473,23 @@ class MainWindow(QMainWindow):
             )
         else:
             print(f"[RPi Report] {output}")
-            output = output.replace('__REPORT__', '').strip()
-            Utils.reports = json.loads(output)
+            _, report = output.split('__REPORT__')
+            Utils.reports = json.loads(report)
 
             print("Reports received:", Utils.reports)
             self.update_current_values()
+            if _:
+                _.strip()
+                QMessageBox.information(
+                    self,
+                    self.t("main_GUI.dialogs.progress_dialogs.execution_report"),
+                    _,
+                    QMessageBox.StandardButton.Ok
+                )
+                Reports_path = Utils.get_base_path()/"Resources"
+                os.makedirs(Reports_path, exist_ok=True)
+                with open(Reports_path/"last_report.json", "w+") as f:
+                    json.dump(_, f, indent=4, ensure_ascii=False)
             #pass
     
     def on_execution_error(self, error):
@@ -5076,29 +5359,38 @@ class MainWindow(QMainWindow):
         
 def main():
     app = QApplication(sys.argv)
-    
-    # Set application style
     app.setStyle('Fusion')
     
-    # Dark palette
-    palette = QPalette()
-    palette.setColor(QPalette.ColorRole.Window, QColor(31, 31, 31))
-    palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
-    palette.setColor(QPalette.ColorRole.Base, QColor(43, 43, 43))
-    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(58, 58, 58))
-    palette.setColor(QPalette.ColorRole.ToolTipBase, Qt.GlobalColor.white)
-    palette.setColor(QPalette.ColorRole.ToolTipText, Qt.GlobalColor.white)
-    palette.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.white)
-    palette.setColor(QPalette.ColorRole.Button, QColor(43, 43, 43))
-    palette.setColor(QPalette.ColorRole.ButtonText, Qt.GlobalColor.white)
-    palette.setColor(QPalette.ColorRole.BrightText, Qt.GlobalColor.red)
-    palette.setColor(QPalette.ColorRole.Link, QColor(31, 83, 141))
-    palette.setColor(QPalette.ColorRole.Highlight, QColor(31, 83, 141))
-    palette.setColor(QPalette.ColorRole.HighlightedText, Qt.GlobalColor.black)
-    app.setPalette(palette)
+    # 1. SETUP SPLASH
+    # Use a .gif path here. If you don't have one, it will default to a dark screen.
+    splash = NativeSplash() 
+    splash.show()
     
-    window = MainWindow()
-    window.show()
+    # 2. SETUP WORKER THREAD
+    loader = LoaderThread()
+    
+    # 3. DEFINE WHAT HAPPENS WHEN THREAD FINISHES
+    def on_loaded():
+        # Update splash one last time
+        splash.update_status("Starting GUI...")
+        splash.update_progress(100)
+        
+        # CRITICAL: Initialize MainWindow on the MAIN THREAD
+        # We define 'window' global or attached to app so it doesn't get garbage collected
+        global window 
+        window = MainWindow()
+        window.show()
+        
+        # Close splash when window is ready
+        splash.finish(window)
+    
+    # 4. CONNECT SIGNALS
+    loader.progress.connect(splash.update_progress)
+    loader.status.connect(splash.update_status)
+    loader.finished.connect(on_loaded)
+    
+    # 5. START LOADING
+    loader.start()
     
     sys.exit(app.exec())
 

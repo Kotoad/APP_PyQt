@@ -30,12 +30,14 @@ def build_exe():
     # List of hidden imports that PyInstaller might miss
     # Add more as needed based on your imports
     hidden_imports = [
+        # PyQt6 core
         'PyQt6.QtCore',
         'PyQt6.QtGui',
         'PyQt6.QtWidgets',
         'paramiko',
-        'PIL',
         'cryptography',
+        'PIL',
+
     ]
     
     # Modules to exclude (reduces file size)
@@ -48,13 +50,13 @@ def build_exe():
         'flask',
         'pytest',
     ]
-    
+
     # Build command arguments
     args = [
-        'main_pyqt.py',           # Entry point
-        '--onefile',               # Single executable file
+        'GUI_pyqt.py',           # Entry point
+        '--onedir',               # Single executable file
         '--windowed',              # No console window
-        '--name=Visual Programming Interface',  # App name
+        '--name=OmniBoard Studio',  # App name
         '--distpath=dist',         # Output folder
         '--noconfirm',             # Don't ask for confirmation
         '--icon=resources/images/APPicon.ico'  # Application icon
@@ -79,12 +81,12 @@ def build_exe():
         PyInstaller.__main__.run(args)
         print("\n[✓] Build successful!")
         print("\n[*] Output:")
-        print(f"    dist/main_pyqt.exe - Your standalone executable")
+        print(f"    dist/OmniBoard Studio/OmniBoard Studio.exe - Your standalone executable")
         print(f"    Size: ~200-300 MB")
         print("\n[*] Next steps:")
-        print("    1. Test: dist/main_pyqt.exe")
+        print("    1. Test: dist/OmniBoard Studio/OmniBoard Studio.exe")
         print("    2. Delete: build/ folder (not needed)")
-        print("    3. Create ZIP with dist/main_pyqt.exe + README.md")
+        print("    3. Create ZIP with dist/OmniBoard Studio/OmniBoard Studio.exe + README.md")
         print("    4. Send to users!")
         
     except Exception as e:
@@ -95,7 +97,7 @@ def build_exe():
 
 def verify_build():
     """Check if exe was created"""
-    exe_path = Path('dist/Visual Programming Interface.exe')
+    exe_path = Path('dist/OmniBoard Studio/OmniBoard Studio.exe')
     if exe_path.exists():
         size_mb = exe_path.stat().st_size / (1024 * 1024)
         print(f"\n[✓] Executable created: {exe_path} ({size_mb:.1f} MB)")
@@ -106,7 +108,7 @@ def verify_build():
 
 if __name__ == '__main__':
     print("╔════════════════════════════════════════════════════════════╗")
-    print("║     PyInstaller Build - Visual Programming Interface       ║")
+    print("║           PyInstaller Build - OmniBoard Studio             ║")
     print("╚════════════════════════════════════════════════════════════╝\n")
     
     # Clean previous builds

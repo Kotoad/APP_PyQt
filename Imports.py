@@ -27,22 +27,22 @@ from pathlib import Path
 # PYQT6 IMPORTS
 # ============================================================================
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QProgressBar,
     QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea,QSizePolicy,  
     QLineEdit, QComboBox, QDialog, QTabWidget, QFileDialog, QMessageBox,
     QInputDialog, QStyleOptionComboBox, QStyledItemDelegate, QTextEdit, QProgressDialog,
     QSplitter, QTreeWidget, QTreeWidgetItem, QListWidget, QGraphicsView, QGraphicsScene,
     QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem, QGraphicsPixmapItem,
-    QListWidgetItem, QStackedWidget, QGraphicsObject, QGraphicsEllipseItem
+    QListWidgetItem, QStackedWidget, QGraphicsObject, QGraphicsEllipseItem, QSplashScreen
 )
 from PyQt6.QtCore import (
     Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression, QTimer, QEvent,
     pyqtProperty, QEasingCurve, QRectF, QPropertyAnimation, QObject, QLine, QCoreApplication,
-    QSortFilterProxyModel, QAbstractAnimation, QPointF, QRectF, QThread
+    QSortFilterProxyModel, QAbstractAnimation, QPointF, QRectF, QThread,
 )
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent, QKeySequence, QShortcut,
-    QRegularExpressionValidator, QFont, QPixmap, QImage, QStandardItem,
+    QRegularExpressionValidator, QFont, QPixmap, QImage, QStandardItem, QMovie,
     QIntValidator, QPainterPath, QIcon, QStandardItemModel, QAction, QPixmap
 )
 # ============================================================================
