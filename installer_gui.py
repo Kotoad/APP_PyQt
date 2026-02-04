@@ -29,7 +29,7 @@ except ImportError:
 
 # ================= CONFIGURATION =================
 # REPLACE THIS WITH YOUR GITHUB RELEASE ASSET URL
-GITHUB_ZIP_URL = "https://github.com/Kotoad/APP_PyQt/releases/download/V0.1/app_package.zip"
+GITHUB_ZIP_URL = "https://github.com/Kotoad/APP_PyQt/releases/download/V0.11/app_package.zip"
 # =================================================
 
 class InstallerWorker(QThread):
