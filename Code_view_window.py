@@ -1,9 +1,7 @@
-from Imports import (QDialog, QMainWindow, QTextEdit, QVBoxLayout, QWidget, get_State_Manager,
-                     Qt, QScrollArea, get_Translation_Manager)
+from Imports import (QDialog, QMainWindow, QTextEdit, QVBoxLayout, QWidget, Qt, QScrollArea,
+                     get_utils)
 
-StateManager = get_State_Manager()
-TranslationManager = get_Translation_Manager()
-
+Utils = get_utils()
 
 class CodeViewerWindow(QDialog):
     _instance = None
@@ -15,8 +13,8 @@ class CodeViewerWindow(QDialog):
         self._layout = None
         self.text_edit = None
         self.scroll_widget = None
-        self.state_manager = StateManager.get_instance()
-        self.translation_manager = TranslationManager.get_instance()
+        self.state_manager = Utils.state_manager
+        self.translation_manager = Utils.translation_manager
         self.t = self.translation_manager.translate
         self.create_window()
 

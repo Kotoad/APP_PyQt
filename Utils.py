@@ -35,6 +35,11 @@ config = {
     'grid_size': 25,  # Snap-to-grid pixel size
 }
 
+compiler = None
+state_manager = None
+translation_manager = None
+file_manager = None
+
 # ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================

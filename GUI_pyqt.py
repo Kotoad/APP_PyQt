@@ -44,7 +44,10 @@ class LoaderThread(QThread):
     def run(self):
         # PHASE 1: Load Settings (Example of moving logic to thread)
         self.status.emit("Loading App Settings...")
-        FileManager.load_app_settings() # <--- You can move this here if FileManager is thread-safe
+        Utils.compiler = Code_Compiler() # <--- Pre-initialize objects here if they don't use QWidgets
+        Utils.state_manager = StateManager()
+        Utils.translation_manager = TranslationManager()
+        Utils.file_manager = FileManager()
         time.sleep(0.5) # Simulated delay (remove this in production)
         self.progress.emit(20)
 
@@ -55,7 +58,7 @@ class LoaderThread(QThread):
 
         # PHASE 3: Initialize Compiler
         self.status.emit("Initializing Compiler...")
-        #self.compiler = Code_Compiler() # <--- Pre-initialize objects here if they don't use QWidgets
+        Utils.file_manager.load_app_settings()
         time.sleep(0.5)
         self.progress.emit(60)
         
@@ -990,7 +993,7 @@ class GridCanvas(QGraphicsView):
         self.grid_size = grid_size
         elements_window = ElementsWindow.get_instance(self)
         self.spawner = spawningelements(self, elements_window)
-        self.state_manager = StateManager.get_instance()
+        self.state_manager = Utils.state_manager
         self.path_manager = PathManager(self)
         self.elements_events = elementevents(self)
         
@@ -1575,10 +1578,10 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        self.code_compiler = Code_Compiler()
-        self.state_manager = StateManager.get_instance()
+        self.code_compiler = Utils.compiler
+        self.state_manager = Utils.state_manager
         self.state_manager.app_state.window_closed.connect(self.on_window_closed)
-        self.translation_manager = TranslationManager.get_instance()
+        self.translation_manager = Utils.translation_manager
         self.t = self.translation_manager.translate
         self.path_manager = PathManager(self)
 
@@ -2367,7 +2370,7 @@ class MainWindow(QMainWindow):
         
 
     def open_project(self):
-        if FileManager.load_project(self.opend_project, is_autosave=True) and self.opend_project is not None:
+        if Utils.file_manager.load_project(self.opend_project, is_autosave=True) and self.opend_project is not None:
             self.rebuild_from_data()
 
     #MARK: - Inspector Panel Methods
@@ -3972,7 +3975,7 @@ class MainWindow(QMainWindow):
         print(f"Auto-saving project '{name}'")
         self.opend_project = name
         try:
-            if FileManager.save_project(name, is_autosave=True):
+            if Utils.file_manager.save_project(name, is_autosave=True):
                 print(f"✓ Auto-saved '{name}' at {self.get_current_time()}")
                 pass
             else:
@@ -3990,7 +3993,7 @@ class MainWindow(QMainWindow):
             return
         #print(f"Metadata: {Utils.project_data.metadata}")
         #print(f"Saving project as '{name}'")
-        if FileManager.save_project(name):
+        if Utils.file_manager.save_project(name):
             print(f"✓ Project '{name}' saved")
             self.opend_project = name
 
@@ -4003,13 +4006,13 @@ class MainWindow(QMainWindow):
         
         if ok and text:
             Utils.project_data.metadata['name'] = text
-            if FileManager.save_project(text):
+            if Utils.file_manager.save_project(text):
                 print(f"✓ Project saved as '{text}'")
         
     def on_open_file(self):
         """Open saved project"""
         
-        projects = FileManager.list_projects()
+        projects = Utils.file_manager.list_projects()
         if not projects:
             QMessageBox.information(self, self.t("main_GUI.dialogs.file_dialogs.no_projects"), self.t("main_GUI.dialogs.file_dialogs.no_saved_projects_found"))
             return
@@ -4020,7 +4023,7 @@ class MainWindow(QMainWindow):
         
         if ok and item:
             self.wipe_canvas()
-            if FileManager.load_project(item):
+            if Utils.file_manager.load_project(item):
                 self.opend_project = item
                 self.rebuild_from_data()
                 #print(f"✓ Project '{item}' loaded")
@@ -4071,7 +4074,7 @@ class MainWindow(QMainWindow):
         
         self.delete_canvas_instance()
         
-        FileManager.new_project()
+        Utils.file_manager.new_project()
 
         ElementsWindow._instance = None
 
@@ -4215,7 +4218,7 @@ class MainWindow(QMainWindow):
         
         else:
             # Compare with saved version
-            comparison = FileManager.compare_projects(name)
+            comparison = Utils.file_manager.compare_projects(name)
             print(f"Comparison result for '{name}': {comparison}")
             print(f"Has changes: {comparison.has_changes}")
             if comparison.has_changes:
@@ -4231,7 +4234,7 @@ class MainWindow(QMainWindow):
                 )
                 
                 if reply == QMessageBox.StandardButton.Save:
-                    FileManager.save_project(name)
+                    Utils.file_manager.save_project(name)
                 elif reply != QMessageBox.StandardButton.Discard:
                     event.ignore()
                     return

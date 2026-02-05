@@ -19,10 +19,10 @@ try:
     from PyQt6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
         QLabel, QLineEdit, QPushButton, QCheckBox, QProgressBar,
-        QFileDialog, QMessageBox, QFrame
+        QFileDialog, QMessageBox
     )
-    from PyQt6.QtCore import Qt, QThread, pyqtSignal
-    from PyQt6.QtGui import QFont, QIcon
+    from PyQt6.QtCore import QThread, pyqtSignal
+    from PyQt6.QtGui import QFont
 except ImportError:
     print("[!] PyQt6 not found. Install with: pip install PyQt6")
     sys.exit(1)

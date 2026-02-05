@@ -53,12 +53,6 @@ from PyQt6.QtGui import (
 from App_settings import AppSettings
 from Project_Data import ProjectData
 
-# Path and connection management
-def get_utils():
-    """Lazy import Utils - called only when needed to avoid circular import"""
-    import Utils
-    return Utils
-
 def get_gui():
     """Lazy import GUI MainWindow - avoid circular deps"""
     from GUI_pyqt import MainWindow, GridCanvas

@@ -1,9 +1,8 @@
 from Imports import (Qt, QPoint, QLine, QPainter, QPen, QColor, QGraphicsPathItem,
                      QPointF, QPainterPath, QGraphicsEllipseItem, QGraphicsItem)
-from Imports import get_utils, get_State_Manager
+from Imports import get_utils
 
 Utils = get_utils()
-Statemanager = get_State_Manager()
 #MARK: - WaypointHandle
 class WaypointHandle(QGraphicsEllipseItem):
 
@@ -52,7 +51,7 @@ class PathGraphicsItem(QGraphicsPathItem):
         self.to_circle_type = to_circle_type
         self.from_circle_type = from_circle_type
         self.waypoints = waypoints
-        self.state_manager = Statemanager.get_instance()
+        self.state_manager = Utils.state_manager
         #print(f"✓ PathGraphicsItem.__init__: {path_id} from {from_block.block_id} to {to_block.block_id}")
         #print(f"   from_circle_type: {from_circle_type}, to_circle_type: {to_circle_type}")
         
@@ -141,7 +140,7 @@ class PathManager:
         self.start_node = None  # (widget, id, pos, circle_type)
         self.preview_points = []
         self.preview_item = None
-        self.state_manager = Statemanager.get_instance()
+        self.state_manager = Utils.state_manager
     #MARK: - Connection Management
     def start_connection(self, block, circle_center, circle_type):
         """Start a new connection from a block's output circle"""

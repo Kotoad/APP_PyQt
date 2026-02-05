@@ -11,9 +11,8 @@ QStandardItemModel, QListWidget, QEvent, ctypes, sys, time,
 QGraphicsPixmapItem, QGraphicsItem, QPointF)
 from PIL import Image, ImageDraw, ImageFont
 import random
-from Imports import get_utils, get_gui, get_State_Manager
+from Imports import get_utils
 Utils = get_utils()
-State_manager = get_State_Manager()
 
 class BlockSignals(QObject):
     """Signal container for block interactions"""
@@ -28,7 +27,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         super().__init__()
         print(f'Initializing BlockGraphicsItem: {block_id} of type {block_type} at ({x}, {y}) on canvas {parent_canvas}, name: {name if name else "N/A"}')
         self.signals = BlockSignals()
-        self.state_manager = State_manager.get_instance()
+        self.state_manager = Utils.state_manager
         if main_window is not None:
             self.main_window = main_window
         elif hasattr(parent_canvas, 'main_window'):
@@ -634,7 +633,7 @@ class spawning_elements:
         self.parent = parent
         self.elements_window = elements_window
         self.element_spawner = Element_spawn()
-        self.state_manager = State_manager.get_instance()
+        self.state_manager = Utils.state_manager
 
     def start(self, parent, element_type, name=None):
         """Start placing an element"""
@@ -708,7 +707,7 @@ class Elements_events(QObject):
         self.canvas = canvas
         self.path_manager = canvas.path_manager if hasattr(canvas, 'path_manager') else None
         self.inspector_frame_visible = canvas.inspector_frame_visible if hasattr(canvas, 'inspector_frame_visible') else None
-        self.state_manager = State_manager.get_instance()
+        self.state_manager = Utils.state_manager
         #print(f"Instantiating ElementsEvents for canvas: {canvas}")
         #print(f" → inspector_panel: {self.inspector_frame_visible}")
         #print("✓ ElementsEvents initialized")

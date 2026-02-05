@@ -3,12 +3,11 @@ from Imports import (QWidget, QDialog, QVBoxLayout, QHBoxLayout,
 QPushButton, QLabel, QFrame, QTabWidget, Qt, QFont,
 pyqtSignal, QListWidget, QScrollArea)
 
-from Imports import get_State_Manager, get_spawn_elements, get_utils, get_Translation_Manager
+from Imports import get_spawn_elements, get_utils
 
 Utils = get_utils()
-State_manager = get_State_Manager()
 spawning_elements = get_spawn_elements()[1]
-Translation_Manager = get_Translation_Manager()
+
 
 background_color = "#2B2B2B"
 border_color = "#3A3A3A"
@@ -25,8 +24,8 @@ class ElementsWindow(QDialog):
         super().__init__(parent)
         #print(f"Curent canvas in ElementsWindow init: {parent}")
         self.parent_canvas = parent
-        self.state_manager = State_manager.get_instance()
-        self.translation_manager = Translation_Manager.get_instance()
+        self.state_manager = Utils.state_manager
+        self.translation_manager = Utils.translation_manager
         self.t = self.translation_manager.translate
         
         self.is_hidden = True

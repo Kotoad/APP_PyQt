@@ -1,13 +1,10 @@
 from operator import index
-from Imports import get_utils, get_State_Manager, get_Translation_Manager
+from Imports import get_utils
 Utils = get_utils()
 from Imports import (QDialog, QVBoxLayout, QLabel, QTabWidget, QWidget, QMessageBox, QPushButton, QHBoxLayout,
 QComboBox, Qt, QEvent, QFont, QMouseEvent, json, QLineEdit, QApplication, QProgressDialog,
 QObject, pyqtSignal, QTimer, sys, os, subprocess, time)
 from rpi_autodiscovery import RPiAutoDiscovery, RPiConnectionWizard
-
-StateManager = get_State_Manager()
-TranslationManager = get_Translation_Manager()
 
 models = ["RPI pico/pico W", "RPI zero/zero W", "RPI 2 zero W", "RPI 1 model B/B+", "RPI 2 model B", "RPI 3 model B/B+", "RPI 4 model B", "RPI 5"]
 
@@ -68,8 +65,8 @@ class DeviceSettingsWindow(QDialog):
         super().__init__(parent)
         self.parent_canvas = parent
         self.is_hidden = True
-        self.state_manager = StateManager.get_instance()
-        self.translation_manager = TranslationManager.get_instance()
+        self.state_manager = Utils.state_manager
+        self.translation_manager = Utils.translation_manager
         self.t = self.translation_manager.translate
         self.setup_ui()
     

@@ -1,8 +1,6 @@
 from Imports import (QDialog, Qt, QVBoxLayout, QLabel, QTabWidget, QWidget, QFont, QTextEdit,
-                     QScrollArea, QPushButton,Path, os, get_State_Manager, get_Translation_Manager, get_utils)
+                     QScrollArea, QPushButton,Path, os, get_utils)
 
-StateManager = get_State_Manager()     
-TranslationManager = get_Translation_Manager()
 Utils = get_utils()
 
 class HelpWindow(QDialog):
@@ -13,8 +11,8 @@ class HelpWindow(QDialog):
         super().__init__(parent)
         self.parent_canvas = parent
         self.which = which
-        self.state_manager = StateManager.get_instance()
-        self.translation_manager = TranslationManager.get_instance()
+        self.state_manager = Utils.state_manager
+        self.translation_manager = Utils.translation_manager
         self.t = self.translation_manager.translate
         self.base_path = Utils.get_base_path()
         self.setup_ui()
