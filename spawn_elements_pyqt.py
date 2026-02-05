@@ -57,7 +57,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         self.result_var_name = "N"
         self.switch_state = False
         self.sleep_time = "1000"
-        self.PWM_value = "128"
+        self.PWM_value = "50"
         # Block dimensions based on type
         self._setup_dimensions()
         

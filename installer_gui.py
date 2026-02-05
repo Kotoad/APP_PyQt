@@ -29,7 +29,7 @@ except ImportError:
 
 # ================= CONFIGURATION =================
 # REPLACE THIS WITH YOUR GITHUB RELEASE ASSET URL
-GITHUB_ZIP_URL = "https://github.com/Kotoad/APP_PyQt/releases/download/V0.11/app_package.zip"
+GITHUB_ZIP_URL = "https://github.com/Kotoad/APP_PyQt/releases/download/V0.11/OmniBoard.Studio.zip"
 # =================================================
 
 class InstallerWorker(QThread):
@@ -82,7 +82,7 @@ class InstallerWorker(QThread):
         
         # Step 2: Download the ZIP file
         self.status.emit("Connecting to GitHub...")
-        zip_path = install_dir / "app_package.zip"
+        zip_path = install_dir / "OmniBoard Studio.zip"
         
         try:
             # FIX: Add headers to trick GitHub into thinking we are a browser

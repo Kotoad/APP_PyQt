@@ -1347,7 +1347,7 @@ class GridCanvas(QGraphicsView):
                 'y': y,
                 'value_1_name': None,
                 'value_1_type': None,
-                'PWM_value': "128",
+                'PWM_value': "50",
                 'in_connections': {},
                 'out_connections': {},
                 'canvas': self
@@ -2692,7 +2692,7 @@ class MainWindow(QMainWindow):
             regex = QRegularExpression(r"^\d*$")
             validator = QRegularExpressionValidator(regex, self)
             self.PWM_value_input.setValidator(validator)
-            self.PWM_value_input.setText(block_data.get('PWM_value', '128'))
+            self.PWM_value_input.setText(block_data.get('PWM_value', '50'))
             self.PWM_value_input.setPlaceholderText(self.t("main_GUI.inspector.pwm_value_placeholder"))
             self.PWM_value_input.textChanged.connect(lambda text, bd=block_data: self.Block_PWM_value_changed(text, bd))
 
@@ -3014,8 +3014,8 @@ class MainWindow(QMainWindow):
             pwm_val = int(text)
             if pwm_val < 0:
                 pwm_val = 0
-            elif pwm_val > 255:
-                pwm_val = 255
+            elif pwm_val > 100:
+                pwm_val = 100
             text = str(pwm_val)
             self.PWM_value_input.setText(text)
         block_data['PWM_value'] = text
@@ -4802,7 +4802,7 @@ class MainWindow(QMainWindow):
                 block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
             elif block_type == 'PWM_LED':
                 block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
-                block.PWM_value = Utils.project_data.main_canvas['blocks'][block_id].get('PWM_value', "128")
+                block.PWM_value = Utils.project_data.main_canvas['blocks'][block_id].get('PWM_value', "50")
         if canvas_info['ref'] == 'function':
             #print("Setting function canvas block properties")
             for function_id, function_info in Utils.functions.items():
@@ -4832,7 +4832,7 @@ class MainWindow(QMainWindow):
                         block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
                     elif block_type == 'PWM_LED':
                         block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
-                        block.PWM_value = Utils.project_data.functions[function_id]['blocks'][block_id].get('PWM_value', "128")
+                        block.PWM_value = Utils.project_data.functions[function_id]['blocks'][block_id].get('PWM_value', "50")
                     break
                 
         canvas.scene.addItem(block)
@@ -4961,7 +4961,7 @@ class MainWindow(QMainWindow):
                     'y': y,
                     'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
                     'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
-                    'PWM_value': Utils.project_data.main_canvas['blocks'][block_id].get('PWM_value', "128"),
+                    'PWM_value': Utils.project_data.main_canvas['blocks'][block_id].get('PWM_value', "50"),
                     'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
                     'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
                     'canvas': canvas
@@ -5131,7 +5131,7 @@ class MainWindow(QMainWindow):
                             'y': y,
                             'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
                             'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
-                            'PWM_value': Utils.project_data.functions[function_id]['blocks'][block_id].get('PWM_value', "128"),
+                            'PWM_value': Utils.project_data.functions[function_id]['blocks'][block_id].get('PWM_value', "50"),
                             'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
                             'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
                             'canvas': canvas

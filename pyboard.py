@@ -72,10 +72,20 @@ import errno
 import os
 import struct
 import sys
-import telnetlib
 import time
-
+import warnings
 from collections import namedtuple
+
+
+
+# Suppress warnings about telnetlib being deprecated
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    try:
+        import telnetlib
+    except ImportError:
+        # Fallback if the module is completely removed (Python 3.13+)
+        telnetlib = None
 
 try:
     stdout = sys.stdout.buffer

@@ -156,7 +156,7 @@ class FileManager:
                             'height': block_info['widget'].boundingRect().height(),
                             'x': block_info['x'],
                             'y': block_info['y'],
-                            'sleep_time': block_info.get('sleep_time', 0),
+                            'sleep_time': block_info.get('sleep_time', '1000'),
                             'in_connections': block_info.get('in_connections', []),
                             'out_connections': block_info.get('out_connections', []),
                         }
@@ -212,7 +212,7 @@ class FileManager:
                             'y': block_info['y'],
                             'value_1_name': block_info.get('value_1_name', ''),
                             'value_1_type': block_info.get('value_1_type', ''),
-                            'sleep_time': block_info.get('sleep_time', 500),
+                            'sleep_time': block_info.get('sleep_time', '1000'),
                             'in_connections': block_info.get('in_connections', []),
                             'out_connections': block_info.get('out_connections', []),
                         }
@@ -239,7 +239,7 @@ class FileManager:
                             'y': block_info['y'],
                             'value_1_name': block_info.get('value_1_name', ''),
                             'value_1_type': block_info.get('value_1_type', ''),
-                            'PWM_value': block_info.get('PWM_value', 128),
+                            'PWM_value': block_info.get('PWM_value', '50'),
                             'in_connections': block_info.get('in_connections', []),
                             'out_connections': block_info.get('out_connections', []),
                         }
@@ -313,7 +313,7 @@ class FileManager:
                                     'height': block_info['widget'].boundingRect().height(),
                                     'x': block_info['x'],
                                     'y': block_info['y'],
-                                    'sleep_time': block_info.get('sleep_time', 0),
+                                    'sleep_time': block_info.get('sleep_time', '1000'),
                                     'in_connections': block_info.get('in_connections', []),
                                     'out_connections': block_info.get('out_connections', []),
                                 }

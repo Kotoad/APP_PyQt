@@ -7,12 +7,15 @@ class PicoWAutoTransfer:
     @staticmethod
     def ensure_dependencies():
         """Install required packages if missing"""
-        required = ['pyserial', 'mpremote']
+        required = {
+            'pyserial': 'serial',  # For pyboard fallback
+            'mpremote': 'mpremote',  # Preferred transfer tool
+        }
         missing = []
         
-        for package in required:
+        for package, module_name in required.items():
             try:
-                __import__(package.replace('-', '_'))
+                __import__(module_name)
             except ImportError:
                 missing.append(package)
         
@@ -25,9 +28,9 @@ class PicoWAutoTransfer:
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL
                     )
-                    #print(f"✓ Installed {package}")
-                except:
-                    print(f"✗ Failed to install {package}")
+                    print(f"✓ Installed {package}")
+                except Exception as e:
+                    print(f"✗ Failed to install {package}: {e}")
     
     @staticmethod
     def transfer_file(source="File.py", target="main.py"):
@@ -36,21 +39,21 @@ class PicoWAutoTransfer:
         
         try:
             # Try mpremote first (more reliable)
-            cmd = ["mpremote", "cp", source, f":{target}"]
+            cmd = [sys.executable, "-m", "mpremote", "cp", source, f":{target}"]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
             
             if result.returncode == 0:
-                #print(f"✓ Transfer successful: {source} → {target}")
+                print(f"✓ Transfer successful: {source} → {target}")
                 return True
             else:
                 # If mpremote fails, try pyboard
                 if "No module named 'serial'" in result.stderr:
-                    #print("Installing pyserial...")
+                    print("Installing pyserial...")
                     subprocess.check_call([sys.executable, "-m", "pip", "install", "pyserial"])
                     # Retry
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
                     if result.returncode == 0:
-                        #print(f"✓ Transfer successful (retry): {source} → {target}")
+                        print(f"✓ Transfer successful (retry): {source} → {target}")
                         return True
                 
                 print(f"✗ Transfer failed: {result.stderr}")
@@ -110,8 +113,7 @@ class CodeCompiler:
 
         self.write_imports()
         self.write_setup()
-        if self.GPIO_compile:
-            self.write_reporting_system()
+        self.write_reporting_system()
         
         self.current_lines = self.main_lines
         #self.writeline("data_reporter()\n")
@@ -129,9 +131,8 @@ class CodeCompiler:
             #print(f"Processing blocks starting from: {next_id}")
             self.process_block(next_id)
             self.indent_level -= 2
-        if self.GPIO_compile:
-            self.current_lines = self.footer_lines
-            self.write_cleanup()
+        self.current_lines = self.footer_lines
+        self.write_cleanup()
         file = open("File.py", "w")
         if file:
             file.writelines(self.header_lines)
@@ -194,11 +195,10 @@ class CodeCompiler:
             self.writeline("import json\n")
             
         elif self.MC_compile:
-            self.writeline("from machine import Pin")
+            self.writeline("import machine")
             self.writeline("import time")
             self.writeline("import sys")
-            self.writeline("import signal")
-            self.writeline("import threading")
+            self.writeline("import _thread")
             self.writeline("import json\n")
 
     def write_setup(self):
@@ -285,6 +285,7 @@ class CodeCompiler:
             self.writeline("}\n")
             
         elif self.MC_compile:
+            self.writeline("shutdown = False\n")
             self.writeline("Devices_main = {")
             self.indent_level+=1
             for dev_name, dev_info in Utils.devices['main_canvas'].items():
@@ -308,17 +309,34 @@ class CodeCompiler:
                 self.writeline(text)
             self.indent_level-=1
             self.writeline("}\n")
+            self.writeline("hardware_map = {}  # Map PIN numbers to machine.Pin objects\n")
+            
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level+=1
             self.writeline("if dev_config['type'] == 'Output':")
             self.indent_level+=1
-            self.writeline(f"dev_name = Pin(dev_config['PIN'], Pin.OUT)")
+            self.writeline(f"hardware_map[dev_config['PIN']] = machine.Pin(dev_config['PIN'], machine.Pin.OUT)")
             self.indent_level-=1
             self.writeline("elif dev_config['type'] == 'Input':")
             self.indent_level+=1
-            self.writeline(f"dev_name = Pin(dev_config['PIN'], Pin.IN)")
+            self.writeline(f"hardware_map[dev_config['PIN']] = machine.Pin(dev_config['PIN'], machine.Pin.IN)")
             self.indent_level-=1
+            self.writeline("elif dev_config['type'] == 'Button':")
+            self.indent_level+=1
+            self.writeline(f"hardware_map[dev_config['PIN']] = machine.Pin(dev_config['PIN'], machine.Pin.IN, machine.Pin.PULL_DOWN)")
             self.indent_level-=1
+            self.writeline("if dev_config['type'] == 'PWM':")
+            self.indent_level+=1
+            self.writeline("p = machine.Pin(dev_config['PIN'])")
+            self.writeline("pwm_obj = machine.PWM(p)")
+            self.writeline("pwm_obj.freq(1000)")
+            self.writeline("pwm_obj.duty_u16(0)  # Start with 0 duty cycle")
+            self.writeline("hardware_map[dev_config['PIN']] = pwm_obj  # Store PWM object in hardware map")
+            self.writeline("dev_config['driver'] = pwm_obj  # Link PWM object in config for easy access")
+            self.writeline("if not hasattr(dev_config, 'CurrentDutyCycle'):")
+            self.indent_level+=1
+            self.writeline("dev_config['CurrentDutyCycle'] = 0")
+            self.indent_level-=3
 
         for block_id, block_info in Utils.main_canvas['blocks'].items():
                 if block_info['type'] == 'Button':
@@ -372,7 +390,10 @@ class CodeCompiler:
         # 3. Print with Prefix (flush=True is critical for real-time SSH)
         self.writeline("try:")
         self.indent_level += 1
-        self.writeline("print('__REPORT__' + json.dumps(report), flush=True)")
+        if self.GPIO_compile:
+            self.writeline("print('__REPORT__' + json.dumps(report), flush=True)")
+        elif self.MC_compile:
+            self.writeline("print('__REPORT__' + json.dumps(report))")
         self.indent_level -= 1
         self.writeline("except Exception as e: pass")
         
@@ -380,8 +401,11 @@ class CodeCompiler:
         self.indent_level -= 2 
 
         # Start the thread
-        self.writeline("report_thread = threading.Thread(target=data_reporter, daemon=True)")
-        self.writeline("report_thread.start()")
+        if self.GPIO_compile:
+            self.writeline("report_thread = threading.Thread(target=data_reporter, daemon=True)")
+            self.writeline("report_thread.start()")
+        elif self.MC_compile:
+            self.writeline("_thread.start_new_thread(data_reporter, ())")
         self.writeline("# --------------------------------\n")
 
     def write_cleanup(self):
@@ -391,8 +415,26 @@ class CodeCompiler:
         self.indent_level -= 1
         self.writeline("finally:")
         self.indent_level += 1
-        self.writeline("GPIO.cleanup()")
-        self.indent_level -= 1
+        if self.GPIO_compile:
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['type'] == 'PWM':")
+            self.indent_level += 1
+            self.writeline("dev_config['name'].stop()")
+            self.indent_level -= 2
+            self.writeline("GPIO.cleanup()")
+            self.indent_level -= 1
+        elif self.MC_compile:
+            self.writeline("for pin, obj in hardware_map.items():")
+            self.indent_level += 1
+            self.writeline("if isinstance(obj, machine.PWM):")
+            self.indent_level += 1
+            self.writeline("obj.duty_u16(0)  # Stop PWM")
+            self.indent_level -= 1
+            self.writeline("elif hasattr(obj, 'init'):")
+            self.indent_level += 1
+            self.writeline("obj.init(machine.Pin.IN)  # Reset pin to input")
+            self.indent_level -= 2
 
     #MARK: Device Classes
     def create_btn_class(self):
@@ -405,24 +447,47 @@ class CodeCompiler:
         self.indent_level -= 1
         self.writeline("def is_pressed(self, pin):")
         self.indent_level += 1
-        self.writeline("if GPIO.input(pin) == GPIO.HIGH:")
-        self.indent_level += 1
-        self.writeline("for dev_name, dev_config in Devices_main.items():")
-        self.indent_level += 1
-        self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Button':")
-        self.indent_level += 1
-        self.writeline("dev_config['state'] = \"HIGH\"")
-        self.writeline("return True")
-        self.indent_level -= 3
-        self.writeline("else:")
-        self.indent_level += 1
-        self.writeline("for dev_name, dev_config in Devices_main.items():")
-        self.indent_level += 1
-        self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Button':")
-        self.indent_level += 1
-        self.writeline("dev_config['state'] = \"LOW\"")
-        self.writeline("return False")
-        self.indent_level -= 5  # Back to class level
+        if self.GPIO_compile:
+            self.writeline("if GPIO.input(pin) == GPIO.HIGH:")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Button':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"HIGH\"")
+            self.writeline("return True")
+            self.indent_level -= 3
+            self.writeline("else:")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Button':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("return False")
+            self.indent_level -= 5  # Back to class level
+        if self.MC_compile:
+            self.writeline("if pin in hardware_map:")
+            self.indent_level += 1
+            self.writeline("pin_obj = hardware_map[pin]")
+            self.writeline("if pin_obj.value() == 1:")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Button':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"HIGH\"")
+            self.writeline("return True")
+            self.indent_level -= 3
+            self.writeline("else:")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Button':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("return False")
+            self.indent_level -= 6  # Back to class level
     
     def create_led_class(self):
         #print("Creating LED class...")
@@ -435,82 +500,175 @@ class CodeCompiler:
         self.indent_level += 1
         self.writeline("if dev_config['type'] == 'Output':")
         self.indent_level += 1
-        self.writeline("self.pin_state[dev_config['PIN']] = GPIO.LOW")
-        self.writeline("dev_config['state'] = \"LOW\"")
+        if self.GPIO_compile:
+            self.writeline("self.pin_state[dev_config['PIN']] = GPIO.LOW")
+            self.writeline("dev_config['state'] = \"LOW\"")
+        if self.MC_compile:
+            self.writeline("if dev_config['PIN'] in hardware_map:")
+            self.indent_level += 1
+            self.writeline("hardware_map[dev_config['PIN']].value(0)")
+            self.indent_level -= 1
+            self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("self.pin_state[dev_config['PIN']] = 0")
         self.indent_level -= 3
         self.writeline("def Toggle_LED(self, pin):")
         self.indent_level += 1
-        self.writeline("if pin in self.pin_state and self.pin_state[pin] == GPIO.HIGH:")
-        self.indent_level += 1
-        self.writeline("for dev_name, dev_config in Devices_main.items():")
-        self.indent_level += 1
-        self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
-        self.indent_level += 1
-        self.writeline("dev_config['state'] = \"LOW\"")
-        self.writeline("GPIO.output(pin, GPIO.LOW)")
-        self.writeline("self.pin_state[pin] = GPIO.LOW")
-        self.indent_level -= 3
-        self.writeline("elif pin in self.pin_state and self.pin_state[pin] == GPIO.LOW:")
-        self.indent_level += 1
-        self.writeline("for dev_name, dev_config in Devices_main.items():")
-        self.indent_level += 1
-        self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
-        self.indent_level += 1
-        self.writeline("dev_config['state'] = \"HIGH\"")
-        self.writeline("GPIO.output(pin, GPIO.HIGH)")
-        self.writeline("self.pin_state[pin] = GPIO.HIGH")
-        self.indent_level -= 4  # Back to method level
+        if self.GPIO_compile:
+            self.writeline("if pin in self.pin_state and self.pin_state[pin] == GPIO.HIGH:")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("GPIO.output(pin, GPIO.LOW)")
+            self.writeline("self.pin_state[pin] = GPIO.LOW")
+            self.indent_level -= 3
+            self.writeline("elif pin in self.pin_state and self.pin_state[pin] == GPIO.LOW:")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"HIGH\"")
+            self.writeline("GPIO.output(pin, GPIO.HIGH)")
+            self.writeline("self.pin_state[pin] = GPIO.HIGH")
+            self.indent_level -= 4  # Back to method level
+        if self.MC_compile:
+            self.writeline("if pin in self.pin_state and pin in hardware_map:")
+            self.indent_level += 1
+            self.writeline("pin_obj = hardware_map[pin]")
+            self.writeline("if self.pin_state[pin] == 1:")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("pin_obj.value(0)")
+            self.writeline("self.pin_state[pin] = 0")
+            self.indent_level -= 3
+            self.writeline("elif self.pin_state[pin] == 0:")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"HIGH\"")
+            self.writeline("pin_obj.value(1)")
+            self.writeline("self.pin_state[pin] = 1")
+            self.indent_level -= 5  # Back to method level
         self.writeline("def Blink_LED(self, pin, duration_ms):")
         self.indent_level += 1
-        self.writeline("if pin in self.pin_state and self.pin_state[pin] == GPIO.HIGH:")
-        self.indent_level += 1
-        self.writeline("for dev_name, dev_config in Devices_main.items():")
-        self.indent_level += 1
-        self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
-        self.indent_level += 1
-        self.writeline("dev_config['state'] = \"LOW\"")
-        self.writeline("GPIO.output(pin, GPIO.LOW)")
-        self.writeline("time.sleep(duration_ms / 1000)")
-        self.writeline("dev_config['state'] = \"HIGH\"")
-        self.writeline("GPIO.output(pin, GPIO.HIGH)")
-        self.indent_level -= 3
-        self.writeline("elif pin in self.pin_state and self.pin_state[pin] == GPIO.LOW:")
-        self.indent_level += 1
-        self.writeline("for dev_name, dev_config in Devices_main.items():")
-        self.indent_level += 1
-        self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
-        self.indent_level += 1
-        self.writeline("dev_config['state'] = \"HIGH\"")
-        self.writeline("GPIO.output(pin, GPIO.HIGH)")
-        self.writeline("time.sleep(duration_ms / 1000)")
-        self.writeline("dev_config['state'] = \"LOW\"")
-        self.writeline("GPIO.output(pin, GPIO.LOW)")
-        self.indent_level -= 4  # Back to method level
+        if self.GPIO_compile:
+            self.writeline("if pin in self.pin_state and self.pin_state[pin] == GPIO.HIGH:")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("GPIO.output(pin, GPIO.LOW)")
+            self.writeline("time.sleep(duration_ms / 1000)")
+            self.writeline("dev_config['state'] = \"HIGH\"")
+            self.writeline("GPIO.output(pin, GPIO.HIGH)")
+            self.indent_level -= 3
+            self.writeline("elif pin in self.pin_state and self.pin_state[pin] == GPIO.LOW:")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"HIGH\"")
+            self.writeline("GPIO.output(pin, GPIO.HIGH)")
+            self.writeline("time.sleep(duration_ms / 1000)")
+            self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("GPIO.output(pin, GPIO.LOW)")
+            self.indent_level -= 4  # Back to method level
+        if self.MC_compile:
+            self.writeline("if pin in self.pin_state and pin in hardware_map:")
+            self.indent_level += 1
+            self.writeline("pin_obj = hardware_map[pin]")
+            self.writeline("if self.pin_state[pin] == 1:")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("pin_obj.value(0)")
+            self.writeline("self.pin_state[pin] = 0")
+            self.writeline("time.sleep(duration_ms / 1000)")
+            self.writeline("dev_config['state'] = \"HIGH\"")
+            self.writeline("pin_obj.value(1)")
+            self.writeline("self.pin_state[pin] = 1")
+            self.indent_level -= 3
+            self.writeline("elif self.pin_state[pin] == 0:")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"HIGH\"")
+            self.writeline("pin_obj.value(1)")
+            self.writeline("self.pin_state[pin] = 1")
+            self.writeline("time.sleep(duration_ms / 1000)")
+            self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("pin_obj.value(0)")
+            self.writeline("self.pin_state[pin] = 0")
+            self.indent_level -= 5  # Back to method level
         self.writeline("def PWM_LED(self, pin, PWM_value):")
         self.indent_level += 1
-        self.writeline("for dev_name, dev_config in Devices_main.items():")
-        self.indent_level += 1
-        self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'PWM':")
-        self.indent_level += 1
-        self.writeline("pwm_instance = dev_config['name']")
-        self.writeline("current_duty = dev_config.get('CurrentDutyCycle', 0)")
-        self.indent_level -= 2  # Back to method level
-        self.writeline("if PWM_value < current_duty:")
-        self.indent_level += 1
-        self.writeline("for duty_cycle in range(current_duty, PWM_value - 1, -1):")
-        self.indent_level += 1
-        self.writeline("pwm_instance.ChangeDutyCycle(duty_cycle)")
-        self.writeline("time.sleep(0.05)")
-        self.indent_level -= 2
-        self.writeline("elif PWM_value > current_duty:")
-        self.indent_level += 1
-        self.writeline("for duty_cycle in range(current_duty, PWM_value + 1):")
-        self.indent_level += 1
-        self.writeline("pwm_instance.ChangeDutyCycle(duty_cycle)")
-        self.writeline("time.sleep(0.05)")
-        self.indent_level -= 2
-        self.writeline("dev_config['CurrentDutyCycle'] = PWM_value")
-        self.indent_level -= 2    # Back to class level
+        if self.GPIO_compile:
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'PWM':")
+            self.indent_level += 1
+            self.writeline("pwm_instance = dev_config['name']")
+            self.writeline("current_duty = dev_config.get('CurrentDutyCycle', 0)")
+            self.indent_level -= 2  # Back to method level
+            self.writeline("if PWM_value < current_duty:")
+            self.indent_level += 1
+            self.writeline("for duty_cycle in range(current_duty, PWM_value - 1, -1):")
+            self.indent_level += 1
+            self.writeline("pwm_instance.ChangeDutyCycle(duty_cycle)")
+            self.writeline("time.sleep(0.05)")
+            self.indent_level -= 2
+            self.writeline("elif PWM_value > current_duty:")
+            self.indent_level += 1
+            self.writeline("for duty_cycle in range(current_duty, PWM_value + 1):")
+            self.indent_level += 1
+            self.writeline("pwm_instance.ChangeDutyCycle(duty_cycle)")
+            self.writeline("time.sleep(0.05)")
+            self.indent_level -= 2
+            self.writeline("dev_config['CurrentDutyCycle'] = PWM_value")
+            self.indent_level -= 2    # Back to class level
+        if self.MC_compile:
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'PWM':")
+            self.indent_level += 1
+            self.writeline("if pin in hardware_map:")
+            self.indent_level += 1
+            self.writeline("pwm_instance = hardware_map[pin]")
+            self.writeline("current_duty = dev_config.get('CurrentDutyCycle', 0)")
+            self.indent_level -= 2  # Back to method level
+            self.writeline("if PWM_value < current_duty:")
+            self.indent_level += 1
+            self.writeline("for duty_cycle in range(current_duty, PWM_value - 1, -1):")
+            self.indent_level += 1
+            self.writeline("pwm_instance.duty_u16(duty_cycle * 655)")  # Scale 0-100 to 0-65500
+            self.writeline("time.sleep(0.05)")
+            self.indent_level -= 2
+            self.writeline("elif PWM_value > current_duty:")
+            self.indent_level += 1
+            self.writeline("for duty_cycle in range(current_duty, PWM_value + 1):")
+            self.indent_level += 1
+            self.writeline("pwm_instance.duty_u16(duty_cycle * 655)")  # Scale 0-100 to 0-65500
+            self.writeline("time.sleep(0.05)")
+            self.indent_level -= 2
+            self.writeline("dev_config['CurrentDutyCycle'] = PWM_value")
+            self.indent_level -= 3    # Back to class level
 
     #MARK: Helper Methods
     def find_block_by_type(self, block_type):
