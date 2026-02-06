@@ -1,7 +1,7 @@
 from cProfile import label
 from Imports import (QWidget, QDialog, QVBoxLayout, QHBoxLayout,
 QPushButton, QLabel, QFrame, QTabWidget, Qt, QFont,
-pyqtSignal, QListWidget, QScrollArea)
+pyqtSignal, QListWidget, QScrollArea, QScroller)
 
 from Imports import get_spawn_elements, get_utils
 
@@ -185,6 +185,11 @@ class ElementsWindow(QDialog):
         self.basic_description_text.setWordWrap(True)
 
         scroll_area = QScrollArea()
+        QScroller.grabGesture(
+            scroll_area.viewport(),
+            QScroller.ScrollerGestureType.LeftMouseButtonGesture
+        )
+
         scroll_area.setWidget(self.basic_description_text)
         scroll_area.setWidgetResizable(True)
         right_label = QLabel(self.t("elements_window.basic_blocks_tab.block_details"))
@@ -244,6 +249,10 @@ class ElementsWindow(QDialog):
         self.logic_description_text = QLabel("")
         self.logic_description_text.setWordWrap(True)
         scroll_area = QScrollArea()
+        QScroller.grabGesture(
+            scroll_area.viewport(),
+            QScroller.ScrollerGestureType.LeftMouseButtonGesture
+        )
         scroll_area.setWidget(self.logic_description_text)
         scroll_area.setWidgetResizable(True)
         right_label = QLabel(self.t("elements_window.logic_blocks_tab.block_details"))
@@ -300,6 +309,10 @@ class ElementsWindow(QDialog):
         self.IO_description_text.setWordWrap(True)
     
         scroll_area = QScrollArea()
+        QScroller.grabGesture(
+            scroll_area.viewport(),
+            QScroller.ScrollerGestureType.LeftMouseButtonGesture
+        )
         scroll_area.setWidget(self.IO_description_text)
         scroll_area.setWidgetResizable(True)
         right_label = QLabel(self.t("elements_window.io_blocks_tab.block_details"))
@@ -354,6 +367,10 @@ class ElementsWindow(QDialog):
         self.math_description_text.setWordWrap(True)
 
         scroll_area = QScrollArea()
+        QScroller.grabGesture(
+            scroll_area.viewport(),
+            QScroller.ScrollerGestureType.LeftMouseButtonGesture
+        )
         scroll_area.setWidget(self.math_description_text)
         scroll_area.setWidgetResizable(True)
         right_label = QLabel(self.t("elements_window.math_blocks_tab.block_details"))

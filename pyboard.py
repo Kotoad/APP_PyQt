@@ -76,23 +76,20 @@ import time
 import warnings
 from collections import namedtuple
 
-
-
-# Suppress warnings about telnetlib being deprecated
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    try:
-        import telnetlib
-    except ImportError:
-        # Fallback if the module is completely removed (Python 3.13+)
-        telnetlib = None
-
 try:
     stdout = sys.stdout.buffer
 except AttributeError:
     # Python2 doesn't have buffer attr
     stdout = sys.stdout
 
+try:
+    import telnetlib  # Python <= 3.12
+except ModuleNotFoundError:
+    try:
+        # Python 3.13+ – use telnetlib3’s bundled telnetlib implementation
+        import telnetlib3.telnetlib as telnetlib
+    except ModuleNotFoundError:
+        telnetlib = None
 
 def stdout_write_bytes(b):
     b = b.replace(b"\x04", b"")

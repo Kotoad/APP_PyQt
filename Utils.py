@@ -39,6 +39,7 @@ compiler = None
 state_manager = None
 translation_manager = None
 file_manager = None
+data_control = None
 
 # ============================================================================
 # UTILITY FUNCTIONS

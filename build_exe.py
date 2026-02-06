@@ -37,7 +37,9 @@ def build_exe():
         'paramiko',
         'cryptography',
         'PIL',
-
+        'pyserial',
+        'mpremote',
+        'telnetlib3',
     ]
     
     # Modules to exclude (reduces file size)

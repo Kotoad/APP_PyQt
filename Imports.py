@@ -29,7 +29,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QProgressBar,
     QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea,QSizePolicy,  
-    QLineEdit, QComboBox, QDialog, QTabWidget, QFileDialog, QMessageBox,
+    QLineEdit, QComboBox, QDialog, QTabWidget, QFileDialog, QMessageBox, QScroller,
     QInputDialog, QStyleOptionComboBox, QStyledItemDelegate, QTextEdit, QProgressDialog,
     QSplitter, QTreeWidget, QTreeWidgetItem, QListWidget, QGraphicsView, QGraphicsScene,
     QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem, QGraphicsPixmapItem,
@@ -41,10 +41,11 @@ from PyQt6.QtCore import (
     QSortFilterProxyModel, QAbstractAnimation, QPointF, QRectF, QThread,
 )
 from PyQt6.QtGui import (
-    QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent, QKeySequence, QShortcut,
-    QRegularExpressionValidator, QFont, QPixmap, QImage, QStandardItem, QMovie,
-    QIntValidator, QPainterPath, QIcon, QStandardItemModel, QAction, QPixmap
+    QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent, QKeySequence, QShortcut, QEventPoint,
+    QRegularExpressionValidator, QFont, QPixmap, QImage, QStandardItem, QMovie, QTouchEvent,
+    QIntValidator, QPainterPath, QIcon, QStandardItemModel, QAction, QPixmap, QInputDevice
 )
+from PyQt6.QtTest import QTest
 # ============================================================================
 # PROJECT-SPECIFIC IMPORTS (Internal)
 # ============================================================================
@@ -108,6 +109,11 @@ def get_Translation_Manager():
     from Translation_manager import TranslationManager
     return TranslationManager
 
+def get_Data_Control():
+    """Lazy import DataControl - avoid circular import"""
+    from Data_control import DataControl
+    return DataControl
+
 # ============================================================================
 # LAZY IMPORTS (Imported only when needed to avoid circular deps)
 # ============================================================================
@@ -125,38 +131,3 @@ def get_file_manager():
     from FileManager import FileManager
     return FileManager
 
-# ============================================================================
-# EXPORT ALL IMPORTANT ITEMS
-# ============================================================================
-__all__ = [
-    # Standard library
-    'sys', 'os', 'json', 'datetime', 'Path',
-    'windll', 'wintypes', 'byref',
-    
-    # PyQt6 widgets
-    'QApplication', 'QMainWindow', 'QWidget', 'QVBoxLayout', 'QHBoxLayout',
-    'QMenuBar', 'QMenu', 'QPushButton', 'QLabel', 'QFrame', 'QScrollArea',
-    'QLineEdit', 'QComboBox', 'QDialog', 'QTabWidget', 'QFileDialog', 
-    'QMessageBox', 'QInputDialog', 'QSplitter', 'QTreeWidget', 'QTreeWidgetItem',
-    'QTextEdit',
-    
-    # PyQt6 core
-    'Qt', 'QPoint', 'QRect', 'QSize', 'pyqtSignal', 'QRegularExpression', 
-    'QTimer', 'QLineF', 'QPropertyAnimation', 'QEasingCurve', 'QRectF',
-    'QObject', 'QAbstractAnimation', 'QStandardItem',
-    
-    # PyQt6 GUI
-    'QPainter', 'QPen', 'QColor', 'QBrush', 'QPalette', 'QMouseEvent',
-    'QRegularExpressionValidator', 'QFont', 'QIcon', 'QPixmap', 'QImage',
-    
-    # Project data & settings
-    'AppSettings', 'ProjectData',
-    
-    # Project modules (directly imported - safe)
-    'PathManager', 'ElementsWindow', 'FileManager',
-    
-    # Lazy loaders (call these functions to import)
-    'get_utils', 'get_gui_main_window', 'get_code_compiler',
-    'get_spawn_elements', 'get_device_settings_window',
-    'get_spawning_elements', 'get_elements_events',
-]

@@ -1,5 +1,5 @@
 from Imports import (QDialog, QMainWindow, QTextEdit, QVBoxLayout, QWidget, Qt, QScrollArea,
-                     get_utils)
+                     get_utils, QScroller)
 
 Utils = get_utils()
 
@@ -90,6 +90,10 @@ class CodeViewerWindow(QDialog):
             self._layout.setContentsMargins(10, 10, 10, 10)
 
             self.scroll_widget = QScrollArea()
+            QScroller.grabGesture(
+                self.scroll_widget.viewport(),
+                QScroller.ScrollerGestureType.LeftMouseButtonGesture
+            )
             self.scroll_widget.setWidgetResizable(True)
 
             self.text_edit = QTextEdit()

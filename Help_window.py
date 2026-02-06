@@ -1,5 +1,5 @@
 from Imports import (QDialog, Qt, QVBoxLayout, QLabel, QTabWidget, QWidget, QFont, QTextEdit,
-                     QScrollArea, QPushButton,Path, os, get_utils)
+                     QScrollArea, QPushButton,Path, os, get_utils, QScroller)
 
 Utils = get_utils()
 
@@ -152,6 +152,10 @@ class HelpWindow(QDialog):
         
         # Create scroll area
         scroll = QScrollArea()
+        QScroller.grabGesture(
+            scroll.viewport(), 
+            QScroller.ScrollerGestureType.LeftMouseButtonGesture
+        )
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("""
             QScrollArea { border: none; background-color: #2B2B2B; }

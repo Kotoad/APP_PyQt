@@ -27,8 +27,6 @@ except ImportError:
     print("[!] PyQt6 not found. Install with: pip install PyQt6")
     sys.exit(1)
 
-# ================= CONFIGURATION =================
-# REPLACE THIS WITH YOUR GITHUB RELEASE ASSET URL
 GITHUB_ZIP_URL = "https://github.com/Kotoad/APP_PyQt/releases/download/V0.11/OmniBoard.Studio.zip"
 # =================================================
 

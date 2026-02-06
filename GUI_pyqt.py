@@ -9,12 +9,14 @@ from Imports import (
     QRect, QSize, pyqtSignal, AppSettings, ProjectData, QCoreApplication, QSizePolicy,
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
     QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent,
-    QStackedWidget, QSplitter, QIcon, QKeySequence, QShortcut, json, QSplashScreen, QProgressBar
+    QStackedWidget, QSplitter, QIcon, QKeySequence, QShortcut, json, QSplashScreen, QProgressBar,
+    QScroller, QTest, QInputDevice, QEventPoint, QTouchEvent
 )
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
     get_file_manager, get_path_manager, get_Elements_Window, get_utils,
-    get_Help_Window, get_State_Manager, get_CodeViewer_Window, get_Translation_Manager
+    get_Help_Window, get_State_Manager, get_CodeViewer_Window,
+    get_Translation_Manager, get_Data_Control
 )
 Utils = get_utils()
 Code_Compiler = get_code_compiler()
@@ -30,7 +32,8 @@ HelpWindow = get_Help_Window()
 StateManager = get_State_Manager()
 CodeViewerWindow = get_CodeViewer_Window()
 TranslationManager = get_Translation_Manager()
-    
+DataControl = get_Data_Control()
+
 # --- WORKER THREAD (Background Data Loading) ---
 class LoaderThread(QThread):
     """
@@ -48,6 +51,7 @@ class LoaderThread(QThread):
         Utils.state_manager = StateManager()
         Utils.translation_manager = TranslationManager()
         Utils.file_manager = FileManager()
+        Utils.data_control = DataControl()
         time.sleep(0.5) # Simulated delay (remove this in production)
         self.progress.emit(20)
 
@@ -1014,6 +1018,8 @@ class GridCanvas(QGraphicsView):
         
         # Pan mode - middle mouse button
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
+        self.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
+        self.viewport().setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
         self.middle_mouse_pressed = False
         self.middle_mouse_start = QPoint()
         
@@ -1162,10 +1168,10 @@ class GridCanvas(QGraphicsView):
             
             # Use scrollbars to pan - this keeps everything in sync
             self.horizontalScrollBar().setValue(
-                self.horizontalScrollBar().value() - delta.x()
+                int(self.horizontalScrollBar().value() - delta.x())
             )
             self.verticalScrollBar().setValue(
-                self.verticalScrollBar().value() - delta.y()
+                int(self.verticalScrollBar().value() - delta.y())
             )
             
             self.middle_mouse_start = event.pos()
@@ -1203,169 +1209,9 @@ class GridCanvas(QGraphicsView):
         self.scene.addItem(block)
 
         # Store in Utils
-        if block_type in ('If', 'While', 'Button'):
-            info = {
-                'type': block_type.split('_')[0],
-                'id': block_id,
-                'widget': block,
-                'width': block.boundingRect().width(),
-                'height': block.boundingRect().height(),
-                'x': x,
-                'y': y,
-                'value_1_name': None,
-                'value_1_type': None,
-                'value_2_name': None,
-                'value_2_type': None,
-                'operator': "==",
-                'in_connections': {},
-                'out_connections': {},
-                'canvas': self
-            }
-        elif block_type == 'Timer':
-            info = {
-                'type': block_type,
-                'id': block_id,
-                'widget': block,
-                'width': block.boundingRect().width(),
-                'height': block.boundingRect().height(),
-                'x': x,
-                'y': y,
-                'sleep_time': "1000",
-                'in_connections': {},
-                'out_connections': {},
-                'canvas': self
-            }
-        elif block_type == 'Switch':
-            info = {
-                'type': block_type,
-                'id': block_id,
-                'widget': block,
-                'width': block.boundingRect().width(),
-                'height': block.boundingRect().height(),
-                'x': x,
-                'y': y,
-                'value_1_name': None,
-                'switch_state': False,
-                'in_connections': {},
-                'out_connections': {},
-                'canvas': self
-            }
-        elif block_type in ('Start', 'End', 'While_true'):
-            info = {
-                'type': block_type,
-                'id': block_id,
-                'widget': block,
-                'width': block.boundingRect().width(),
-                'height': block.boundingRect().height(),
-                'x': x,
-                'y': y,
-                'in_connections': {},
-                'out_connections': {},
-                'canvas': self
-            }
-        elif block_type == "Function":
-            info = {
-                'type': 'Function',
-                'id': block_id,
-                'name': name,
-                'widget': block,
-                'width': block.boundingRect().width(),
-                'height': block.boundingRect().height(),
-                'x': x,
-                'y': y,
-                'internal_vars': {
-                    'main_vars': {},
-                    'ref_vars': {},
-                },
-                'internal_devs': {
-                    'main_devs': {},
-                    'ref_devs': {},
-                },
-                'in_connections': {},
-                'out_connections': {},
-                'canvas': self
-            }
-        elif block_type in ("Basic_operations", "Exponential_operations", "Random_number"):
-            info = {
-                'type': block_type,
-                'id': block_id,
-                'widget': block,
-                'width': block.boundingRect().width(),
-                'height': block.boundingRect().height(),
-                'x': x,
-                'y': y,
-                'value_1_name': None,
-                'value_1_type': None,
-                'value_2_name': None,
-                'value_2_type': None,
-                'operator': None,
-                'result_var_name': None,
-                'result_var_type': None,
-                'in_connections': {},
-                'out_connections': {},
-                'canvas': self
-            }
-        elif block_type == "Blink_LED":
-            info = {
-                'type': block_type,
-                'id': block_id,
-                'widget': block,
-                'width': block.boundingRect().width(),
-                'height': block.boundingRect().height(),
-                'x': x,
-                'y': y,
-                'value_1_name': None,
-                'value_1_type': None,
-                'sleep_time': "1000",
-                'in_connections': {},
-                'out_connections': {},
-                'canvas': self
-            }
-        elif block_type == "Toggle_LED":
-            info = {
-                'type': block_type,
-                'id': block_id,
-                'widget': block,
-                'width': block.boundingRect().width(),
-                'height': block.boundingRect().height(),
-                'x': x,
-                'y': y,
-                'value_1_name': None,
-                'value_1_type': None,
-                'in_connections': {},
-                'out_connections': {},
-                'canvas': self
-            }
-        elif block_type == "PWM_LED":
-            info = {
-                'type': block_type,
-                'id': block_id,
-                'widget': block,
-                'width': block.boundingRect().width(),
-                'height': block.boundingRect().height(),
-                'x': x,
-                'y': y,
-                'value_1_name': None,
-                'value_1_type': None,
-                'PWM_value': "50",
-                'in_connections': {},
-                'out_connections': {},
-                'canvas': self
-            }
-        else:
-            print(f"Error: Unknown block type {block_type}")
-            info = {
-                'type': block_type,
-                'id': block_id,
-                'widget': block,
-                'width': block.boundingRect().width(),
-                'height': block.boundingRect().height(),
-                'x': x,
-                'y': y,
-                'in_connections': {},
-                'out_connections': {},
-                'canvas': self
-            }
+
+        info = Utils.data_control.inicilize_date(block, block_type, block_id, x, y, name)
+
         if self.reference == 'canvas':
             Utils.main_canvas['blocks'].setdefault(block_id, info)
         elif self.reference == 'function':
@@ -1384,7 +1230,64 @@ class GridCanvas(QGraphicsView):
             pass
         block.connect_graphics_signals()
         return block
-    
+
+    def viewportEvent(self, event):
+        """
+        Intercept events sent to the viewport.
+        Required because QGraphicsView receives touch events on the viewport, not the widget itself.
+        """
+        print(f"[GridCanvas.viewportEvent] Event type: {event.type()}")
+        if event.type() in (QEvent.Type.TouchBegin, QEvent.Type.TouchUpdate, QEvent.Type.TouchEnd):
+            # Pass the event to your custom handler
+            print(f"[GridCanvas.viewportEvent] Handling touch event: {event.type()}") 
+            self.touch_event(event)
+            return True # Tell Qt we handled it
+        
+        return super().viewportEvent(event)
+
+    def touch_event(self, event):
+        """Handle touch events for panning and zooming"""
+        if event.type() == QEvent.Type.TouchBegin:
+            if len(event.points()) == 1:
+                self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+                self.middle_mouse_pressed = True
+                self.middle_mouse_start = event.points()[0].position()
+                event.accept()
+            elif len(event.points()) == 2:
+                print(f"Pinch start with points: {event.points()[0].position()}, {event.points()[1].position()}")
+                self.setDragMode(QGraphicsView.DragMode.NoDrag)
+                self._initial_pinch_distance = (event.points()[0].position() - event.points()[1].position()).manhattanLength()
+                self._initial_zoom = self.zoom_level
+                event.accept()
+        elif event.type() == QEvent.Type.TouchUpdate:
+            if len(event.points()) == 1 and self.middle_mouse_pressed:
+                delta = event.points()[0].position() - self.middle_mouse_start
+                self.horizontalScrollBar().setValue(
+                    int(self.horizontalScrollBar().value() - delta.x())
+                )
+                self.verticalScrollBar().setValue(
+                    int(self.verticalScrollBar().value() - delta.y())
+                )
+                self.middle_mouse_start = event.points()[0].position()
+                event.accept()
+            elif len(event.points()) == 2:
+                current_distance = (event.points()[0].position() - event.points()[1].position()).manhattanLength()
+                print(f"Pinch update with current distance: {current_distance}")
+                if self._initial_pinch_distance > 0:
+                    print(f"Calculating zoom from pinch gesture")
+                    scale_factor = current_distance / self._initial_pinch_distance
+                    new_zoom = self._initial_zoom * scale_factor
+                    new_zoom = max(self.min_zoom, min(self.max_zoom, new_zoom))
+                    print(f"New zoom level from pinch: {new_zoom}")
+                    self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
+                    self.scale(new_zoom / self.zoom_level, new_zoom / self.zoom_level)
+                    self.zoom_level = new_zoom
+                    event.accept()
+        elif event.type() == QEvent.Type.TouchEnd:
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+            self.middle_mouse_pressed = False
+            event.accept()
+
     def clear_canvas(self):
         """Clear all blocks and paths from canvas"""
         #TODO: complete clearing logic
@@ -1789,6 +1692,10 @@ class MainWindow(QMainWindow):
         stop_execution_icon.triggered.connect(self.stop_execution)
         self.toolbar.addAction(stop_execution_icon)
 
+        #test_icon = QAction(QIcon(icon_path+"Test.png"), self.t("main_GUI.toolbar.test"), self)
+        #test_icon.triggered.connect(self.simulate_pinch)
+        #self.toolbar.addAction(test_icon)
+
     def stop_execution(self):
         if self.execution_thread and self.execution_thread.isRunning():
             print("[MainWindow] Stopping execution thread...")
@@ -1836,6 +1743,69 @@ class MainWindow(QMainWindow):
         self.tab_changed.connect(self.on_tab_changed)
         self.set_current_tab(0, 'canvas')
     
+    def simulate_pinch(self):
+        viewport = self.canvas.viewport()
+        center_local = QPointF(viewport.width() / 2, viewport.height() / 2)
+        center_global = viewport.mapToGlobal(center_local.toPoint())
+        cx, cy = center_global.x(), center_global.y()
+
+        # Define points (Start close, Move apart)
+        p1_start_pos = QPointF(cx + 10, cy)
+        p2_start_pos = QPointF(cx + 10, cy)
+        
+        p1_end_pos = QPointF(cx + 50, cy)
+        p2_end_pos = QPointF(cx + 50, cy)
+
+        # ---------------------------------------------------------
+        # 2. DEFINE MOCK CLASSES (The Fix)
+        # These mimic QTouchEvent/QEventPoint behavior but guarantee data persistence
+        # ---------------------------------------------------------
+        class MockPoint:
+            def __init__(self, pos):
+                self._pos = pos
+            def position(self): 
+                return self._pos
+            def id(self): 
+                return 0 # Dummy ID
+
+        class MockEvent:
+            def __init__(self, event_type, points):
+                self._type = event_type
+                self._points = points
+            def type(self): 
+                return self._type
+            def points(self): 
+                return self._points
+            def accept(self): 
+                pass # Do nothing
+            def ignore(self): 
+                pass # Do nothing
+
+        # 3. Create Mock Points wrapping your REAL QPointF objects
+        # We use real QPointF so math operations (like subtraction) inside touch_event work
+        mp1_start = MockPoint(p1_start_pos)
+        #mp2_start = MockPoint(p2_start_pos)
+        
+        mp1_end = MockPoint(p1_end_pos)
+        #mp2_end = MockPoint(p2_end_pos)
+
+        # 4. Send Mock Events Directly to Handler
+        print(f"Simulating Pinch Center: {cx}, {cy}")
+
+        # A. Touch Begin
+        event_begin = MockEvent(QEvent.Type.TouchBegin, [mp1_start])
+        self.canvas.touch_event(event_begin)
+
+        # B. Touch Update (The Zoom)
+        event_update = MockEvent(QEvent.Type.TouchUpdate, [mp1_end])
+        self.canvas.touch_event(event_update)
+
+        # C. Touch End
+        event_end = MockEvent(QEvent.Type.TouchEnd, [mp1_end])
+        self.canvas.touch_event(event_end)
+        
+        print("Simulated Pinch Complete.")
+
     def on_tab_changed(self, index):
         if index not in [info['index'] for info in Utils.canvas_instances.values()]:
             #print(f"Tab index {index} not in Utils.canvas_instances indices.")
@@ -1880,6 +1850,10 @@ class MainWindow(QMainWindow):
         
         # Scroll area
         scroll = QScrollArea()
+        QScroller.grabGesture(
+            scroll.viewport(), 
+            QScroller.ScrollerGestureType.LeftMouseButtonGesture
+        )
         scroll.setWidgetResizable(True)
         canvas_reference.var_content = QWidget()
         canvas_reference.var_layout = QVBoxLayout(canvas_reference.var_content)
@@ -1918,6 +1892,10 @@ class MainWindow(QMainWindow):
         
         # Scroll area
         scroll = QScrollArea()
+        QScroller.grabGesture(
+            scroll.viewport(), 
+            QScroller.ScrollerGestureType.LeftMouseButtonGesture
+        )
         scroll.setWidgetResizable(True)
         canvas_reference.dev_content = QWidget()
         canvas_reference.dev_layout = QVBoxLayout(canvas_reference.dev_content)
@@ -1945,6 +1923,10 @@ class MainWindow(QMainWindow):
         canvas_reference.layout.addWidget(header)
 
         scroll = QScrollArea()
+        QScroller.grabGesture(
+            scroll.viewport(), 
+            QScroller.ScrollerGestureType.LeftMouseButtonGesture
+        )
         scroll.setWidgetResizable(True)
         canvas_reference.internal_content = QWidget()
         canvas_reference.internal_layout = QVBoxLayout(canvas_reference.internal_content)
@@ -2430,6 +2412,10 @@ class MainWindow(QMainWindow):
                 
                 # Scroll area
                 current_canvas.scroll_area = QScrollArea()
+                QScroller.grabGesture(
+                    current_canvas.scroll_area.viewport(), 
+                    QScroller.ScrollerGestureType.LeftMouseButtonGesture
+                )
                 current_canvas.scroll_area.setWidgetResizable(True)
                 current_canvas.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
                 
@@ -4839,342 +4825,9 @@ class MainWindow(QMainWindow):
         
         # Store in Utils
         if canvas_info['ref'] == 'canvas':
-            if block_type in ('If', 'While', 'Button'):
-                info = {
-                    'type': block_type,
-                    'id': block_id,
-                    'widget': block,
-                    'width': block.boundingRect().width(),
-                    'height': block.boundingRect().height(),
-                    'x': x,
-                    'y': y,
-                    'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
-                    'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
-                    'value_2_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2"),
-                    'value_2_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_type', "N/A"),
-                    'operator': Utils.project_data.main_canvas['blocks'][block_id].get('operator', "=="),
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
-                    'canvas': canvas
-                }
-            elif block_type == 'Timer':
-                info = {
-                    'type': block_type,
-                    'id': block_id,
-                    'widget': block,
-                    'width': block.boundingRect().width(),
-                    'height': block.boundingRect().height(),
-                    'x': x,
-                    'y': y,
-                    'sleep_time': Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000"),
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
-                    'canvas': canvas
-                }
-            elif block_type == 'Switch':
-                info = {
-                    'type': block_type,
-                    'id': block_id,
-                    'widget': block,
-                    'width': block.boundingRect().width(),
-                    'height': block.boundingRect().height(),
-                    'x': x,
-                    'y': y,
-                    'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
-                    'switch_state': Utils.project_data.main_canvas['blocks'][block_id].get('switch_state', False),
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
-                    'canvas': canvas
-                }
-            elif block_type in ('Start', 'End', 'While_true'):
-                info = {
-                    'type': block_type,
-                    'id': block_id,
-                    'widget': block,
-                    'width': block.boundingRect().width(),
-                    'height': block.boundingRect().height(),
-                    'x': x,
-                    'y': y,
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
-                    'canvas': canvas
-                }
-            elif block_type in ("Basic_operations", "Exponential_operations", "Random_number"):
-                info = {
-                    'type': block_type,
-                    'id': block_id,
-                    'widget': block,
-                    'width': block.boundingRect().width(),
-                    'height': block.boundingRect().height(),
-                    'x': x,
-                    'y': y,
-                    'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
-                    'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
-                    'value_2_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2"),
-                    'value_2_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_2_type', "N/A"),
-                    'operator': Utils.project_data.main_canvas['blocks'][block_id].get('operator', None),
-                    'result_var_name': Utils.project_data.main_canvas['blocks'][block_id].get('result_var_name', "result"),
-                    'result_var_type': Utils.project_data.main_canvas['blocks'][block_id].get('result_var_type', "N/A"),
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
-                    'canvas': canvas
-                }
-            elif block_type == 'Blink_LED':
-                info = {
-                    'type': block_type,
-                    'id': block_id,
-                    'widget': block,
-                    'width': block.boundingRect().width(),
-                    'height': block.boundingRect().height(),
-                    'x': x,
-                    'y': y,
-                    'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
-                    'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
-                    'sleep_time': Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000"),
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
-                    'canvas': canvas
-                }
-            elif block_type == 'Toggle_LED':
-                info = {
-                    'type': block_type,
-                    'id': block_id,
-                    'widget': block,
-                    'width': block.boundingRect().width(),
-                    'height': block.boundingRect().height(),
-                    'x': x,
-                    'y': y,
-                    'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
-                    'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
-                    'canvas': canvas
-                }
-            elif block_type == 'PWM_LED':
-                info = {
-                    'type': block_type,
-                    'id': block_id,
-                    'widget': block,
-                    'width': block.boundingRect().width(),
-                    'height': block.boundingRect().height(),
-                    'x': x,
-                    'y': y,
-                    'value_1_name': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1"),
-                    'value_1_type': Utils.project_data.main_canvas['blocks'][block_id].get('value_1_type', "N/A"),
-                    'PWM_value': Utils.project_data.main_canvas['blocks'][block_id].get('PWM_value', "50"),
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
-                    'canvas': canvas
-                }
-            elif block_type == 'Function':
-                info = {
-                    'type': 'Function',
-                    'id': block_id,
-                    'name': Utils.project_data.main_canvas['blocks'][block_id].get('name', ''),
-                    'widget': block,
-                    'width': block.boundingRect().width(),
-                    'height': block.boundingRect().height(),
-                    'x': x,
-                    'y': y,
-                    'internal_vars': {
-                        'main_vars': Utils.project_data.main_canvas['blocks'][block_id]['internal_vars'].get('main_vars', {}),
-                        'ref_vars': Utils.project_data.main_canvas['blocks'][block_id]['internal_vars'].get('ref_vars', {}),
-                    },
-                    'internal_devs': {
-                        'main_devs': Utils.project_data.main_canvas['blocks'][block_id]['internal_devs'].get('main_devs', {}),
-                        'ref_devs': Utils.project_data.main_canvas['blocks'][block_id]['internal_devs'].get('ref_devs', {}),
-                    },
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
-                    'canvas': canvas
-                }
-            else:
-                print(f"Error: Unknown block type {block_type}")
-                info = {
-                    'type': block_type,
-                    'id': block_id,
-                    'widget': block,
-                    'width': block.boundingRect().width(),
-                    'height': block.boundingRect().height(),
-                    'x': x,
-                    'y': y,
-                    'in_connections': Utils.project_data.main_canvas['blocks'][block_id].get('in_connections', {}),
-                    'out_connections': Utils.project_data.main_canvas['blocks'][block_id].get('out_connections', {}),
-                    'canvas': canvas
-                }
-            Utils.main_canvas['blocks'][block_id] = info
+            Utils.main_canvas['blocks'][block_id] = Utils.data_control.load_from_data(block, block_id, block_type, x, y, canvas, 'canvas')
         if canvas_info['ref'] == 'function':
-            print("Storing function canvas block in Utils")
-            for function_id, function_info in Utils.functions.items():
-                print(f" Checking function: {function_id}")
-                if function_info['canvas'] == canvas:
-                    print(f" Found matching canvas for function: {function_id}")
-                    if block_type in ('If', 'While', 'Button'):
-                        info = {
-                            'type': block_type,
-                            'id': block_id,
-                            'widget': block,
-                            'width': block.boundingRect().width(),
-                            'height': block.boundingRect().height(),
-                            'x': x,
-                            'y': y,
-                            'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
-                            'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
-                            'value_2_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2"),
-                            'value_2_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_type', "N/A"),
-                            'operator': Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', "=="),
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
-                            'canvas': canvas
-                        }
-                    elif block_type == 'Timer':
-                        info = {
-                            'type': block_type,
-                            'id': block_id,
-                            'widget': block,
-                            'width': block.boundingRect().width(),
-                            'height': block.boundingRect().height(),
-                            'x': x,
-                            'y': y,
-                            'sleep_time': Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000"),
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
-                            'canvas': canvas
-                        }
-                    elif block_type == 'Switch':
-                        info = {
-                            'type': block_type,
-                            'id': block_id,
-                            'widget': block,
-                            'width': block.boundingRect().width(),
-                            'height': block.boundingRect().height(),
-                            'x': x,
-                            'y': y,
-                            'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
-                            'switch_state': Utils.project_data.functions[function_id]['blocks'][block_id].get('switch_state', False),
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
-                            'canvas': canvas
-                        }
-                    elif block_type in ('Start', 'End', 'While_true'):
-                        info = {
-                            'type': block_type,
-                            'id': block_id,
-                            'widget': block,
-                            'width': block.boundingRect().width(),
-                            'height': block.boundingRect().height(),
-                            'x': x,
-                            'y': y,
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
-                            'canvas': canvas
-                        }
-                    elif block_type in ("Basic_operations", "Exponential_operations", "Random_number"):
-                        info = {
-                            'type': block_type,
-                            'id': block_id,
-                            'widget': block,
-                            'width': block.boundingRect().width(),
-                            'height': block.boundingRect().height(),
-                            'x': x,
-                            'y': y,
-                            'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
-                            'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
-                            'value_2_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2"),
-                            'value_2_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_type', "N/A"),
-                            'operator': Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', None),
-                            'result_var_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('result_var_name', "result"),
-                            'result_var_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('result_var_type', "N/A"),
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
-                            'canvas': canvas
-                        }
-                    elif block_type == 'Blink_LED':
-                        info = {
-                            'type': block_type,
-                            'id': block_id,
-                            'widget': block,
-                            'width': block.boundingRect().width(),
-                            'height': block.boundingRect().height(),
-                            'x': x,
-                            'y': y,
-                            'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
-                            'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
-                            'sleep_time': Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000"),
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
-                            'canvas': canvas
-                        }
-                    elif block_type == 'Toggle_LED':
-                        info = {
-                            'type': block_type,
-                            'id': block_id,
-                            'widget': block,
-                            'width': block.boundingRect().width(),
-                            'height': block.boundingRect().height(),
-                            'x': x,
-                            'y': y,
-                            'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
-                            'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
-                            'canvas': canvas
-                        }
-                    elif block_type == 'PWM_LED':
-                        info = {
-                            'type': block_type,
-                            'id': block_id,
-                            'widget': block,
-                            'width': block.boundingRect().width(),
-                            'height': block.boundingRect().height(),
-                            'x': x,
-                            'y': y,
-                            'value_1_name': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1"),
-                            'value_1_type': Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_type', "N/A"),
-                            'PWM_value': Utils.project_data.functions[function_id]['blocks'][block_id].get('PWM_value', "50"),
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
-                            'canvas': canvas
-                        }
-                    elif block_type == 'Function':
-                        info = {
-                            'type': 'Function',
-                            'id': block_id,
-                            'name': Utils.project_data.functions[function_id]['blocks'][block_id].get('name', ''),
-                            'widget': block,
-                            'width': block.boundingRect().width(),
-                            'height': block.boundingRect().height(),
-                            'x': x,
-                            'y': y,
-                            'internal_vars': {
-                                'main_vars': Utils.project_data.functions[function_id]['blocks'][block_id]['internal_vars'].get('main_vars', {}),
-                                'ref_vars': Utils.project_data.functions[function_id]['blocks'][block_id]['internal_vars'].get('ref_vars', {}),
-                            },
-                            'internal_devs': {
-                                'main_devs': Utils.project_data.functions[function_id]['blocks'][block_id]['internal_devs'].get('main_devs', {}),
-                                'ref_devs': Utils.project_data.functions[function_id]['blocks'][block_id]['internal_devs'].get('ref_devs', {}),
-                            },
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
-                            'canvas': canvas
-                        }
-                    else:
-                        print(f"Error: Unknown block type {block_type}")
-                        info = {
-                            'type': block_type,
-                            'id': block_id,
-                            'widget': block,
-                            'width': block.boundingRect().width(),
-                            'height': block.boundingRect().height(),
-                            'x': x,
-                            'y': y,
-                            'in_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('in_connections', {}),
-                            'out_connections': Utils.project_data.functions[function_id]['blocks'][block_id].get('out_connections', {}),
-                            'canvas': canvas
-                        }
-                    
-                    Utils.functions[function_id]['blocks'][block_id] = info
-                    break
+            Utils.functions[function_id]['blocks'][block_id] = Utils.data_control.load_from_data(block, block_id, block_type, x, y, canvas, 'function')
         block.connect_graphics_signals()
         return block
 
