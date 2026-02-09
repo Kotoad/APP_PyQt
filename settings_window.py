@@ -503,6 +503,10 @@ class DeviceSettingsWindow(QDialog):
             self.activateWindow()
         return self
 
+    def reject(self):
+        """Redirect Esc key (reject) to close() so closeEvent fires"""
+        self.close()
+
     def closeEvent(self, event):
         """Handle close event"""
         self.is_hidden = True

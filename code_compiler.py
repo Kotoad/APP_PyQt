@@ -123,14 +123,14 @@ class CodeCompiler:
             #print(f"Found Start block: {start_block['id']}")
             if self.led_in_code:
                 self.writeline("\nled = LED()")
+            if self.btn_in_code:
+                self.writeline("\nbtn = Button()")
             self.writeline("try:")
-            self.indent_level += 1
-            self.writeline("while not shutdown:")
             self.indent_level += 1
             next_id = self.get_next_block(start_block['id'])
             #print(f"Processing blocks starting from: {next_id}")
             self.process_block(next_id)
-            self.indent_level -= 2
+            self.indent_level -= 1
         self.current_lines = self.footer_lines
         self.write_cleanup()
         file = open("File.py", "w")
@@ -215,17 +215,21 @@ class CodeCompiler:
             self.writeline("signal.signal(signal.SIGINT, handle_sigterm)\n")
             self.writeline("# Preventive cleanup to reset any dirty pins")
             # Smart Cleanup: Silence warnings just for this preventive step
-            self.writeline("GPIO.setwarnings(False)")
+            #self.writeline("GPIO.setwarnings(False)")
             self.writeline("try:")
             self.indent_level += 1
+            self.writeline("for mode in [GPIO.BCM, GPIO.BOARD]:")
+            self.indent_level += 1
+            self.writeline("GPIO.setmode(mode)")
             self.writeline("GPIO.cleanup()")
-            self.indent_level -= 1
+            self.indent_level -= 2
             self.writeline("except: pass")
             # Re-enable warnings so you still see legitimate errors later
             self.writeline("GPIO.setmode(GPIO.BCM)\n")
             self.writeline("Devices_main = {")
             self.indent_level+=1
             for dev_name, dev_info in Utils.devices['main_canvas'].items():
+                print(f"Compiling device: {dev_info['name']} (PIN: {dev_info['PIN']}, Type Index: {dev_info['type_index']})")
                 if dev_info['type_index'] == 0:
                     dev_type_str = "Output"
                 elif dev_info['type_index'] == 1:
@@ -255,7 +259,7 @@ class CodeCompiler:
             self.indent_level+=1
             self.writeline("if dev_config['type'] == 'Output':")
             self.indent_level+=1
-            self.writeline(f"GPIO.setup(dev_config['PIN'], GPIO.OUT)")
+            self.writeline(f"GPIO.setup(dev_config['PIN'], GPIO.OUT, initial=GPIO.LOW)")
             self.indent_level-=1
             self.writeline("elif dev_config['type'] == 'Input':")
             self.indent_level+=1
@@ -274,7 +278,7 @@ class CodeCompiler:
             self.indent_level+=1
             self.writeline("dev_config['name'].CurrentDutyCycle = 0")
             self.indent_level-=3
-            self.writeline("GPIO.setwarnings(True)")
+            #self.writeline("GPIO.setwarnings(True)")
 
             self.writeline("Variables_main = {")
             self.indent_level+=1
@@ -511,6 +515,7 @@ class CodeCompiler:
             self.writeline("dev_config['state'] = \"LOW\"")
             self.writeline("self.pin_state[dev_config['PIN']] = 0")
         self.indent_level -= 3
+        #Toggle method
         self.writeline("def Toggle_LED(self, pin):")
         self.indent_level += 1
         if self.GPIO_compile:
@@ -558,6 +563,7 @@ class CodeCompiler:
             self.writeline("pin_obj.value(1)")
             self.writeline("self.pin_state[pin] = 1")
             self.indent_level -= 5  # Back to method level
+        #Blink method
         self.writeline("def Blink_LED(self, pin, duration_ms):")
         self.indent_level += 1
         if self.GPIO_compile:
@@ -568,10 +574,13 @@ class CodeCompiler:
             self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
             self.indent_level += 1
             self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("self.pin_state[pin] = GPIO.LOW")
             self.writeline("GPIO.output(pin, GPIO.LOW)")
             self.writeline("time.sleep(duration_ms / 1000)")
             self.writeline("dev_config['state'] = \"HIGH\"")
+            self.writeline("self.pin_state[pin] = GPIO.HIGH")
             self.writeline("GPIO.output(pin, GPIO.HIGH)")
+            self.writeline("time.sleep(duration_ms / 1000)")
             self.indent_level -= 3
             self.writeline("elif pin in self.pin_state and self.pin_state[pin] == GPIO.LOW:")
             self.indent_level += 1
@@ -581,9 +590,12 @@ class CodeCompiler:
             self.indent_level += 1
             self.writeline("dev_config['state'] = \"HIGH\"")
             self.writeline("GPIO.output(pin, GPIO.HIGH)")
+            self.writeline("self.pin_state[pin] = GPIO.HIGH")
             self.writeline("time.sleep(duration_ms / 1000)")
             self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("self.pin_state[pin] = GPIO.LOW")
             self.writeline("GPIO.output(pin, GPIO.LOW)")
+            self.writeline("time.sleep(duration_ms / 1000)")
             self.indent_level -= 4  # Back to method level
         if self.MC_compile:
             self.writeline("if pin in self.pin_state and pin in hardware_map:")
@@ -617,6 +629,7 @@ class CodeCompiler:
             self.writeline("pin_obj.value(0)")
             self.writeline("self.pin_state[pin] = 0")
             self.indent_level -= 5  # Back to method level
+        #PWM method
         self.writeline("def PWM_LED(self, pin, PWM_value):")
         self.indent_level += 1
         if self.GPIO_compile:
@@ -871,7 +884,7 @@ class CodeCompiler:
         if block['type'] == 'While_true':
             #print(f"Handling While true block {block}")
             next_id = self.get_next_block(block['id'])
-            self.writeline("while True:")
+            self.writeline("while not shutdown:")
             self.indent_level += 1
             #print(f"Processing While true branch for While true block")
             self.process_block(next_id)
@@ -1051,12 +1064,12 @@ class CodeCompiler:
     def handle_LED_block(self, block):
         DEV_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
         if block['type'] == 'Blink_LED':
-            duration = block['duration_ms']
+            duration = block['sleep_time']
             self.writeline(f"led.Blink_LED({DEV_1}, {duration})")
         elif block['type'] == 'Toggle_LED':
             self.writeline(f"led.Toggle_LED({DEV_1})")
         elif block['type'] == 'PWM_LED':
-            pwm_value = self.resolve_value(block['value_1_name'], block['value_1_type'])
+            pwm_value = self.resolve_value(block['PWM_value'], 'Variable')
             self.writeline(f"led.PWM_LED({DEV_1}, {pwm_value})")
         
         next_id = self.get_next_block(block['id'])

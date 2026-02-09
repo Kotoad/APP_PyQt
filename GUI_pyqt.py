@@ -1,4 +1,5 @@
 from random import random
+import traceback as tb
 from Imports import (
     sys, QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, threading,
     QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea, QListWidget, QMovie,
@@ -438,7 +439,7 @@ class RPiExecutionThread(QThread):
             
             # Step 2: Send SIGTERM to each process
             for pid in pids:
-                kill_cmd = f"kill -TERM {pid} 2>/dev/null || true"
+                kill_cmd = f"kill -INT {pid} 2>/dev/null || true"
                 self.ssh.exec_command(kill_cmd, timeout=2)
             
             print("SIGTERM sent, waiting for graceful shutdown...")
@@ -1086,7 +1087,7 @@ class GridCanvas(QGraphicsView):
             self.zoom_level = 1.0
             event.accept()
         #print(f"Spawner state: {self.spawner}, element_placed: {getattr(self.spawner, 'element_placed', None)}")
-        if self.spawner and self.spawner.element_placed:
+        if self.spawner and self.spawner.placing_active:
             #print(f"Key pressed: {event.key()}")
             #print(f"Element placed before: {self.spawner.element_placed}")
             if event.key() in [Qt.Key.Key_Escape, Qt.Key.Key_Return, Qt.Key.Key_Enter]:
@@ -1180,6 +1181,9 @@ class GridCanvas(QGraphicsView):
             # Update preview path as mouse moves
             scene_pos = self.mapToScene(event.position().toPoint())
             self.path_manager.update_preview_path(scene_pos)
+        if self.spawner and self.spawner.placing_active:
+            scene_pos = self.mapToScene(event.position().toPoint())
+            self.spawner.update_position(scene_pos)
 
         super().mouseMoveEvent(event)
 
@@ -1236,10 +1240,10 @@ class GridCanvas(QGraphicsView):
         Intercept events sent to the viewport.
         Required because QGraphicsView receives touch events on the viewport, not the widget itself.
         """
-        print(f"[GridCanvas.viewportEvent] Event type: {event.type()}")
+        #print(f"[GridCanvas.viewportEvent] Event type: {event.type()}")
         if event.type() in (QEvent.Type.TouchBegin, QEvent.Type.TouchUpdate, QEvent.Type.TouchEnd):
             # Pass the event to your custom handler
-            print(f"[GridCanvas.viewportEvent] Handling touch event: {event.type()}") 
+            #print(f"[GridCanvas.viewportEvent] Handling touch event: {event.type()}") 
             self.touch_event(event)
             return True # Tell Qt we handled it
         
@@ -1310,6 +1314,12 @@ class GridCanvas(QGraphicsView):
                 if block_data:
                     widget = block_data.get('widget')
                     if widget:
+                        out_connections = block_data.get('out_connections', {})
+                        for path_id in list(out_connections.keys()):
+                            self.remove_path(path_id)
+                        in_connections = block_data.get('in_connections', {})
+                        for path_id in list(in_connections.keys()):
+                            self.remove_path(path_id)
                         # ✅ Properly remove from scene
                         widget.setParent(None)
                         self.scene.removeItem(widget)
@@ -1325,6 +1335,12 @@ class GridCanvas(QGraphicsView):
                         if block_data:
                             widget = block_data.get('widget')
                             if widget:
+                                out_connections = block_data.get('out_connections', {})
+                                for path_id in list(out_connections.keys()):
+                                    self.remove_path(path_id)
+                                in_connections = block_data.get('in_connections', {})
+                                for path_id in list(in_connections.keys()):
+                                    self.remove_path(path_id)
                                 widget.setParent(None)
                                 self.scene.removeItem(widget)
                                 widget.deleteLater()
@@ -1699,13 +1715,10 @@ class MainWindow(QMainWindow):
     def stop_execution(self):
         if self.execution_thread and self.execution_thread.isRunning():
             print("[MainWindow] Stopping execution thread...")
+            self.execution_thread.kill_process()
             self.execution_thread.stop()
-
-            if not self.execution_thread.wait(5000):
-                print("[MainWindow] Execution thread did not stop in time.")
-            else:
-                print("[MainWindow] Execution thread stopped successfully.")
-                self.execution_thread = None
+            self.execution_thread.wait(3000)
+            self.execution_thread.terminate()
         else:
             print("[MainWindow] No execution thread is running.")
 
@@ -2545,7 +2558,7 @@ class MainWindow(QMainWindow):
                 current_canvas.inspector_content_layout.count(), 
                 interval_input
             )
-        if block_data['type'] in ('If', 'While', 'For Loop'):
+        if block_data['type'] in ('While', 'For Loop'):
             name_label = QLabel(f"{self.t('main_GUI.inspector.value_1_name')}:")
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
@@ -2582,6 +2595,39 @@ class MainWindow(QMainWindow):
             self.insert_items(block, self.name_2_input)
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_2_input)
+        if block_data['type'] == 'If':
+            for i in range(block_data.get('condition_count', 1)):
+                cond_widget = QWidget()
+                cond_layout = QHBoxLayout(cond_widget)
+                cond_layout.setContentsMargins(0, 0, 0, 0)
+
+                value_1_label = QLabel(f"{self.t('main_GUI.inspector.value_1_name')}:")
+                cond_layout.addWidget(value_1_label)
+                value_1_input = SearchableLineEdit()
+                value_1_input.setText(block_data.get(f'value_{i+1}_1_name', ''))
+                value_1_input.setPlaceholderText(self.t("main_GUI.inspector.value_1_name_placeholder"))
+                value_1_input.textChanged.connect(lambda text, bd=block_data, idx=i+1: self.Block_value_1_name_changed(text, bd, idx))
+                self.insert_items(block, value_1_input)
+                cond_layout.addWidget(value_1_input)
+
+                operator_label = QLabel(f"{self.t('main_GUI.inspector.operator')}:")
+                cond_layout.addWidget(operator_label)
+                operator_input = QComboBox()
+                operator_input.addItems(["==", "!=", "<", ">", "<=", ">="])
+                operator_input.setCurrentText(block_data.get(f'operator_{i+1}', '=='))
+                operator_input.currentTextChanged.connect(lambda text, bd=block_data, idx=i+1: self.Block_operator_changed(text, bd, idx))
+                cond_layout.addWidget(operator_input)
+
+                value_2_label = QLabel(f"{self.t('main_GUI.inspector.value_2_name')}:")
+                cond_layout.addWidget(value_2_label)
+                value_2_input = SearchableLineEdit()
+                value_2_input.setText(block_data.get(f'value_{i+1}_2_name', ''))
+                value_2_input.setPlaceholderText(self.t("main_GUI.inspector.value_2_name_placeholder"))
+                value_2_input.textChanged.connect(lambda text, bd=block_data, idx=i+1: self.Block_value_2_name_changed(text, bd, idx))
+                self.insert_items(block, value_2_input)
+                cond_layout.addWidget(value_2_input)
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), cond_widget)
+
         if block_data['type'] == 'Switch':
             name_label = QLabel(f"{self.t('main_GUI.inspector.device/variable_name')}:")
             
@@ -2674,13 +2720,12 @@ class MainWindow(QMainWindow):
 
             PWM_label = QLabel(self.t("main_GUI.inspector.pwm_value"))
 
-            self.PWM_value_input = QLineEdit()
-            regex = QRegularExpression(r"^\d*$")
-            validator = QRegularExpressionValidator(regex, self)
-            self.PWM_value_input.setValidator(validator)
-            self.PWM_value_input.setText(block_data.get('PWM_value', '50'))
+            self.PWM_value_input = SearchableLineEdit()
+            self.PWM_value_input.setText(block_data.get('PWM_value', ''))
             self.PWM_value_input.setPlaceholderText(self.t("main_GUI.inspector.pwm_value_placeholder"))
             self.PWM_value_input.textChanged.connect(lambda text, bd=block_data: self.Block_PWM_value_changed(text, bd))
+
+            self.insert_items(block, self.PWM_value_input)
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
@@ -2871,7 +2916,7 @@ class MainWindow(QMainWindow):
         block_data['internal_devs']['main_devs'][dev_id]['type'] = 'Device'
         print(f"Updated block_data: {block_data}")
 
-    def Block_value_1_name_changed(self, text, block_data):
+    def Block_value_1_name_changed(self, text, block_data, idx=None):
         current_canvas = self.current_canvas
         #print("Updating vlaue 1 name")
         if current_canvas is None:
@@ -2905,17 +2950,27 @@ class MainWindow(QMainWindow):
         else:
             if len(text) > 5:
                 text = text[:3] + "..."
-        block_data['value_1_name'] = text
-        block_data['widget'].value_1_name = text
+        if block_data['type'] == 'If':
+            block_data['first_vars'][f'value_{idx if idx is not None else 1}_1_name'] = text
+            setattr(block_data['widget'], f'value_{idx if idx is not None else 1}_1_name', text)
+        else: 
+            block_data['value_1_name'] = text
+            block_data['widget'].value_1_name = text
         block_data['widget'].update()
     
-    def Block_operator_changed(self, text, block_data):
+    def Block_operator_changed(self, text, block_data, idx=None):
         #print("Updating operator")
-        block_data['operator'] = text 
-        block_data['widget'].operator = text   
+        if block_data['type'] == 'If':
+            block_data['operators'][idx if idx is not None else 1] = text
+            print(f"Updated block_data operators: {block_data['operators']}")
+            setattr(block_data['widget'], f'operator_{idx if idx is not None else 1}', text)
+            print(f"Updated widget operator_{idx if idx is not None else 1}: {getattr(block_data['widget'], f'operator_{idx if idx is not None else 1}')}")
+        else:
+            block_data['operator'] = text
+            block_data['widget'].operator = text   
         block_data['widget'].update()
     
-    def Block_value_2_name_changed(self, text, block_data):
+    def Block_value_2_name_changed(self, text, block_data, idx=None):
         #print("Updating vlaue 2 name") 
         block_data['value_2_name'] = text
         current_canvas = self.current_canvas
@@ -2945,8 +3000,12 @@ class MainWindow(QMainWindow):
                 break
         if len(text) > 5:
             text = text[:3] + "..."
-        block_data['value_2_name'] = text
-        block_data['widget'].value_2_name = text
+        if block_data['type'] == 'If':
+            block_data['second_vars'][f'value_{idx if idx is not None else 2}_2_name'] = text
+            setattr(block_data['widget'], f'value_{idx if idx is not None else 2}_2_name', text)
+        else:
+            block_data['value_2_name'] = text
+            block_data['widget'].value_2_name = text
         block_data['widget'].update()
     
     def Block_result_var_name_changed(self, text, block_data):
@@ -2996,7 +3055,7 @@ class MainWindow(QMainWindow):
 
     def Block_PWM_value_changed(self, text, block_data):
         #print("Updating PWM value")
-        if text != '':
+        if text != '' and text.isdigit():
             pwm_val = int(text)
             if pwm_val < 0:
                 pwm_val = 0
@@ -3450,9 +3509,9 @@ class MainWindow(QMainWindow):
         
         self.type_input = QComboBox()
         self.type_input.addItems([self.t("main_GUI.devices_tab.output"), self.t("main_GUI.devices_tab.input"), self.t("main_GUI.devices_tab.button"), "PWM"])
-        if dev_data and 'type' in dev_data:
-            self.type_input.setCurrentText(dev_data['type'])
-            Utils.devices['main_canvas'][device_id]['type'] = dev_data['type']
+        if dev_data and 'type_index' in dev_data:
+            self.type_input.setCurrentIndex(dev_data['type_index'])
+            Utils.devices['main_canvas'][device_id]['type_index'] = dev_data['type_index']
         
         self.type_input.currentTextChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference: self.type_changed(text, d_id, t, r))
         
@@ -3750,6 +3809,7 @@ class MainWindow(QMainWindow):
                 if canvas_reference == canvas:
                     if info['ref'] == 'canvas':
                         Utils.variables['main_canvas'][id]['type'] = input
+                        print(f"Index of type for variable {id} set to {self.type_input.currentIndex()}")
                         Utils.variables['main_canvas'][id]['type_index'] = self.type_input.currentIndex()
                         break
                     elif info['ref'] == 'function':
@@ -3763,6 +3823,7 @@ class MainWindow(QMainWindow):
                 if canvas_reference == canvas:
                     if info['ref'] == 'canvas':
                         Utils.devices['main_canvas'][id]['type'] = input
+                        print(f"Index of type for device {id} set to {self.type_input.currentIndex()}")
                         Utils.devices['main_canvas'][id]['type_index'] = self.type_input.currentIndex()
                         break
                     elif info['ref'] == 'function':
@@ -4461,7 +4522,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.StandardButton.Ok
             )
         else:
-            print(f"[RPi Report] {output}")
+            #print(f"[RPi Report] {output}")
             _, report = output.split('__REPORT__')
             Utils.reports = json.loads(report)
 
@@ -4759,18 +4820,27 @@ class MainWindow(QMainWindow):
             block_id=block_id,
             block_type=block_type,
             parent_canvas=canvas,
+            conditions=Utils.project_data.main_canvas['blocks'][block_id].get('conditions', 1) if block_type == 'If' else None,
             name=name
         )
         for canvas_key, canvas_info in Utils.canvas_instances.items():
             if canvas_info['canvas'] == canvas:
                 break
         if canvas_info['ref'] == 'canvas':
-            if block_type in ('If', 'While', 'Button'):
+            if block_type in ('While', 'Button'):
                 block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
                 #block.value_1_type = Utils.project_data.blocks[block_id].get('value_1_type', "N/A")
                 block.value_2_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2")
                 #block.value_2_type = Utils.project_data.blocks[block_id].get('value_2_type', "N/A")
                 block.operator = Utils.project_data.main_canvas['blocks'][block_id].get('operator', "==")
+            elif block_type == 'If':
+                for i in range(Utils.project_data.main_canvas['blocks'][block_id].get('conditions', 1)):
+                    str_1 = f"value_{i+1}_1_name"
+                    str_2 = f"value_{i+1}_2_name"
+                    str_op = f"operator_{i+1}"
+                    setattr(block, str_1, Utils.project_data.main_canvas['blocks'][block_id]['first_vars'].get(str_1, f"var{i+1}_1"))
+                    setattr(block, str_2, Utils.project_data.main_canvas['blocks'][block_id]['second_vars'].get(str_2, f"var{i+1}_2"))
+                    setattr(block, str_op, Utils.project_data.main_canvas['blocks'][block_id]['operators'].get(str_op, "=="))
             elif block_type == 'Switch':
                 block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
                 block.switch_state = Utils.project_data.main_canvas['blocks'][block_id].get('switch_state', False)
@@ -5017,6 +5087,19 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     
+    def global_exception_hook(exctype, value, traceback):
+        error_msg = "".join(tb.format_exception(exctype, value, traceback))
+        print("CRITICAL ERROR CAUGHT:", file=sys.stderr)
+        print(error_msg, file=sys.stderr)
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Icon.Critical)
+        msg.setWindowTitle("Critical Error")
+        msg.setText(f"An unexpected error occurred:\n{str(value)}")
+        msg.setDetailedText(error_msg) # Puts the full trace in a scrollable area
+        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg.exec()
+    
+    sys.excepthook = global_exception_hook
     # 1. SETUP SPLASH
     # Use a .gif path here. If you don't have one, it will default to a dark screen.
     splash = NativeSplash() 

@@ -388,9 +388,7 @@ class PathManager:
                                     waypoints = path_info['waypoints']
                                     print(f"    Pos_x: {path_item.to_block.pos().x()+6}, Pos_y: {path_item.to_block.pos().y()}")
                                     if path_info['to_circle_type'] == 'in':
-                                        waypoints[-1] = (path_item.to_block.pos().x()+6, path_item.to_block.pos().y() + path_item.to_block.height / 2)
-                                    elif path_info['to_circle_type'] == 'in1':
-                                        waypoints[-1] = (path_item.to_block.pos().x()+6, path_item.to_block.pos().y() + 3*path_item.to_block.height / 4)
+                                        waypoints[-1] = (path_item.to_block.pos().x()+6, path_item.to_block.pos().y() + (25 * ((path_item.to_block.height / 25) - 1)))
                                     print(f" → Found waypoints for path {path_id}: {waypoints}")
                                     path_item.draw_path(waypoints)
                 elif self.canvas.reference == 'canvas':
@@ -399,9 +397,7 @@ class PathManager:
                             waypoints = path_info['waypoints']
                             print(f"    Pos_x: {path_item.to_block.pos().x()+6}, Pos_y: {path_item.to_block.pos().y()}")
                             if path_info['to_circle_type'] == 'in':
-                                waypoints[-1] = (path_item.to_block.pos().x()+6, path_item.to_block.pos().y() + path_item.to_block.height / 2)
-                            elif path_info['to_circle_type'] == 'in1':
-                                waypoints[-1] = (path_item.to_block.pos().x()+6, path_item.to_block.pos().y() + 3*path_item.to_block.height / 4)
+                                waypoints[-1] = (path_item.to_block.pos().x()+6, path_item.to_block.pos().y() + (25 * ((path_item.to_block.height / 25) - 1)))
                             print(f" → Found waypoints for path {path_id}: {waypoints}")
                             path_item.draw_path(waypoints)
             elif path_item.from_block == widget:
@@ -413,12 +409,10 @@ class PathManager:
                                 if path_id == path_item.path_id:
                                     waypoints = path_info['waypoints']
                                     print(f"    Pos_x: {path_item.from_block.pos().x()+6}, Pos_y: {path_item.from_block.pos().y()}")
-                                    if path_info['from_circle_type'] == 'out':
-                                        waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + path_item.from_block.height / 2)
-                                    if path_info['from_circle_type'] == 'out1':
-                                        waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + path_item.from_block.height / 4)
-                                    if path_info['from_circle_type'] == 'out2':
-                                        waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + 3 * path_item.from_block.height / 4)
+                                    if path_info['from_circle_type'].startswith('out'):
+                                        print(f"    Detected output circle type: {path_info['from_circle_type']}")
+                                        number = int(path_info['from_circle_type'].split('_')[1])
+                                        waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + (25 * ((path_item.from_block.height / 25) -number)))
                                     print(f" → Found waypoints for path {path_id}: {waypoints}")
                                     path_item.draw_path(waypoints)
                 elif self.canvas.reference == 'canvas':
@@ -426,12 +420,10 @@ class PathManager:
                         if path_id == path_item.path_id:
                             waypoints = path_info['waypoints']
                             print(f"    Pos_x: {path_item.from_block.pos().x()+6}, Pos_y: {path_item.from_block.pos().y()}")
-                            if path_info['from_circle_type'] == 'out':
-                                waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + path_item.from_block.height / 2)
-                            if path_info['from_circle_type'] == 'out1':
-                                waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + path_item.from_block.height / 4)
-                            if path_info['from_circle_type'] == 'out2':
-                                waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + 3 * path_item.from_block.height / 4)
+                            if path_info['from_circle_type'].startswith('out'):
+                                print(f"    Detected output circle type: {path_info['from_circle_type']}")
+                                number = int(path_info['from_circle_type'].split('_')[1])
+                                waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + (25 * ((path_item.from_block.height / 25) -number)))
                             print(f" → Found waypoints for path {path_id}: {waypoints}")
                             path_item.draw_path(waypoints)
     

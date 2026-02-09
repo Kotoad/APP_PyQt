@@ -135,6 +135,10 @@ class CodeViewerWindow(QDialog):
             self.activateWindow()
         return self
     
+    def reject(self):
+        """Redirect Esc key (reject) to close() so closeEvent fires"""
+        self.close()
+
     def closeEvent(self, event):
         self.is_hidden = True
         self.state_manager.app_state.on_code_viewer_dialog_close()

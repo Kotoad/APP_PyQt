@@ -3,12 +3,12 @@ QComboBox, QApplication, QStyleOptionComboBox,
 pyqtProperty, QEasingCurve, QRectF,
 Qt, QPoint, QPropertyAnimation, QRect,
 pyqtSignal, QObject, QRegularExpression,
-QPainter, QPen, QBrush, QColor,
+QPainter, QPen, QBrush, QColor, QGraphicsObject,
 QPixmap, QImage, QMouseEvent, QStandardItem,
 QIntValidator, QRegularExpressionValidator,
 QPainterPath, QFont, QStyledItemDelegate, QSortFilterProxyModel,
 QStandardItemModel, QListWidget, QEvent, ctypes, sys, time,
-QGraphicsPixmapItem, QGraphicsItem, QPointF)
+QGraphicsPixmapItem, QGraphicsItem, QPointF, QCursor)
 from PIL import Image, ImageDraw, ImageFont
 import random
 from Imports import get_utils
@@ -18,12 +18,14 @@ class BlockSignals(QObject):
     """Signal container for block interactions"""
     input_clicked = pyqtSignal(object, QPointF, str)  # block, center, type
     output_clicked = pyqtSignal(object, QPointF, str)  # block, center, type
+    Add_condition = pyqtSignal(object)  # block
+    Remove_condition = pyqtSignal(object)  # block
 
 #MARK: - BlockGraphicsItem
-class BlockGraphicsItem(QGraphicsItem, QObject):
+class BlockGraphicsItem(QGraphicsObject):
     """Graphics item representing a block - renders with QPainter for perfect zoom quality"""
 
-    def __init__(self, x, y, block_id, block_type, parent_canvas, main_window=None, name=None):
+    def __init__(self, x, y, block_id, block_type, parent_canvas, main_window=None, name=None, conditions=1):
         super().__init__()
         print(f'Initializing BlockGraphicsItem: {block_id} of type {block_type} at ({x}, {y}) on canvas {parent_canvas}, name: {name if name else "N/A"}')
         self.signals = BlockSignals()
@@ -36,13 +38,16 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             self.main_window = QApplication.instance().activeWindow()
         #print(f"Main window in BlockGraphicsItem: {self.main_window}")
         self.border_color = QColor("black")
-
         self.block_id = block_id
         self.block_type = block_type
         self.canvas = parent_canvas
         self.canvas_id = None
         self.name = name
         self.grid_size = 25
+        self.radius = 6
+        self.border_width = 2
+        self.condition_count = conditions
+        self.font = "Consolas"
         #print(f"self.canvas: {self.canvas}, self.block_id: {self.block_id}, self.block_type: {self.block_type}, self.x: {x}, self.y: {y}, self.name: {self.name}")
         self.value_1_name = "N"
         if self.block_type == "Basic_operations":
@@ -62,6 +67,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         self._setup_dimensions()
         
         # Set position
+        x, y = self.snap_to_grid(x, y)
         self.setPos(x, y)
         
         self.setAcceptHoverEvents(True)
@@ -69,26 +75,52 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         
-        # Circle configuration
-        self.radius = 6
-        self.border_width = 2
-        
         print(f"✓ BlockGraphicsItem created: {block_id} ({block_type}) at ({x}, {y})")
+
+    def boundingRect(self):
+        """Define the bounding rectangle for the item"""
+        return QRectF(-5, -5, self.width + 15 + self.radius, self.height+10)
+
+    def paint(self, painter, option, widget):
+        """Paint the block using QPainter"""
+
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        #print("Calculating dimensions for block:", self.block_id)
+        self._calculate_dimensions(painter)
+
+        # Draw main block body
+        #print("Drawing block body for:", self.block_id)
+        self._draw_block_body(painter)
+        
+        # Draw text
+        #print("Drawing text for:", self.block_id)
+        self._draw_text(painter)
+        
+        # Draw connection circles
+        #print("Drawing connection circles for:", self.block_id)
+        self._draw_connection_circles(painter)
+
+    def _calculate_dimensions(self, painter):
+        """Recalculate block dimensions based on current properties"""
+        self._setup_dimensions()
+        self._calculate_width_from_text(painter)
+        #self.prepareGeometryChange()
 
     def _setup_dimensions(self):
         v_count = 0
         d_count = 0
         """Set block dimensions based on type"""
-        if self.block_type in ["If", "While", "Switch", "Button"]:
+        if self.block_type in ["While", "Button"]:
             self.width = 100
-            self.height = 54
+            self.height = 75
         elif self.block_type in ["Timer","Basic_operations", "Exponential_operations",
                                 "Random_number", "Blink_LED", "PWM_LED"]:
             self.width = 150
-            self.height = 36
-        elif self.block_type in [ "Start", "End", "While_true", "Toggle_LED"]:
+            self.height = 50
+        elif self.block_type in [ "Start", "End", "While_true", "Toggle_LED", "Switch"]:
             self.width = 100
-            self.height = 36
+            self.height = 50
         elif self.block_type == "Function":
             #print(f"Utils.variables['function_canvases']: {Utils.variables['function_canvases']}")
             for canvas, canvas_info in Utils.canvas_instances.items():
@@ -106,63 +138,18 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             else:
                 count = d_count
             self.width = 150
-            self.height = 15 + (count * 20)
+            self.height = 50 + (count * 25)
+        elif self.block_type == "If":
+            self.width = 100
+            self.height = 50 + (self.condition_count * 25)
         else:  #Fallback for other blocks
             print(f"[Warning] Unknown block type '{self.block_type}', using default dimensions.")
             self.width = 100
-            self.height = 36
-
-    def _calculate_dimensions(self, painter):
-        """Recalculate block dimensions based on current properties"""
-        self._setup_dimensions()
-        self._calculate_width_from_text(painter)
-        self.prepareGeometryChange()
-
-    def _get_block_color(self):
-        """Get color for block type"""
-        colors = {
-            "Start": QColor("#90EE90"),      # Light green
-            "End": QColor("#FF6B6B"),        # Red
-            "Timer": QColor("#02B488"),     # Sky blue
-            "If": QColor("#87CEEB"),        # Sky blue
-            "While": QColor("#87CEEB"),     # Sky blue
-            "Switch": QColor("#87CEEB"),    # Sky blue
-            "Button": QColor("#D3D3D3"),    # Light gray
-            "While_true": QColor("#87CEEB"),     # Sky blue
-            "Function": QColor("#FFA500"),  # Orange
-            "Basic_operations": QColor("#9900FF"),  # Light orange
-            "Exponential_operations": QColor("#9900FF"),      # Purple
-            "Random_number": QColor("#9900FF"),  # Purple
-            "Blink_LED": QColor("#57A139"),      # Yellow
-            "Toggle_LED": QColor("#57A139"),     # Yellow
-            "PWM_LED": QColor("#57A139"),        # Yellow
-        }
-        return colors.get(self.block_type, QColor("#FFD700"))  # Default yellow
-
-    def boundingRect(self):
-        """Define the bounding rectangle for the item"""
-        return QRectF(0, 0, self.width + 2 * self.radius, self.height)
-
-    def paint(self, painter, option, widget):
-        """Paint the block using QPainter"""
-
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        
-        self._calculate_dimensions(painter)
-
-        # Draw main block body
-        self._draw_block_body(painter)
-        
-        # Draw text
-        self._draw_text(painter)
-        
-        # Draw connection circles
-        self._draw_connection_circles(painter)
+            self.height = 50
 
     def _calculate_width_from_text(self, painter):
         """Calculate required width based on text content"""
-        font = QFont("Arial", 8, QFont.Weight.Normal)
+        font = QFont(self.font, 8, QFont.Weight.Normal)
         painter.setFont(font)
         metrics = painter.fontMetrics()
         
@@ -208,8 +195,30 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             text_width = metrics.horizontalAdvance(text_to_measure)
 
             text_width = (math.ceil(text_width/self.grid_size)*self.grid_size)+25
-            #print(f"Calculated text width for block '{self.block_id}' ({self.block_type}): {text_width}")
+            
             self.width = max(self.width, text_width)
+            #print(f"Calculated text width for block '{self.block_id}' ({self.block_type}): {text_width}, setting block width to: {self.width}")
+
+    def _get_block_color(self):
+        """Get color for block type"""
+        colors = {
+            "Start": QColor("#90EE90"),      # Light green
+            "End": QColor("#FF6B6B"),        # Red
+            "Timer": QColor("#02B488"),     # Sky blue
+            "If": QColor("#87CEEB"),        # Sky blue
+            "While": QColor("#87CEEB"),     # Sky blue
+            "Switch": QColor("#87CEEB"),    # Sky blue
+            "Button": QColor("#D3D3D3"),    # Light gray
+            "While_true": QColor("#87CEEB"),     # Sky blue
+            "Function": QColor("#FFA500"),  # Orange
+            "Basic_operations": QColor("#9900FF"),  # Light orange
+            "Exponential_operations": QColor("#9900FF"),      # Purple
+            "Random_number": QColor("#9900FF"),  # Purple
+            "Blink_LED": QColor("#57A139"),      # Yellow
+            "Toggle_LED": QColor("#57A139"),     # Yellow
+            "PWM_LED": QColor("#57A139"),        # Yellow
+        }
+        return colors.get(self.block_type, QColor("#FFD700"))  # Default yellow
 
     def _draw_block_body(self, painter):
         """Draw the main rounded rectangle body"""
@@ -227,22 +236,17 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         """Draw block label text"""
         #print("Drawing text for block:", self.block_type)
         painter.setPen(QPen(QColor("black")))
-        font = QFont("Arial", 8, QFont.Weight.Normal)
+        font = QFont(self.font, 8, QFont.Weight.Normal)
         painter.setFont(font)
         
         # Determine text
         text = self.block_type
         # Draw text centered
-        if self.block_type in ["If", "While", "Button"]:
+        if self.block_type in ["While"]:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter, text)
             text_rect2 = QRectF(self.radius, 0, self.width, self.height)
-            if self.block_type == "If":
-                condition_text = f"{self.value_1_name} {self.operator} {self.value_2_name}"
-            elif self.block_type == "While":
-                condition_text = f"{self.value_1_name} {self.operator} {self.value_2_name}"
-            elif self.block_type == "Button":
-                condition_text = f"{self.value_1_name}"
+            condition_text = f"{self.value_1_name} {self.operator} {self.value_2_name}"
             len = painter.fontMetrics().boundingRect(condition_text).width()
             painter.drawText(text_rect2, Qt.AlignmentFlag.AlignCenter, condition_text)
         elif self.block_type == "Timer":
@@ -265,9 +269,9 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             painter.drawText(name_rect, Qt.AlignmentFlag.AlignHCenter, self.name)
 
             # Draw variable/device list
-            small_font = QFont("Arial", 8)
+            small_font = QFont(self.font, 8)
             painter.setFont(small_font)
-            y_offset = 20
+            y_offset = 25
             longest = 0
             for v_id, v_info in Utils.variables['function_canvases'][self.canvas_id].items():
                 #print(f"   Drawing variable: {v_info['name']}")
@@ -277,9 +281,9 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
                 if current_len > longest:
                     longest = current_len
                 painter.drawText(var_rect, Qt.AlignmentFlag.AlignLeft, var_text)
-                y_offset += 20
+                y_offset += 25
             len += longest
-            y_offset = 20
+            y_offset = 25
             for d_id, d_info in Utils.devices['function_canvases'][self.canvas_id].items():
                 #print(f"   Drawing device: {d_info['name']}")
                 dev_text = f"{d_info['name']}"
@@ -288,11 +292,49 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
                 if current_len > longest:
                     longest = current_len
                 painter.drawText(dev_rect, Qt.AlignmentFlag.AlignRight, dev_text)
-                y_offset += 20
+                y_offset += 25
             len += longest
+        elif self.block_type == "If":
+            #print(f"Drawing text for If block with {self.condition_count} conditions")
+            large_font = QFont(self.font, 15, QFont.Weight.Bold)
+            painter.setFont(large_font)
+            painter.drawText(QRectF(self.radius + 10, 0, self.width, 25), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, "+")
+            painter.drawText(QRectF(self.radius, 0, self.width-10, 25), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, "-")
+            small_font = QFont(self.font, 8)
+            painter.setFont(small_font)
+            y_offset = 25
+            conditions = self.condition_count
+            helper = 1
+            if conditions > 0:
+                #print(f"Drawing main condition for If block")
+                val_a = getattr(self, f"value_{helper}_1_name", "N")
+                op    = getattr(self, f"operator_{helper}", "==")
+                val_b = getattr(self, f"value_{helper}_2_name", "N")
+
+                condition_text = f"If {val_a} {op} {val_b}"
+                len = painter.fontMetrics().boundingRect(condition_text).width()
+                painter.drawText(QRectF(self.radius, y_offset, self.width, 15), Qt.AlignmentFlag.AlignCenter, condition_text)
+                y_offset += 25
+                conditions -= 1
+                helper += 1
+            while conditions > 0:
+                #print(f"Drawing additional condition {helper} for If block")
+                val_a = getattr(self, f"value_{helper}_1_name", "N")
+                op    = getattr(self, f"operator_{helper}", "==")
+                val_b = getattr(self, f"value_{helper}_2_name", "N")
+
+                condition_text = f"Elif {val_a} {op} {val_b}"
+                len = painter.fontMetrics().boundingRect(condition_text).width()
+                painter.drawText(QRectF(self.radius, y_offset, self.width, 15), Qt.AlignmentFlag.AlignCenter, condition_text)
+                y_offset += 25
+                conditions -= 1
+                helper += 1
+            else_text = "Else"
+            len = painter.fontMetrics().boundingRect(else_text).width()
+            painter.drawText(QRectF(self.radius, y_offset, self.width, 15), Qt.AlignmentFlag.AlignCenter, else_text)
 
         elif self.block_type == "Switch":
-            small_font = QFont("Arial", 8)
+            small_font = QFont(self.font, 8)
             painter.setFont(small_font)
             #print(f"Drawing Switch labels, state: {self.switch_state}")
             #print(f"Current block data: {Utils.main_canvas['blocks'].get(self.block_id, {})}")
@@ -302,15 +344,15 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
             len = painter.fontMetrics().boundingRect(dev_text).width()
             painter.drawText(dev_rect, Qt.AlignmentFlag.AlignCenter, dev_text)
 
-            on_rect = QRectF(self.radius + self.width - 35, self.height / 2 - 5, 30, 10)
+            on_rect = QRectF(self.radius, 0, self.width-5-2*self.radius, self.height)
             on_color = QColor("Green") if self.switch_state else QColor("Gray")
             painter.setPen(QPen(on_color))
-            painter.drawText(on_rect, Qt.AlignmentFlag.AlignRight, "ON")
+            painter.drawText(on_rect, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, "ON")
             
-            off_rect = QRectF(self.radius + 5, self.height / 2 - 5, 30, 10)
+            off_rect = QRectF(self.radius*2 +5, 0, self.width, self.height)
             off_color = QColor("Red") if not self.switch_state else QColor("Gray")
             painter.setPen(QPen(off_color))
-            painter.drawText(off_rect, Qt.AlignmentFlag.AlignLeft, "OFF")
+            painter.drawText(off_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, "OFF")
         
         elif self.block_type in ["Basic_operations", "Exponential_operations", "Random_number"]:
             math_text = f"{self.result_var_name} = {self.value_1_name} {self.operator} {self.value_2_name}"
@@ -344,7 +386,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         # Input circle (white)
         if self.block_type != "Start":
             if self.block_type in ["If", "While", "Switch", "Button"]:
-                in_y = 3 * self.height / 4
+                in_y = self.grid_size*((self.height/self.grid_size)-1)
             else:
                 in_y = self.height / 2
             
@@ -354,25 +396,26 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         
         # Output circle(s) (red)
         if self.block_type != "End":
-            if self.block_type in ["If", "While", "Button"]:
+            if self.block_type in ["While", "Button"]:
                 # Two output circles
-                out_y1 = self.height / 4
-                out_y2 = 3 * self.height / 4
+                out_y1 = self.grid_size * ((self.height / self.grid_size) - 2)
+                out_y2 = self.grid_size * ((self.height / self.grid_size) - 1)
                 
                 for out_y in [out_y1, out_y2]:
-                    out_circle = QRectF(self.width + self.radius - self.radius, 
-                                       out_y - self.radius, 2*self.radius, 2*self.radius)
+                    out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
                     painter.setBrush(QBrush(QColor("red")))
                     painter.drawEllipse(out_circle)
+            elif self.block_type == "If":
+                conditions = self.condition_count + 1
+                while conditions > 0:
+                    out_y = self.grid_size * ((self.height / self.grid_size) - conditions)
+                    out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
+                    painter.setBrush(QBrush(QColor("red")))
+                    painter.drawEllipse(out_circle)
+                    conditions -= 1
             else:
-                # Single output circle
-                if self.block_type in ("Switch"):
-                    out_y = 3 * self.height / 4
-                else:
-                    out_y = self.height / 2
-                
-                out_circle = QRectF(self.width + self.radius - self.radius, 
-                                   out_y - self.radius, 2*self.radius, 2*self.radius)
+                out_y = self.grid_size * ((self.height / self.grid_size) - 1)
+                out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
                 painter.setBrush(QBrush(QColor("red")))
                 painter.drawEllipse(out_circle)
     #MARK: - Event Handling
@@ -409,6 +452,9 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
                 try:
                     block_graphics.signals.input_clicked.connect(events.on_input_clicked)
                     block_graphics.signals.output_clicked.connect(events.on_output_clicked)
+                    if self.block_type == "If":
+                        block_graphics.signals.Add_condition.connect(events.on_add_condition)
+                        block_graphics.signals.Remove_condition.connect(events.on_remove_condition)
                     #print(f"   Signals connected for {self.block_id}")
                 except Exception as e:
                     print(f"Error connecting signals for {self.block_id}: {e}")
@@ -425,13 +471,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         elif height < self.grid_size:
             #print("Height less than grid size, setting to grid size")
             grid_height += self.grid_size
-        if height == self.grid_size:
-            #print("Height equals grid size, centering")
-            height_offset = grid_height/2
-        else:
-            #print("Calculating height offset")
-            height_offset = (grid_height - height)/2
-        #print(f"Height: {height}, Grid height: {grid_height}, Height offset: {height_offset}")
+        #print(f"Height: {height}, Grid height: {grid_height}")
         """round_x = round(x / self.grid_size)
         round_y = round(y / self.grid_size) 
         Grid_rounded_x = (round_x * self.grid_size)
@@ -444,15 +484,17 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         
             
         snapped_x = int(round(x / self.grid_size) * self.grid_size - self.radius)
-        snapped_y = int((round(y / self.grid_size) * self.grid_size)+ height_offset)
+        #print(f"Snapped X before adjustment: {snapped_x}, Difference: {abs(x - snapped_x)}")
+        snapped_y = int((round(y / self.grid_size) * self.grid_size))
+        #print(f"Snapped Y before adjustment: {snapped_y}, Difference: {abs(y - snapped_y)}")
         if (abs(y - snapped_y)) > (self.grid_size/2):
             #print("Adjusting snapped_y upwards")
             snapped_y = int(snapped_y - self.grid_size)
         """print(f"Original {x}, {y}") 
         print(f"Rounded {round_x}, {round_y}")
         print(f"Grid {Grid_rounded_x, Grid_rounded_y}")
-        print(f"Grid + height_offset {Grid_rounded_y_height_offset}")
-        print(f"Snapped {snapped_x}, {snapped_y}")"""
+        print(f"Grid + height_offset {Grid_rounded_y_height_offset}")"""
+        #print(f"Snapped {snapped_x}, {snapped_y}")
         return snapped_x, snapped_y
 
     def itemChange(self, change, value):
@@ -497,35 +539,44 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
     #MARK: - Mouse Events
     def mousePressEvent(self, event):
         """Handle block selection and circle clicks"""
-        self.setSelected(True)
         local_pos = event.pos()
-        circle_type = self._check_click_on_circle(local_pos)
+        clicked = self.where_clicked(local_pos)
         
-        print(f"Mouse press at {local_pos}, detected circle: {circle_type}")
+        #print(f"Mouse press at {local_pos}, detected circle: {clicked}")
         
         if event.button() == Qt.MouseButton.LeftButton:
-            if circle_type:
-                circle_center = self._get_circle_center(circle_type)
+            if clicked and (clicked.startswith('out') or clicked.startswith('in')):
+                circle_center = self._get_circle_center(clicked)  # Get base type for center calculation
                 if isinstance(circle_center, tuple):
                     circle_center = QPointF(circle_center[0], circle_center[1])
                 
-                if circle_type.startswith('in'):
-                    print(f" → Input circle clicked: {circle_type} at {circle_center}")
-                    self.signals.input_clicked.emit(self, circle_center, circle_type)
-                elif circle_type.startswith('out'):
-                    print(f" → Output circle clicked: {circle_type} at {circle_center}")
-                    self.signals.output_clicked.emit(self, circle_center, circle_type)
+                if clicked.startswith('in'):
+                    #print(f" → Input circle clicked: {clicked} at {circle_center}")
+                    self.signals.input_clicked.emit(self, circle_center, clicked)
+                elif clicked.startswith('out'):
+                    #print(f" → Output circle clicked: {clicked} at {circle_center}")
+                    self.signals.output_clicked.emit(self, circle_center, clicked)
                 self.ungrabMouse()
                 event.accept()
                 return  # Prevent further processing if circle clicked
+            elif clicked in ('add_condition', 'remove_condition'):
+                if clicked == 'add_condition':
+                    #print(" → Add condition clicked")
+                    self.signals.Add_condition.emit(self)
+                else:
+                    #print(" → Remove condition clicked")
+                    self.signals.Remove_condition.emit(self)
+                event.accept()
+                return  # Prevent further processing if add/remove clicked
+        self.setSelected(True)
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
         """Handle block deselection"""
         self.setSelected(False)
-        print("Current state before release:", self.state_manager.canvas_state.current_state())
+        #print("Current state before release:", self.state_manager.canvas_state.current_state())
         if self.state_manager.canvas_state.current_state() == 'MOVING_ITEM':
-            print("Setting state to IDLE after move")
+            #print("Setting state to IDLE after move")
             self.setZValue(0)  # Reset Z value after moving
             self.state_manager.canvas_state.on_idle()
         super().mouseReleaseEvent(event)
@@ -533,7 +584,7 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
     #MARK: - Hover Events
     def hoverEnterEvent(self, event):
         # Change color or show handle when mouse touches block
-        print("Mouse entered block!")
+        #print("Mouse entered block!")
         self.setCursor(Qt.CursorShape.OpenHandCursor)
         self.border_color = QColor("blue")
         self.update()
@@ -541,11 +592,37 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
 
     def hoverLeaveEvent(self, event):
         # Reset color when mouse leaves
-        print("Mouse left block!")
+        #print("Mouse left block!")
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self.border_color = QColor("black")
         self.update()
         super().hoverLeaveEvent(event)
+
+    def where_clicked(self, pos):
+        """Determine if click is on input/output circle"""
+        circle_type = self._check_click_on_circle(pos)
+        add_remove_condition = self._check_click_on_add_remove(pos)
+        if circle_type:
+            #print(f"Click detected on circle: {circle_type}")
+            return circle_type
+        if add_remove_condition:
+            #print(f"Click detected on add/remove condition: {add_remove_condition}")
+            return add_remove_condition
+
+    def _check_click_on_add_remove(self, click_pos):
+        """Check if click is on add/remove condition areas for If blocks"""
+        if self.block_type != "If":
+            return None
+        self.radius + 10, 0, self.width, self.height - 75
+        add_rect = QRectF(self.radius*2 + 2, 5, 15, 15)
+        remove_rect = QRectF(self.width - self.radius*2 -2, 5, 15, 15)
+        
+        if add_rect.contains(click_pos):
+            return 'add_condition'
+        if remove_rect.contains(click_pos):
+            return 'remove_condition'
+        
+        return None
 
     #MARK: - Circle Detection
     def _get_circle_center(self, circle_type):
@@ -554,19 +631,11 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
         
         if circle_type == 'in':
             local_x = radius
-            local_y = self.height / 2
-        elif circle_type == 'in1':
-            local_x = radius
-            local_y = 3 * (self.height / 4)
-        elif circle_type == 'out':
-            local_x = self.width + self.radius
-            local_y = self.height / 2
-        elif circle_type == 'out1':
-            local_x = self.width + self.radius
-            local_y = self.height / 4
-        elif circle_type == 'out2':
-            local_x = self.width + self.radius
-            local_y = 3 * (self.height / 4)
+            local_y = self.grid_size * ((self.height / self.grid_size) - 1)
+        if circle_type.startswith('out'):
+            number = int(circle_type.split('_')[1])
+            local_x = self.width
+            local_y = self.grid_size * ((self.height / self.grid_size) - number)
         
         # Convert to scene coordinates
         scene_pos = self.mapToScene(local_x, local_y)
@@ -575,51 +644,47 @@ class BlockGraphicsItem(QGraphicsItem, QObject):
     def _check_click_on_circle(self, click_pos, radius_margin=5):
         """
         Determine which circle (if any) was clicked
-        Returns: 'in', 'out', 'in1', 'out1', 'out2', or None
+        Returns: 'in', 'out', 'out1', 'out2', or None
         """
         effective_radius = self.radius + radius_margin
         
-        # Check input circles
-        if self.block_type in ('If', 'While', 'Switch', 'Button'):
-            # One input at 3/4 height
-            in_x, in_y = self.radius, 3 * (self.height / 4)
-            dist_in = ((click_pos.x() - in_x)**2 + (click_pos.y() - in_y)**2)**0.5
-            if dist_in <= effective_radius:
-                return 'in1'
-        else:
-            # Standard input at center height
-            in_x, in_y = self.radius, self.height / 2
-            dist_in = ((click_pos.x() - in_x)**2 + (click_pos.y() - in_y)**2)**0.5
-            if dist_in <= effective_radius:
-                return 'in'
+        in_x, in_y = self.radius, self.height / 2
+        dist_in = ((click_pos.x() - in_x)**2 + (click_pos.y() - in_y)**2)**0.5
+        if dist_in <= effective_radius:
+            return 'in'
         
         # Check output circles
         out_x = self.width + self.radius
         
-        if self.block_type in ('If', 'While', 'Button'):
+        if self.block_type in ('While', 'Button'):
             # Two output circles
-            out_y1 = self.height / 4
-            out_y2 = 3 * (self.height / 4)
+            out_y1 = self.grid_size * ((self.height / self.grid_size) - 2)
+            out_y2 = self.grid_size * ((self.height / self.grid_size) - 1)
             
             dist_out1 = ((click_pos.x() - out_x)**2 + (click_pos.y() - out_y1)**2)**0.5
             dist_out2 = ((click_pos.x() - out_x)**2 + (click_pos.y() - out_y2)**2)**0.5
             
             if dist_out1 <= effective_radius:
-                return 'out1'
+                return 'out_1'
             if dist_out2 <= effective_radius:
-                return 'out2'
-        elif self.block_type == 'Switch':
-            # One output at 3/4 height
-            out_y = 3 * (self.height / 4)
-            dist_out = ((click_pos.x() - out_x)**2 + (click_pos.y() - out_y)**2)**0.5
-            if dist_out <= effective_radius:
-                return 'out2'
+                return 'out_2'
+        elif self.block_type == 'If':
+            # Multiple output circles based on condition count
+            conditions = self.condition_count + 1
+            helper = 0
+            for i in reversed(range(conditions)):
+                print(i+1)
+                out_y = self.grid_size * ((self.height / self.grid_size) - (i + 1))
+                dist_out = ((click_pos.x() - out_x)**2 + (click_pos.y() - out_y)**2)**0.5
+                if dist_out <= effective_radius:
+                    return f'out_{helper+1}'
+                helper += 1
         else:
             # Standard output at center height
-            out_y = self.height / 2
+            out_y = self.grid_size * ((self.height / self.grid_size) - 1)
             dist_out = ((click_pos.x() - out_x)**2 + (click_pos.y() - out_y)**2)**0.5
             if dist_out <= effective_radius:
-                return 'out'
+                return 'out_1'
         
         return None
     
@@ -629,34 +694,55 @@ class spawning_elements:
     def __init__(self, parent, elements_window=None):
         self.placing_active = False
         self.perm_stop = False
-        self.element_placed = False
         self.parent = parent
         self.elements_window = elements_window
         self.element_spawner = Element_spawn()
         self.state_manager = Utils.state_manager
+        self.ghost_block = None
 
     def start(self, parent, element_type, name=None):
         """Start placing an element"""
+        #print(f"Before: {parent.mousePressEvent}")
+        if not hasattr(self, 'old_mousePressEvent'):
+            self.old_mousePressEvent = parent.mousePressEvent
+            parent.mousePressEvent = self.on_mouse_press
+        elif self.placing_active == False:
+            self.old_mousePressEvent = parent.mousePressEvent
+            parent.mousePressEvent = self.on_mouse_press
+        #print(f"After: {parent.mousePressEvent}")
         self.type = element_type
         self.name = name
         self.perm_stop = False
         self.parent = parent
         self.placing_active = True
-        self.element_placed = False
-        print("Start placement")
+        #print("Start placement")
         #print(f"parent: {parent}, element_type: {element_type}")
         if self.elements_window and self.elements_window.isVisible():
             self.elements_window.is_hidden = True
             self.elements_window.hide()
 
-        #print(f"Before: {parent.mousePressEvent}")
-        self.old_mousePressEvent = parent.mousePressEvent
-        parent.mousePressEvent = self.on_mouse_press
-        #print(f"After: {parent.mousePressEvent}")
+        global_pos = QCursor.pos()
+
+        local_pos = parent.viewport().mapFromGlobal(global_pos)
+
+        local_point = QPointF(local_pos.x(), local_pos.y())
+
+        self.ghost_block = self.element_spawner.custom_shape_spawn(parent, element_type, QMouseEvent(QEvent.Type.MouseButtonPress, local_point, Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier), name)
+
+        self.ghost_block.setOpacity(0.7)
+        self.ghost_block.setZValue(1000)
+
         parent.setFocus()
         #print(f"Canvas enabled: {parent.isEnabled()}")
         parent.raise_()
         #print("Canvas raised to top")
+
+    def update_position(self, scene_pos):
+        """Update position of the floating block (called by Canvas MouseMove)"""
+        if self.ghost_block and self.placing_active:
+            # Snap to grid using the block's internal logic
+            snapped_x, snapped_y = self.ghost_block.snap_to_grid(scene_pos.x(), scene_pos.y())
+            self.ghost_block.setPos(snapped_x, snapped_y)
 
     def on_mouse_press(self, event):
         #print("Mouse Pressed")
@@ -665,37 +751,56 @@ class spawning_elements:
 
     def place(self, event):
         """Place the element at clicked position"""
-        print("Placement started")
-        self.placing_active = True
-        self.element_placed = False
-        self.check_placing(self.parent, event)
-
-    def check_placing(self, parent, event):
-        """Check and place element"""
+        #print("Placement started")
+        
         if self.perm_stop:
-            #print("Perm stop activated")
             return
 
-        #print(f"Checking placing: perm_stop={self.perm_stop}, placing_active={self.placing_active}")
-        if not self.element_placed and self.placing_active:
-            self.element_spawner.custom_shape_spawn(parent, self.type, event, self.name)
-            self.placing_active = False
-            self.element_placed = True
-            #print(f"Element placed: {self.type}, at {event.pos()}, Placement active: {self.placing_active}, Element placed: {self.element_placed}")
+        if self.placing_active and self.ghost_block:
+            # 1. Finalize visual state
+            self.ghost_block.setOpacity(1.0)
+            self.ghost_block.setZValue(0) # Reset Z-index
+            
+            # 2. Update Data in Utils (Sync position)
+            # The block was added to Utils in start(), but its position has changed.
+            final_pos = self.ghost_block.pos()
+            block_id = self.ghost_block.block_id
+            
+            if self.parent.reference == 'canvas':
+                 if block_id in Utils.main_canvas['blocks']:
+                     Utils.main_canvas['blocks'][block_id]['x'] = final_pos.x()
+                     Utils.main_canvas['blocks'][block_id]['y'] = final_pos.y()
+            elif self.parent.reference == 'function':
+                 for f_id, f_info in Utils.functions.items():
+                    if self.parent == f_info.get('canvas'):
+                        if block_id in f_info['blocks']:
+                            f_info['blocks'][block_id]['x'] = final_pos.x()
+                            f_info['blocks'][block_id]['y'] = final_pos.y()
+                        break
+
+            self.start(self.parent, self.type, self.name)  # Start new placement for next block
 
     def stop_placing(self, parent):
         """Stop placement mode"""
-        print("Placement stopped")
+        #print("Placement stopped")
+        
+        # 1. Remove the floating block if it exists
+        if self.ghost_block:
+            #print(f"Removing cancelled block: {self.ghost_block.block_id}")
+            parent.remove_block(self.ghost_block.block_id)
+            self.ghost_block = None
+
         self.perm_stop = True
         self.placing_active = False
-        self.element_placed = False
-        print("Current state before idle:", self.state_manager.canvas_state.current_state())
+        
+        #print("Current state before idle:", self.state_manager.canvas_state.current_state())
         self.state_manager.canvas_state.on_idle()
-        print("Current state after idle:", self.state_manager.canvas_state.current_state())
+        #print("Current state after idle:", self.state_manager.canvas_state.current_state())
+        #print(f"Current mousePressEvent: {parent.mousePressEvent}, Restoring old mousePressEvent: {self.old_mousePressEvent}")
         parent.mousePressEvent = self.old_mousePressEvent
-        #print("Restored original mousePressEvent")
+        #print(f"mousePressEvent restored: {parent.mousePressEvent}")
         if self.elements_window:
-            print("Re-opening ElementsWindow")
+            #print("Re-opening ElementsWindow")
             self.elements_window.is_hidden = True
             self.elements_window.open()
 
@@ -706,7 +811,6 @@ class Elements_events(QObject):
         super().__init__()
         self.canvas = canvas
         self.path_manager = canvas.path_manager if hasattr(canvas, 'path_manager') else None
-        self.inspector_frame_visible = canvas.inspector_frame_visible if hasattr(canvas, 'inspector_frame_visible') else None
         self.state_manager = Utils.state_manager
         #print(f"Instantiating ElementsEvents for canvas: {canvas}")
         #print(f" → inspector_panel: {self.inspector_frame_visible}")
@@ -717,7 +821,7 @@ class Elements_events(QObject):
         """Handle input circle clicks"""
         #print(f"✓ on_input_clicked: {block.block_id} ({circle_type})")
         if self.path_manager:
-            print("Current state before finalizing connection:", self.state_manager.canvas_state.current_state())
+            #print("Current state before finalizing connection:", self.state_manager.canvas_state.current_state())
             self.path_manager.finalize_connection(block, circle_center, circle_type)
             
 
@@ -725,10 +829,51 @@ class Elements_events(QObject):
         """Handle output circle clicks"""
         #print(f"✓ on_output_clicked: {block.block_id} ({circle_type})")
         if self.path_manager:
-            print("Current state before adding path:", self.state_manager.canvas_state.current_state())
+            #print("Current state before adding path:", self.state_manager.canvas_state.current_state())
             if self.state_manager.canvas_state.on_adding_path():
-                print("Adding path...")
+                #print("Adding path...")
                 self.path_manager.start_connection(block, circle_center, circle_type)
+        
+    def on_add_condition(self, block):
+        """Handle adding condition to If block"""
+        #print(f"✓ on_add_condition for block: {block.block_id}")
+        block.condition_count += 1
+        if self.canvas.reference == 'canvas':
+            data = Utils.main_canvas['blocks'].get(block.block_id)
+            if data:
+                data['conditions'] = block.condition_count
+        elif self.canvas.reference == 'function':
+            for f_id, f_info in Utils.functions.items():
+                if self.canvas == f_info.get('canvas'):
+                    data = f_info['blocks'].get(block.block_id)
+                    if data:
+                        data['conditions'] = block.condition_count
+                    break
+        block.update()
+        if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
+            print(f"Updating inspector for block {block.block_id} after adding condition")
+            self.canvas.main_window.update_inspector_content(block)
+        
+    def on_remove_condition(self, block):
+        """Handle removing condition from If block"""
+        #print(f"✓ on_remove_condition for block: {block.block_id}")
+        if block.condition_count > 1:
+            block.condition_count -= 1
+            if self.canvas.reference == 'canvas':
+                data = Utils.main_canvas['blocks'].get(block.block_id)
+                if data:
+                    data['conditions'] = block.condition_count
+            elif self.canvas.reference == 'function':
+                for f_id, f_info in Utils.functions.items():
+                    if self.canvas == f_info.get('canvas'):
+                        data = f_info['blocks'].get(block.block_id)
+                        if data:
+                            data['conditions'] = block.condition_count
+                        break
+            block.update()
+            if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
+                print(f"Updating inspector for block {block.block_id} after removing condition")
+                self.canvas.main_window.update_inspector_content(block)
 
 #MARK: - Element_spawn
 class Element_spawn:
@@ -742,5 +887,6 @@ class Element_spawn:
         scene_pos = parent.mapToScene(event.pos())
         x, y = scene_pos.x(), scene_pos.y()
 
-        parent.add_block(element_type, x, y, block_id, name)
+        block = parent.add_block(element_type, x, y, block_id, name)
         #print(f"Spawned {element_type} at ({x}, {y})")
+        return block

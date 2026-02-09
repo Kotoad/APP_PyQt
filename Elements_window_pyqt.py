@@ -546,9 +546,13 @@ class ElementsWindow(QDialog):
             self.activateWindow()
         return self
     
+    def reject(self):
+        """Redirect Esc key (reject) to close() so closeEvent fires"""
+        self.close()
+
     def closeEvent(self, event):
         """Handle close event"""
-        #print("ElementsWindow closeEvent called")
+        print("ElementsWindow closeEvent called")
         self.is_hidden = True
         self.state_manager.app_state.on_elements_dialog_close()
         event.accept()

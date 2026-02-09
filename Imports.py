@@ -32,7 +32,7 @@ from PyQt6.QtWidgets import (
     QLineEdit, QComboBox, QDialog, QTabWidget, QFileDialog, QMessageBox, QScroller,
     QInputDialog, QStyleOptionComboBox, QStyledItemDelegate, QTextEdit, QProgressDialog,
     QSplitter, QTreeWidget, QTreeWidgetItem, QListWidget, QGraphicsView, QGraphicsScene,
-    QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem, QGraphicsPixmapItem,
+    QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem, QGraphicsPixmapItem, QGraphicsObject,
     QListWidgetItem, QStackedWidget, QGraphicsObject, QGraphicsEllipseItem, QSplashScreen
 )
 from PyQt6.QtCore import (
@@ -43,7 +43,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent, QKeySequence, QShortcut, QEventPoint,
     QRegularExpressionValidator, QFont, QPixmap, QImage, QStandardItem, QMovie, QTouchEvent,
-    QIntValidator, QPainterPath, QIcon, QStandardItemModel, QAction, QPixmap, QInputDevice
+    QIntValidator, QPainterPath, QIcon, QStandardItemModel, QAction, QPixmap, QInputDevice, QCursor
 )
 from PyQt6.QtTest import QTest
 # ============================================================================
