@@ -116,11 +116,10 @@ class CodeCompiler:
         self.write_reporting_system()
         
         self.current_lines = self.main_lines
-        #self.writeline("data_reporter()\n")
         # Find Start block
         start_block = self.find_block_by_type('Start')
         if start_block:
-            #print(f"Found Start block: {start_block['id']}")
+            print(f"Found Start block: {start_block['id']}")
             if self.led_in_code:
                 self.writeline("\nled = LED()")
             if self.btn_in_code:
@@ -128,7 +127,7 @@ class CodeCompiler:
             self.writeline("try:")
             self.indent_level += 1
             next_id = self.get_next_block(start_block['id'])
-            #print(f"Processing blocks starting from: {next_id}")
+            print(f"Processing blocks starting from: {next_id}")
             self.process_block(next_id)
             self.indent_level -= 1
         self.current_lines = self.footer_lines
@@ -157,8 +156,9 @@ class CodeCompiler:
         elif self.compiling_what == 'function':
             block = Utils.functions[self.compiling_function]['blocks'][block_id]
         
-        #print(f"Processing block {block_id} of type {block['type']}")
+        print(f"Processing block {block_id} of type {block['type']}")
         if block['type'] == 'If':
+            print(f"Handling If block {block}")
             self.handle_if_block(block)
         elif block['type'] in ('While', 'While_true'):
             #print(f"Handling While block {block}")
@@ -785,20 +785,20 @@ class CodeCompiler:
                 elif self.compiling_what == 'function':
                     return f"{value_str}"
             elif value_type == 'Variable':
-                #print(f"Looking up variable: {value_str}")
-                #print(f"Utils.variables: {Utils.variables}")
+                print(f"Looking up variable: {value_str}")
+                print(f"Utils.variables: {Utils.variables}")
                 if self.compiling_what == 'canvas':
-                    #print(f"Searching in main canvas variables")
+                    print(f"Searching in main canvas variables")
                     search_variables = Utils.variables['main_canvas']
                 elif self.compiling_what == 'function':
                     #print(f"Searching in function canvas variables for function {self.compiling_function}")
                     search_variables = Utils.variables['function_canvases'][self.compiling_function]
-                #print(f"Variables to search: {search_variables}")
+                print(f"Variables to search: {search_variables}")
                 if self.compiling_what == 'canvas':
                     for var_id, var_info in search_variables.items():
-                        #print(var_info)
+                        print(var_info)
                         if var_info['name'] == value_str:
-                            #print(f"Found variable {value_str} with value {var_info['value']}")
+                            print(f"Found variable {value_str} with value {var_info['value']}")
                             return f"Variables_main['{value_str}']['value']"
                 elif self.compiling_what == 'function':
                     return f"{value_str}"
@@ -860,24 +860,31 @@ class CodeCompiler:
     #MARK: Block Handlers
     def handle_if_block(self, block):
         #print(f"Handling If block {block}")
-        value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
-        value_2 = self.resolve_value(block['value_2_name'], block['value_2_type'])
-        #print(f"Resolved If block values: {value_1}, {value_2}")
-        operator = self.get_comparison_operator(block['operator'])
-        #print(f"Using operator: {operator}")
-        out1_id = self.get_next_block_from_output(block['id'], 'out1')  # True path
-        out2_id = self.get_next_block_from_output(block['id'], 'out2')  # False path
-        #print(f"If block outputs: out1 -> {out1_id}, out2 -> {out2_id}")
-        self.write_condition("if", value_1, operator, value_2)
+        first_values = []
+        second_values = []
+        operators = []
+        outputs = []
+        for i in range(block['conditions']):
+            first_values.append(self.resolve_value(block['first_vars'][f'value_{i+1}_1_name'], block['first_vars'][f'value_{i+1}_1_type']))
+            second_values.append(self.resolve_value(block['second_vars'][f'value_{i+1}_2_name'], block['second_vars'][f'value_{i+1}_2_type']))
+            operators.append(self.get_comparison_operator(block['operators'][f'operator_{i+1}']))
+            outputs.append(self.get_next_block_from_output(block['id'], f'out_{i+1}'))  # True path for this condition
+
+        self.write_condition("if", first_values[0], operators[0], second_values[0])
         self.indent_level += 1
-        self.process_block(out1_id)
+        self.process_block(outputs[0])
         #print(f"Completed If true branch, now handling else branch")
         self.indent_level -= 1
+        for i in range(1, block['conditions']):
+            self.write_condition("elif", first_values[i], operators[i], second_values[i])
+            self.indent_level += 1
+            self.process_block(outputs[i])
+            #print(f"Completed Elif branch {i}, now checking next condition or else")
+            self.indent_level -= 1
         self.writeline("else:")
         #print(f"Processing else branch for If block")
         self.indent_level += 1
-        self.process_block(out2_id)
-        
+        self.process_block(outputs[-1])
         self.indent_level -= 1
     
     def handle_while_block(self, block):

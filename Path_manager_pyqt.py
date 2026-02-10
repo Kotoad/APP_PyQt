@@ -144,7 +144,7 @@ class PathManager:
     #MARK: - Connection Management
     def start_connection(self, block, circle_center, circle_type):
         """Start a new connection from a block's output circle"""
-        #print(f"✓ PathManager.start_connection: {block.block_id} ({circle_type})")
+        print(f"✓ PathManager.start_connection: {block.block_id} ({circle_type})")
         
 
         if self.canvas.reference == 'canvas':
@@ -411,8 +411,13 @@ class PathManager:
                                     print(f"    Pos_x: {path_item.from_block.pos().x()+6}, Pos_y: {path_item.from_block.pos().y()}")
                                     if path_info['from_circle_type'].startswith('out'):
                                         print(f"    Detected output circle type: {path_info['from_circle_type']}")
-                                        number = int(path_info['from_circle_type'].split('_')[1])
-                                        waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + (25 * ((path_item.from_block.height / 25) -number)))
+                                        for block_id, block_info in f_info['blocks'].items():
+                                            if block_info.get('widget') == path_item.from_block:
+                                                i = block_info['conditions'] + 1
+                                                break
+                                        j = int(path_info['from_circle_type'].split('_')[1])
+
+                                        waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + (25 * ((path_item.from_block.height / 25) - ((i - j) + 1))))
                                     print(f" → Found waypoints for path {path_id}: {waypoints}")
                                     path_item.draw_path(waypoints)
                 elif self.canvas.reference == 'canvas':
@@ -422,8 +427,12 @@ class PathManager:
                             print(f"    Pos_x: {path_item.from_block.pos().x()+6}, Pos_y: {path_item.from_block.pos().y()}")
                             if path_info['from_circle_type'].startswith('out'):
                                 print(f"    Detected output circle type: {path_info['from_circle_type']}")
-                                number = int(path_info['from_circle_type'].split('_')[1])
-                                waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + (25 * ((path_item.from_block.height / 25) -number)))
+                                for block_id, block_info in Utils.main_canvas['blocks'].items():
+                                    if block_info.get('widget') == path_item.from_block:
+                                        i = block_info['conditions'] + 1
+                                        break
+                                j = int(path_info['from_circle_type'].split('_')[1])
+                                waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + (25 * ((path_item.from_block.height / 25) - ((i - j) + 1))))
                             print(f" → Found waypoints for path {path_id}: {waypoints}")
                             path_item.draw_path(waypoints)
     

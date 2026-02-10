@@ -173,7 +173,8 @@ class ElementsWindow(QDialog):
         basic_elements = [
             (self.t("elements_window.basic_blocks_tab.Start"), "Start"),
             (self.t("elements_window.basic_blocks_tab.End"), "End"),
-            (self.t("elements_window.basic_blocks_tab.Timer"), "Timer")
+            (self.t("elements_window.basic_blocks_tab.Timer"), "Timer"),
+            (self.t("elements_window.basic_blocks_tab.Networks"), "Networks")
         ]
 
         for label, element_type in basic_elements:

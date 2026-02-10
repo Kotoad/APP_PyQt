@@ -20,12 +20,14 @@ class BlockSignals(QObject):
     output_clicked = pyqtSignal(object, QPointF, str)  # block, center, type
     Add_condition = pyqtSignal(object)  # block
     Remove_condition = pyqtSignal(object)  # block
+    Add_network = pyqtSignal(object)  # block
+    Remove_network = pyqtSignal(object)  # block
 
 #MARK: - BlockGraphicsItem
 class BlockGraphicsItem(QGraphicsObject):
     """Graphics item representing a block - renders with QPainter for perfect zoom quality"""
 
-    def __init__(self, x, y, block_id, block_type, parent_canvas, main_window=None, name=None, conditions=1):
+    def __init__(self, x, y, block_id, block_type, parent_canvas, main_window=None, name=None, conditions=1, networks=2):
         super().__init__()
         print(f'Initializing BlockGraphicsItem: {block_id} of type {block_type} at ({x}, {y}) on canvas {parent_canvas}, name: {name if name else "N/A"}')
         self.signals = BlockSignals()
@@ -46,7 +48,9 @@ class BlockGraphicsItem(QGraphicsObject):
         self.grid_size = 25
         self.radius = 6
         self.border_width = 2
+        self.outputs = 0
         self.condition_count = conditions
+        self.network_count = networks
         self.font = "Consolas"
         #print(f"self.canvas: {self.canvas}, self.block_id: {self.block_id}, self.block_type: {self.block_type}, self.x: {x}, self.y: {y}, self.name: {self.name}")
         self.value_1_name = "N"
@@ -142,6 +146,9 @@ class BlockGraphicsItem(QGraphicsObject):
         elif self.block_type == "If":
             self.width = 100
             self.height = 50 + (self.condition_count * 25)
+        elif self.block_type == "Networks":
+            self.width = 100
+            self.height = 25 + (self.network_count * 25)
         else:  #Fallback for other blocks
             print(f"[Warning] Unknown block type '{self.block_type}', using default dimensions.")
             self.width = 100
@@ -156,8 +163,21 @@ class BlockGraphicsItem(QGraphicsObject):
         text_to_measure = ""
         
         # --- Determine the text string exactly as you do in _draw_text ---
-        if self.block_type in ["If", "While"]:
+        if self.block_type in ["While"]:
             text_to_measure = f"{self.value_1_name} {self.operator} {self.value_2_name}"
+        elif self.block_type == "If":
+            longest_condition = ""
+            for i in range(1, self.condition_count + 1):
+                val_a = getattr(self, f"value_{i}_1_name", "N")
+                op    = getattr(self, f"operator_{i}", "==")
+                val_b = getattr(self, f"value_{i}_2_name", "N")
+                if i == 1:
+                    condition_text = f"If {val_a} {op} {val_b}"
+                else:
+                    condition_text = f"Elif {val_a} {op} {val_b}"
+                if len(condition_text) > len(longest_condition):
+                    longest_condition = condition_text
+            text_to_measure = longest_condition
         elif self.block_type == "Timer":
             text_to_measure = f"Wait {self.sleep_time} ms"
         elif self.block_type == "Switch":
@@ -217,6 +237,7 @@ class BlockGraphicsItem(QGraphicsObject):
             "Blink_LED": QColor("#57A139"),      # Yellow
             "Toggle_LED": QColor("#57A139"),     # Yellow
             "PWM_LED": QColor("#57A139"),        # Yellow
+            "Networks": QColor("#00CED1"),       # Dark turquoise
         }
         return colors.get(self.block_type, QColor("#FFD700"))  # Default yellow
 
@@ -247,18 +268,15 @@ class BlockGraphicsItem(QGraphicsObject):
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter, text)
             text_rect2 = QRectF(self.radius, 0, self.width, self.height)
             condition_text = f"{self.value_1_name} {self.operator} {self.value_2_name}"
-            len = painter.fontMetrics().boundingRect(condition_text).width()
             painter.drawText(text_rect2, Qt.AlignmentFlag.AlignCenter, condition_text)
         elif self.block_type == "Timer":
             text_rect = QRectF(self.radius, 0, self.width, self.height)
             timer_text = f"Wait {self.sleep_time} ms"
-            len = painter.fontMetrics().boundingRect(timer_text).width()
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, timer_text)
         elif self.block_type == "Button":
             ON_rect = QRectF(self.radius, 5, self.width-10, self.height)
             OFF_rect = QRectF(self.radius, 0, self.width-10, self.height-5)
             device_text = f"{self.value_1_name}"
-            len = painter.fontMetrics().boundingRect(device_text).width()
             painter.drawText(QRectF(self.radius+5, 5, self.width, self.height), Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeading, text)
             painter.drawText(QRectF(self.radius, 0, self.width, self.height), Qt.AlignmentFlag.AlignCenter, device_text)
             painter.drawText(ON_rect, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight, "ON")
@@ -272,28 +290,19 @@ class BlockGraphicsItem(QGraphicsObject):
             small_font = QFont(self.font, 8)
             painter.setFont(small_font)
             y_offset = 25
-            longest = 0
             for v_id, v_info in Utils.variables['function_canvases'][self.canvas_id].items():
                 #print(f"   Drawing variable: {v_info['name']}")
                 var_text = f"{v_info['name']}"
                 var_rect = QRectF(self.radius + 10, y_offset, self.width - 20, 15)
-                current_len = painter.fontMetrics().boundingRect(var_text).width()
-                if current_len > longest:
-                    longest = current_len
                 painter.drawText(var_rect, Qt.AlignmentFlag.AlignLeft, var_text)
                 y_offset += 25
-            len += longest
             y_offset = 25
             for d_id, d_info in Utils.devices['function_canvases'][self.canvas_id].items():
                 #print(f"   Drawing device: {d_info['name']}")
                 dev_text = f"{d_info['name']}"
                 dev_rect = QRectF(self.radius + 10, y_offset, self.width - 20, 15)
-                current_len = painter.fontMetrics().boundingRect(dev_text).width()
-                if current_len > longest:
-                    longest = current_len
                 painter.drawText(dev_rect, Qt.AlignmentFlag.AlignRight, dev_text)
                 y_offset += 25
-            len += longest
         elif self.block_type == "If":
             #print(f"Drawing text for If block with {self.condition_count} conditions")
             large_font = QFont(self.font, 15, QFont.Weight.Bold)
@@ -302,37 +311,32 @@ class BlockGraphicsItem(QGraphicsObject):
             painter.drawText(QRectF(self.radius, 0, self.width-10, 25), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, "-")
             small_font = QFont(self.font, 8)
             painter.setFont(small_font)
-            y_offset = 25
-            conditions = self.condition_count
-            helper = 1
-            if conditions > 0:
+            y_offset = 17.5
+            for i in range(1, self.condition_count + 1):
                 #print(f"Drawing main condition for If block")
-                val_a = getattr(self, f"value_{helper}_1_name", "N")
-                op    = getattr(self, f"operator_{helper}", "==")
-                val_b = getattr(self, f"value_{helper}_2_name", "N")
-
-                condition_text = f"If {val_a} {op} {val_b}"
-                len = painter.fontMetrics().boundingRect(condition_text).width()
+                val_a = getattr(self, f"value_{i}_1_name", "N")
+                op    = getattr(self, f"operator_{i}", "==")
+                val_b = getattr(self, f"value_{i}_2_name", "N")
+                if i == 1:
+                    condition_text = f"If {val_a} {op} {val_b}"
+                else:
+                    condition_text = f"Elif {val_a} {op} {val_b}"
                 painter.drawText(QRectF(self.radius, y_offset, self.width, 15), Qt.AlignmentFlag.AlignCenter, condition_text)
                 y_offset += 25
-                conditions -= 1
-                helper += 1
-            while conditions > 0:
-                #print(f"Drawing additional condition {helper} for If block")
-                val_a = getattr(self, f"value_{helper}_1_name", "N")
-                op    = getattr(self, f"operator_{helper}", "==")
-                val_b = getattr(self, f"value_{helper}_2_name", "N")
-
-                condition_text = f"Elif {val_a} {op} {val_b}"
-                len = painter.fontMetrics().boundingRect(condition_text).width()
-                painter.drawText(QRectF(self.radius, y_offset, self.width, 15), Qt.AlignmentFlag.AlignCenter, condition_text)
-                y_offset += 25
-                conditions -= 1
-                helper += 1
             else_text = "Else"
-            len = painter.fontMetrics().boundingRect(else_text).width()
             painter.drawText(QRectF(self.radius, y_offset, self.width, 15), Qt.AlignmentFlag.AlignCenter, else_text)
-
+        elif self.block_type == "Networks":
+            large_font = QFont(self.font, 15, QFont.Weight.Bold)
+            painter.setFont(large_font)
+            painter.drawText(QRectF(self.radius + 10, 0, self.width, 25), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, "+")
+            painter.drawText(QRectF(self.radius, 0, self.width-10, 25), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, "-")
+            small_font = QFont(self.font, 8)
+            painter.setFont(small_font)
+            y_offset = 17.5
+            for i in range(1, self.network_count + 1):
+                network_text = f"Network {i}"
+                painter.drawText(QRectF(self.radius, y_offset, self.width, 15), Qt.AlignmentFlag.AlignCenter, network_text)
+                y_offset += 25
         elif self.block_type == "Switch":
             small_font = QFont(self.font, 8)
             painter.setFont(small_font)
@@ -341,7 +345,6 @@ class BlockGraphicsItem(QGraphicsObject):
             
             dev_text = f"{self.value_1_name}"
             dev_rect = QRectF(self.radius, 0, self.width, self.height)
-            len = painter.fontMetrics().boundingRect(dev_text).width()
             painter.drawText(dev_rect, Qt.AlignmentFlag.AlignCenter, dev_text)
 
             on_rect = QRectF(self.radius, 0, self.width-5-2*self.radius, self.height)
@@ -357,35 +360,30 @@ class BlockGraphicsItem(QGraphicsObject):
         elif self.block_type in ["Basic_operations", "Exponential_operations", "Random_number"]:
             math_text = f"{self.result_var_name} = {self.value_1_name} {self.operator} {self.value_2_name}"
             math_rect = QRectF(self.radius, 0, self.width, self.height)
-            len = painter.fontMetrics().boundingRect(math_text).width()
             painter.drawText(math_rect, Qt.AlignmentFlag.AlignCenter, math_text)
         elif self.block_type in ["Toggle_LED",]:
             device_text = f"{self.value_1_name}"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
-            len = painter.fontMetrics().boundingRect(device_text).width()
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
         elif self.block_type in ["Blink_LED"]:
             device_text = f"{self.value_1_name} - {self.sleep_time} ms"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
-            len = painter.fontMetrics().boundingRect(device_text).width()
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
         elif self.block_type in ["PWM_LED"]:
             device_text = f"{self.value_1_name} - {self.PWM_value}"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
-            len = painter.fontMetrics().boundingRect(device_text).width()
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
         else:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
-            len = painter.fontMetrics().boundingRect(text).width()
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
 
     def _draw_connection_circles(self, painter):
         """Draw input/output connection circles"""
         painter.setPen(QPen(QColor("black"), self.border_width))
-        
+        self.outputs = 0 
         # Input circle (white)
         if self.block_type != "Start":
-            if self.block_type in ["If", "While", "Switch", "Button"]:
+            if self.block_type in ["If", "While", "Switch", "Button", "Networks"]:
                 in_y = self.grid_size*((self.height/self.grid_size)-1)
             else:
                 in_y = self.height / 2
@@ -405,19 +403,45 @@ class BlockGraphicsItem(QGraphicsObject):
                     out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
                     painter.setBrush(QBrush(QColor("red")))
                     painter.drawEllipse(out_circle)
+                    self.outputs += 1
             elif self.block_type == "If":
-                conditions = self.condition_count + 1
-                while conditions > 0:
-                    out_y = self.grid_size * ((self.height / self.grid_size) - conditions)
+                for i in range(1, self.condition_count + 2):
+                    out_y = self.grid_size * ((self.height / self.grid_size) - i)
                     out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
                     painter.setBrush(QBrush(QColor("red")))
                     painter.drawEllipse(out_circle)
-                    conditions -= 1
+                    self.outputs += 1
+            elif self.block_type == "Networks":
+                for i in range(1, self.network_count + 1):
+                    out_y = self.grid_size * ((self.height / self.grid_size) - i)
+                    out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
+                    painter.setBrush(QBrush(QColor("red")))
+                    painter.drawEllipse(out_circle)
+                    self.outputs += 1
             else:
                 out_y = self.grid_size * ((self.height / self.grid_size) - 1)
                 out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
                 painter.setBrush(QBrush(QColor("red")))
                 painter.drawEllipse(out_circle)
+                self.outputs += 1
+            if self.canvas.reference == 'canvas':
+                if self.block_id in Utils.main_canvas['blocks']:
+                    current_stored = Utils.main_canvas['blocks'][self.block_id].get('outputs')
+                    # Only write if different to avoid unnecessary dictionary operations
+                    if current_stored != self.outputs:
+                        Utils.main_canvas['blocks'][self.block_id]['outputs'] = self.outputs
+                        print(f"Updated outputs for block {self.block_id} in main canvas: {self.outputs}")
+                        print(f"Current main canvas blocks: {Utils.main_canvas['blocks'][self.block_id]}")
+                        
+            elif self.canvas.reference == 'function':
+                # Find which function this canvas belongs to
+                for f_id, f_info in Utils.functions.items():
+                    if self.canvas == f_info.get('canvas'):
+                        if self.block_id in f_info['blocks']:
+                            current_stored = f_info['blocks'][self.block_id].get('outputs')
+                            if current_stored != self.outputs:
+                                f_info['blocks'][self.block_id]['outputs'] = self.outputs
+                        break
     #MARK: - Event Handling
     def connect_graphics_signals(self):
         """Connect graphics item circle click signals to event handler"""
@@ -455,6 +479,9 @@ class BlockGraphicsItem(QGraphicsObject):
                     if self.block_type == "If":
                         block_graphics.signals.Add_condition.connect(events.on_add_condition)
                         block_graphics.signals.Remove_condition.connect(events.on_remove_condition)
+                    elif self.block_type == "Networks":
+                        block_graphics.signals.Add_network.connect(events.on_add_network)
+                        block_graphics.signals.Remove_network.connect(events.on_remove_network)
                     #print(f"   Signals connected for {self.block_id}")
                 except Exception as e:
                     print(f"Error connecting signals for {self.block_id}: {e}")
@@ -568,6 +595,15 @@ class BlockGraphicsItem(QGraphicsObject):
                     self.signals.Remove_condition.emit(self)
                 event.accept()
                 return  # Prevent further processing if add/remove clicked
+            elif clicked in ('add_network', 'remove_network'):
+                if clicked == 'add_network':
+                    #print(" → Add network clicked")
+                    self.signals.Add_network.emit(self)
+                else:
+                    #print(" → Remove network clicked")
+                    self.signals.Remove_network.emit(self)
+                event.accept()
+                return  # Prevent further processing if add/remove clicked
         self.setSelected(True)
         super().mousePressEvent(event)
 
@@ -601,19 +637,23 @@ class BlockGraphicsItem(QGraphicsObject):
     def where_clicked(self, pos):
         """Determine if click is on input/output circle"""
         circle_type = self._check_click_on_circle(pos)
-        add_remove_condition = self._check_click_on_add_remove(pos)
+        add_remove_condition = self._check_click_on_add_remove_condition(pos)
+        add_remove_network = self._check_click_on_add_remove_network(pos)
         if circle_type:
             #print(f"Click detected on circle: {circle_type}")
             return circle_type
         if add_remove_condition:
             #print(f"Click detected on add/remove condition: {add_remove_condition}")
             return add_remove_condition
+        if add_remove_network:
+            #print(f"Click detected on add/remove network: {add_remove_network}")
+            return add_remove_network
 
-    def _check_click_on_add_remove(self, click_pos):
+    def _check_click_on_add_remove_condition(self, click_pos):
         """Check if click is on add/remove condition areas for If blocks"""
         if self.block_type != "If":
             return None
-        self.radius + 10, 0, self.width, self.height - 75
+
         add_rect = QRectF(self.radius*2 + 2, 5, 15, 15)
         remove_rect = QRectF(self.width - self.radius*2 -2, 5, 15, 15)
         
@@ -621,6 +661,20 @@ class BlockGraphicsItem(QGraphicsObject):
             return 'add_condition'
         if remove_rect.contains(click_pos):
             return 'remove_condition'
+        
+        return None
+
+    def _check_click_on_add_remove_network(self, click_pos):
+        """Check if click is on add/remove network areas for Networks blocks"""
+        if self.block_type != "Networks":
+            return None
+        add_rect = QRectF(self.radius*2 + 2, 5, 15, 15)
+        remove_rect = QRectF(self.width - self.radius*2 -2, 5, 15, 15)
+        
+        if add_rect.contains(click_pos):
+            return 'add_network'
+        if remove_rect.contains(click_pos):
+            return 'remove_network'
         
         return None
 
@@ -633,9 +687,18 @@ class BlockGraphicsItem(QGraphicsObject):
             local_x = radius
             local_y = self.grid_size * ((self.height / self.grid_size) - 1)
         if circle_type.startswith('out'):
+            if self.canvas.reference == 'canvas':
+                if self.block_id in Utils.main_canvas['blocks']:
+                    outputs = Utils.main_canvas['blocks'][self.block_id].get('outputs', 1)
+            elif self.canvas.reference == 'function':
+                for f_id, f_info in Utils.functions.items():
+                    if self.canvas == f_info.get('canvas'):
+                        if self.block_id in f_info['blocks']:
+                            outputs = Utils.functions[f_id]['blocks'][self.block_id].get('outputs', 1)
             number = int(circle_type.split('_')[1])
+            print(f"Calculating circle center for output {number} of {outputs} outputs")
             local_x = self.width
-            local_y = self.grid_size * ((self.height / self.grid_size) - number)
+            local_y = self.grid_size * ((self.height / self.grid_size) - ((outputs - number) + 1))
         
         # Convert to scene coordinates
         scene_pos = self.mapToScene(local_x, local_y)
@@ -670,14 +733,22 @@ class BlockGraphicsItem(QGraphicsObject):
                 return 'out_2'
         elif self.block_type == 'If':
             # Multiple output circles based on condition count
-            conditions = self.condition_count + 1
-            helper = 0
-            for i in reversed(range(conditions)):
-                print(i+1)
-                out_y = self.grid_size * ((self.height / self.grid_size) - (i + 1))
+            helper = 1
+            for i in reversed(range(1, self.condition_count + 2)):
+                print(i, helper)
+                out_y = self.grid_size * ((self.height / self.grid_size) - (i))
                 dist_out = ((click_pos.x() - out_x)**2 + (click_pos.y() - out_y)**2)**0.5
                 if dist_out <= effective_radius:
-                    return f'out_{helper+1}'
+                    return f'out_{helper}'
+                helper += 1
+        elif self.block_type == 'Networks':
+            # Multiple output circles based on network count
+            helper = 1
+            for i in reversed(range(1, self.network_count + 1)):
+                out_y = self.grid_size * ((self.height / self.grid_size) - (i))
+                dist_out = ((click_pos.x() - out_x)**2 + (click_pos.y() - out_y)**2)**0.5
+                if dist_out <= effective_radius:
+                    return f'out_{helper}'
                 helper += 1
         else:
             # Standard output at center height
@@ -874,6 +945,47 @@ class Elements_events(QObject):
             if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
                 print(f"Updating inspector for block {block.block_id} after removing condition")
                 self.canvas.main_window.update_inspector_content(block)
+    
+    def on_add_network(self, block):
+        """Handle adding network to Networks block"""
+        #print(f"✓ on_add_network for block: {block.block_id}")
+        block.network_count += 1
+        if self.canvas.reference == 'canvas':
+            data = Utils.main_canvas['blocks'].get(block.block_id)
+            if data:
+                data['networks'] = block.network_count
+        elif self.canvas.reference == 'function':
+            for f_id, f_info in Utils.functions.items():
+                if self.canvas == f_info.get('canvas'):
+                    data = f_info['blocks'].get(block.block_id)
+                    if data:
+                        data['networks'] = block.network_count
+                    break
+        block.update()
+        if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
+            print(f"Updating inspector for block {block.block_id} after adding network")
+            self.canvas.main_window.update_inspector_content(block)
+        
+    def on_remove_network(self, block):
+        """Handle removing network from Networks block"""
+        #print(f"✓ on_remove_network for block: {block.block_id}")
+        if block.network_count > 1:
+            block.network_count -= 1
+            if self.canvas.reference == 'canvas':
+                data = Utils.main_canvas['blocks'].get(block.block_id)
+                if data:
+                    data['networks'] = block.network_count
+            elif self.canvas.reference == 'function':
+                for f_id, f_info in Utils.functions.items():
+                    if self.canvas == f_info.get('canvas'):
+                        data = f_info['blocks'].get(block.block_id)
+                        if data:
+                            data['networks'] = block.network_count
+                        break
+            block.update()
+            if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
+                print(f"Updating inspector for block {block.block_id} after removing network")
+                self.canvas.main_window.update_inspector_content(block)
 
 #MARK: - Element_spawn
 class Element_spawn:
@@ -888,5 +1000,6 @@ class Element_spawn:
         x, y = scene_pos.x(), scene_pos.y()
 
         block = parent.add_block(element_type, x, y, block_id, name)
-        #print(f"Spawned {element_type} at ({x}, {y})")
+        block.prepareGeometryChange()
+
         return block

@@ -11,7 +11,7 @@ from Imports import (
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
     QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent,
     QStackedWidget, QSplitter, QIcon, QKeySequence, QShortcut, json, QSplashScreen, QProgressBar,
-    QScroller, QTest, QInputDevice, QEventPoint, QTouchEvent
+    QScroller, QTest, QInputDevice, QEventPoint, QTouchEvent, QObject, warnings
 )
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
@@ -157,6 +157,94 @@ class NativeSplash(QSplashScreen):
     def update_status(self, text):
         self.loading_text = text
         self.repaint()
+
+class UniversalErrorHandler(QObject):
+    """
+    Captures:
+    1. Uncaught Python Exceptions (sys.excepthook)
+    2. Python Warnings (warnings.showwarning)
+    3. Threading Exceptions (threading.excepthook)
+    4. Qt Internal Messages (qInstallMessageHandler)
+    """
+    # Signal: (Title, Message, IconType)
+    error_occurred = pyqtSignal(str, str, object)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._setup_hooks()
+
+    def _setup_hooks(self):
+        # 1. Standard Python Exceptions
+        sys.excepthook = self.handle_exception
+
+        # 2. Python Warnings
+        self._original_showwarning = warnings.showwarning
+        warnings.showwarning = self.handle_warning
+
+        # 3. Threading Exceptions (Python 3.8+)
+        threading.excepthook = self.handle_threading_exception
+
+        # 4. Qt Internal Messages (Optional - can be noisy)
+        # from PyQt6.QtCore import qInstallMessageHandler, QtMsgType
+        # qInstallMessageHandler(self.handle_qt_message)
+
+    def handle_exception(self, exc_type, exc_value, exc_traceback):
+        """Catch standard crashes."""
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+
+        error_msg = "".join(tb.format_exception(exc_type, exc_value, exc_traceback))
+        self.error_occurred.emit("Critical Error", error_msg, QMessageBox.Icon.Critical)
+
+    def handle_warning(self, message, category, filename, lineno, file=None, line=None):
+        """Catch warnings (e.g., DeprecationWarning)."""
+        msg = f"{category.__name__}:\n{message}\n\nFile: {filename}\nLine: {lineno}"
+        self.error_occurred.emit("Warning", msg, QMessageBox.Icon.Warning)
+        
+        # Also call original handler to print to console
+        if self._original_showwarning:
+            self._original_showwarning(message, category, filename, lineno, file, line)
+
+    def handle_threading_exception(self, args):
+        """Catch exceptions in threads that aren't joined."""
+        error_msg = f"Thread: {args.thread.name}\n"
+        if args.exc_type:
+            error_msg += "".join(tb.format_exception(args.exc_type, args.exc_value, args.exc_traceback))
+        
+        self.error_occurred.emit("Thread Error", error_msg, QMessageBox.Icon.Critical)
+
+    # Optional: Handle Qt internal C++ messages
+    # def handle_qt_message(self, mode, context, message):
+    #     msg_type = "Info"
+    #     if mode == QtMsgType.QtWarningMsg: msg_type = "Qt Warning"
+    #     elif mode == QtMsgType.QtCriticalMsg: msg_type = "Qt Critical"
+    #     elif mode == QtMsgType.QtFatalMsg: msg_type = "Qt Fatal"
+    #     self.error_occurred.emit(msg_type, message, QMessageBox.Icon.Information)
+
+    def show_error_dialog(self, title, body, icon):
+        """Slot to show the GUI dialog. Must run on Main Thread."""
+        msg_box = QMessageBox()
+        msg_box.setIcon(icon)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(f"An unexpected {title} occurred.")
+        msg_box.setInformativeText("Please check the details below.")
+        
+        # Detailed text area (scrollable)
+        msg_box.setDetailedText(body)
+        
+        # Allow resizing
+        copy_btn = msg_box.addButton("Copy Error", QMessageBox.ButtonRole.ActionRole)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        
+        # Force the detailed text to be visible/copyable nicely
+        msg_box.setStyleSheet("QMessageBox { min-width: 600px; }")
+        
+        ret = msg_box.exec()
+        
+        if msg_box.clickedButton() == copy_btn:
+            clipboard = QApplication.clipboard()
+            clipboard.setText(f"{title}:\n{body}")
 
 #MARK: - RPiExecutionThread
 class RPiExecutionThread(QThread):
@@ -1225,7 +1313,7 @@ class GridCanvas(QGraphicsView):
                     #print(f"Matched function canvas for block addition: {f_id}")
                     Utils.functions[f_id]['blocks'].setdefault(block_id, info)
                     break
-        #print(f"Added block: {info}")
+        print(f"Added block: {info}")
         if self.reference == 'canvas':
             #print(f"Current Utils.main_canvas blocks: {Utils.main_canvas['blocks']}")
             pass
@@ -2596,7 +2684,8 @@ class MainWindow(QMainWindow):
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_2_input)
         if block_data['type'] == 'If':
-            for i in range(block_data.get('condition_count', 1)):
+            for i in range(block_data.get('conditions', 1)):
+                print(f"Adding condition {i+1} for If block")
                 cond_widget = QWidget()
                 cond_layout = QHBoxLayout(cond_widget)
                 cond_layout.setContentsMargins(0, 0, 0, 0)
@@ -2604,7 +2693,7 @@ class MainWindow(QMainWindow):
                 value_1_label = QLabel(f"{self.t('main_GUI.inspector.value_1_name')}:")
                 cond_layout.addWidget(value_1_label)
                 value_1_input = SearchableLineEdit()
-                value_1_input.setText(block_data.get(f'value_{i+1}_1_name', ''))
+                value_1_input.setText(block_data.get('first_vars', {}).get(f'value_{i+1}_1_name', ''))
                 value_1_input.setPlaceholderText(self.t("main_GUI.inspector.value_1_name_placeholder"))
                 value_1_input.textChanged.connect(lambda text, bd=block_data, idx=i+1: self.Block_value_1_name_changed(text, bd, idx))
                 self.insert_items(block, value_1_input)
@@ -2614,14 +2703,14 @@ class MainWindow(QMainWindow):
                 cond_layout.addWidget(operator_label)
                 operator_input = QComboBox()
                 operator_input.addItems(["==", "!=", "<", ">", "<=", ">="])
-                operator_input.setCurrentText(block_data.get(f'operator_{i+1}', '=='))
+                operator_input.setCurrentText(block_data.get('operators', {}).get(f'operator_{i+1}', '=='))
                 operator_input.currentTextChanged.connect(lambda text, bd=block_data, idx=i+1: self.Block_operator_changed(text, bd, idx))
                 cond_layout.addWidget(operator_input)
 
                 value_2_label = QLabel(f"{self.t('main_GUI.inspector.value_2_name')}:")
                 cond_layout.addWidget(value_2_label)
                 value_2_input = SearchableLineEdit()
-                value_2_input.setText(block_data.get(f'value_{i+1}_2_name', ''))
+                value_2_input.setText(block_data.get('second_vars', {}).get(f'value_{i+1}_2_name', ''))
                 value_2_input.setPlaceholderText(self.t("main_GUI.inspector.value_2_name_placeholder"))
                 value_2_input.textChanged.connect(lambda text, bd=block_data, idx=i+1: self.Block_value_2_name_changed(text, bd, idx))
                 self.insert_items(block, value_2_input)
@@ -2938,11 +3027,17 @@ class MainWindow(QMainWindow):
         for var_id, var_info in variables.items():
             #print(f"Checking variable: {var_info}")
             if var_info['name'] == text:
-                block_data['value_1_type'] = 'Variable'
+                if block_data['type'] == 'If':
+                    block_data['first_vars'][f'value_{idx if idx is not None else 1}_1_type'] = 'Variable'
+                else:
+                    block_data['value_1_type'] = 'Variable'
                 break
         for dev_id, dev_info in devices.items():
             if dev_info['name'] == text:
-                block_data['value_1_type'] = 'Device'
+                if block_data['type'] == 'If':
+                    block_data['first_vars'][f'value_{idx if idx is not None else 1}_1_type'] = 'Device'
+                else:
+                    block_data['value_1_type'] = 'Device'
                 break
         if block_data['type'] == 'Button':
             if len(text) > 6:
@@ -2961,7 +3056,7 @@ class MainWindow(QMainWindow):
     def Block_operator_changed(self, text, block_data, idx=None):
         #print("Updating operator")
         if block_data['type'] == 'If':
-            block_data['operators'][idx if idx is not None else 1] = text
+            block_data['operators'][f"operator_{idx if idx is not None else 1}"] = text
             print(f"Updated block_data operators: {block_data['operators']}")
             setattr(block_data['widget'], f'operator_{idx if idx is not None else 1}', text)
             print(f"Updated widget operator_{idx if idx is not None else 1}: {getattr(block_data['widget'], f'operator_{idx if idx is not None else 1}')}")
@@ -2992,11 +3087,17 @@ class MainWindow(QMainWindow):
 
         for var_id, var_info in variables.items():
             if var_info['name'] == text:
-                block_data['value_2_type'] = 'Variable'
+                if block_data['type'] == 'If':
+                    block_data['second_vars'][f'value_{idx if idx is not None else 2}_2_type'] = 'Variable'
+                else:
+                    block_data['value_2_type'] = 'Variable'
                 break
         for dev_id, dev_info in devices.items():
             if dev_info['name'] == text:
-                block_data['value_2_type'] = 'Device'
+                if block_data['type'] == 'If':
+                    block_data['second_vars'][f'value_{idx if idx is not None else 2}_2_type'] = 'Device'
+                else:
+                    block_data['value_2_type'] = 'Device'
                 break
         if len(text) > 5:
             text = text[:3] + "..."
@@ -4814,13 +4915,24 @@ class MainWindow(QMainWindow):
 
     def add_block_from_data(self, block_type, x, y, block_id, canvas=None, name=None):
         """Add a new block to the canvas"""
+        for canvas_key, canvas_info in Utils.canvas_instances.items():
+            if canvas_info['canvas'] == canvas:
+                if canvas_info['ref'] == 'canvas':
+                    data = Utils.project_data.main_canvas['blocks'][block_id]
+                    break
+                elif canvas_info['ref'] == 'function':
+                    for function_id, function_info in Utils.functions.items():
+                        if function_info['canvas'] == canvas:
+                            data = Utils.project_data.functions[function_id]['blocks'][block_id]
+                            break
         print(f" Adding block from data: ID={block_id}, Type={block_type}, X={x}, Y={y}, Canvas {canvas}")
         block = BlockGraphicsItem(
             x=x, y=y,
             block_id=block_id,
             block_type=block_type,
             parent_canvas=canvas,
-            conditions=Utils.project_data.main_canvas['blocks'][block_id].get('conditions', 1) if block_type == 'If' else None,
+            conditions=data.get('conditions', 1) if block_type == 'If' else None,
+            networks=data.get('networks', 2) if block_type == 'Networks' else None,
             name=name
         )
         for canvas_key, canvas_info in Utils.canvas_instances.items():
@@ -4828,37 +4940,35 @@ class MainWindow(QMainWindow):
                 break
         if canvas_info['ref'] == 'canvas':
             if block_type in ('While', 'Button'):
-                block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
-                #block.value_1_type = Utils.project_data.blocks[block_id].get('value_1_type', "N/A")
-                block.value_2_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2")
-                #block.value_2_type = Utils.project_data.blocks[block_id].get('value_2_type', "N/A")
-                block.operator = Utils.project_data.main_canvas['blocks'][block_id].get('operator', "==")
+                block.value_1_name = data.get('value_1_name', "var1")
+                block.value_2_name = data.get('value_2_name', "var2")
+                block.operator = data.get('operator', "==")
             elif block_type == 'If':
-                for i in range(Utils.project_data.main_canvas['blocks'][block_id].get('conditions', 1)):
+                for i in range(data.get('conditions', 1)):
                     str_1 = f"value_{i+1}_1_name"
                     str_2 = f"value_{i+1}_2_name"
                     str_op = f"operator_{i+1}"
-                    setattr(block, str_1, Utils.project_data.main_canvas['blocks'][block_id]['first_vars'].get(str_1, f"var{i+1}_1"))
-                    setattr(block, str_2, Utils.project_data.main_canvas['blocks'][block_id]['second_vars'].get(str_2, f"var{i+1}_2"))
-                    setattr(block, str_op, Utils.project_data.main_canvas['blocks'][block_id]['operators'].get(str_op, "=="))
+                    setattr(block, str_1, data['first_vars'].get(str_1, f"var{i+1}_1"))
+                    setattr(block, str_2, data['second_vars'].get(str_2, f"var{i+1}_2"))
+                    setattr(block, str_op, data['operators'].get(str_op, "=="))
             elif block_type == 'Switch':
-                block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
-                block.switch_state = Utils.project_data.main_canvas['blocks'][block_id].get('switch_state', False)
+                block.value_1_name = data.get('value_1_name', "var1")
+                block.switch_state = data.get('switch_state', False)
             elif block_type == 'Sleep':
-                block.sleep_time = Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000")
+                block.sleep_time = data.get('sleep_time', "1000")
             elif block_type in ('Basic_operations', 'Exponential_operations', 'Random_number'):
-                block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
-                block.value_2_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_2_name', "var2")
-                block.operator = Utils.project_data.main_canvas['blocks'][block_id].get('operator', None)
-                block.result_var_name = Utils.project_data.main_canvas['blocks'][block_id].get('result_var_name', "result")
+                block.value_1_name = data.get('value_1_name', "var1")
+                block.value_2_name = data.get('value_2_name', "var2")
+                block.operator = data.get('operator', None)
+                block.result_var_name = data.get('result_var_name', "result")
             elif block_type == 'Blink_LED':
-                block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
-                block.sleep_time = Utils.project_data.main_canvas['blocks'][block_id].get('sleep_time', "1000")
+                block.value_1_name = data.get('value_1_name', "var1")
+                block.sleep_time = data.get('sleep_time', "1000")
             elif block_type == 'Toggle_LED':
-                block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
+                block.value_1_name = data.get('value_1_name', "var1")
             elif block_type == 'PWM_LED':
-                block.value_1_name = Utils.project_data.main_canvas['blocks'][block_id].get('value_1_name', "var1")
-                block.PWM_value = Utils.project_data.main_canvas['blocks'][block_id].get('PWM_value', "50")
+                block.value_1_name = data.get('value_1_name', "var1")
+                block.PWM_value = data.get('PWM_value', "50")
         if canvas_info['ref'] == 'function':
             #print("Setting function canvas block properties")
             for function_id, function_info in Utils.functions.items():
@@ -4866,29 +4976,27 @@ class MainWindow(QMainWindow):
                 if function_info['canvas'] == canvas:
                     #print(f" Found matching canvas for function: {function_id}")
                     if block_type in ('If', 'While', 'Button'):
-                        block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
-                        #block.value_1_type = Utils.project_data.blocks[block_id].get('value_1_type', "N/A")
-                        block.value_2_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2")
-                        #block.value_2_type = Utils.project_data.blocks[block_id].get('value_2_type', "N/A")
-                        block.operator = Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', "==")
+                        block.value_1_name = data.get('value_1_name', "var1")
+                        block.value_2_name = data.get('value_2_name', "var2")
+                        block.operator = data.get('operator', "==")
                     elif block_type == 'Switch':
-                        block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
-                        block.switch_state = Utils.project_data.functions[function_id]['blocks'][block_id].get('switch_state', False)
+                        block.value_1_name = data.get('value_1_name', "var1")
+                        block.switch_state = data.get('switch_state', False)
                     elif block_type == 'Sleep':
-                        block.sleep_time = Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000")
+                        block.sleep_time = data.get('sleep_time', "1000")
                     elif block_type in ('Basic_operations', 'Exponential_operations', 'Random_number'):
-                        block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
-                        block.value_2_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_2_name', "var2")
-                        block.operator = Utils.project_data.functions[function_id]['blocks'][block_id].get('operator', None)
-                        block.result_var_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('result_var_name', "result")
+                        block.value_1_name = data.get('value_1_name', "var1")
+                        block.value_2_name = data.get('value_2_name', "var2")
+                        block.operator = data.get('operator', None)
+                        block.result_var_name = data.get('result_var_name', "result")
                     elif block_type == 'Blink_LED':
-                        block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
-                        block.sleep_time = Utils.project_data.functions[function_id]['blocks'][block_id].get('sleep_time', "1000")
+                        block.value_1_name = data.get('value_1_name', "var1")
+                        block.sleep_time = data.get('sleep_time', "1000")
                     elif block_type == 'Toggle_LED':
-                        block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
+                        block.value_1_name = data.get('value_1_name', "var1")
                     elif block_type == 'PWM_LED':
-                        block.value_1_name = Utils.project_data.functions[function_id]['blocks'][block_id].get('value_1_name', "var1")
-                        block.PWM_value = Utils.project_data.functions[function_id]['blocks'][block_id].get('PWM_value', "50")
+                        block.value_1_name = data.get('value_1_name', "var1")
+                        block.PWM_value = data.get('PWM_value', "50")
                     break
                 
         canvas.scene.addItem(block)
@@ -5082,24 +5190,14 @@ class MainWindow(QMainWindow):
                     #print(f"  Recreating device {dev_id} on function canvas")
                     self.add_internal_device_row(dev_id, dev_info, canvas)
                 print(f"Devices after function canvas rebuild: {Utils.devices['function_canvases'][canvas_info['id']]}")
-        
+#MARK: Main  
 def main():
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     
-    def global_exception_hook(exctype, value, traceback):
-        error_msg = "".join(tb.format_exception(exctype, value, traceback))
-        print("CRITICAL ERROR CAUGHT:", file=sys.stderr)
-        print(error_msg, file=sys.stderr)
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Icon.Critical)
-        msg.setWindowTitle("Critical Error")
-        msg.setText(f"An unexpected error occurred:\n{str(value)}")
-        msg.setDetailedText(error_msg) # Puts the full trace in a scrollable area
-        msg.setStandardButtons(QMessageBox.StandardButton.Ok)
-        msg.exec()
-    
-    sys.excepthook = global_exception_hook
+    error_handler = UniversalErrorHandler()
+
+    error_handler.error_occurred.connect(error_handler.show_error_dialog)
     # 1. SETUP SPLASH
     # Use a .gif path here. If you don't have one, it will default to a dark screen.
     splash = NativeSplash() 
