@@ -455,8 +455,8 @@ class DataControl:
                 'value_2_name': block_info.get('value_2_name', ''),
                 'value_2_type': block_info.get('value_2_type', ''),
                 'operator': block_info.get('operator', ''),
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
             }
         elif block_info['type'] == 'If':
             info = {
@@ -471,8 +471,8 @@ class DataControl:
                 'operators': block_info.get('operators', {}),
                 'second_vars': block_info.get('second_vars', {}),
                 'conditions': block_info.get('conditions', 1),
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
             }
         elif block_info['type'] == 'Networks':
             info = {
@@ -484,8 +484,8 @@ class DataControl:
                 'y': block_info['y'],
                 'outputs': block_info.get('outputs', 1),
                 'networks': block_info.get('networks', 2),
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
             }
         elif block_info['type'] == 'Timer':
             info = {
@@ -497,8 +497,8 @@ class DataControl:
                 'y': block_info['y'],
                 'outputs': block_info.get('outputs', 1),
                 'sleep_time': block_info.get('sleep_time', '1000'),
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
             }
         elif block_info['type'] == 'Switch':
             info = {
@@ -511,8 +511,8 @@ class DataControl:
                 'outputs': block_info.get('outputs', 1),
                 'value_1_name': block_info.get('value_1_name', ''),
                 'switch_state': block_info.get('switch_state', ''),
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
             }
         elif block_info['type'] in ('Start', 'End', 'While_true'):
             info = {
@@ -523,8 +523,8 @@ class DataControl:
                 'x': block_info['x'],
                 'y': block_info['y'],
                 'outputs': block_info.get('outputs', 1),
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
             }
         elif block_info['type'] in ('Basic_operations', 'Exponential_operations', 'Random_number'):
             info = {
@@ -542,8 +542,8 @@ class DataControl:
                 'operator': block_info.get('operator', ''),
                 'result_var_name': block_info.get('result_var_name', ''),
                 'result_var_type': block_info.get('result_var_type', ''),
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
             }
         elif block_info['type'] == 'Blink_LED':
             info = {
@@ -557,8 +557,8 @@ class DataControl:
                 'value_1_name': block_info.get('value_1_name', ''),
                 'value_1_type': block_info.get('value_1_type', ''),
                 'sleep_time': block_info.get('sleep_time', '1000'),
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
             }
         elif block_info['type'] == 'Toggle_LED':
             info = {
@@ -571,8 +571,8 @@ class DataControl:
                 'outputs': block_info.get('outputs', 1),
                 'value_1_name': block_info.get('value_1_name', ''),
                 'value_1_type': block_info.get('value_1_type', ''),
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
             }
         elif block_info['type'] == 'PWM_LED':
             info = {
@@ -586,8 +586,8 @@ class DataControl:
                 'value_1_name': block_info.get('value_1_name', ''),
                 'value_1_type': block_info.get('value_1_type', ''),
                 'PWM_value': block_info.get('PWM_value', '50'),
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
             }
         elif block_info['type'] == 'Function':
             info = {
@@ -607,8 +607,8 @@ class DataControl:
                     'main_devs': block_info['internal_devs'].get('main_devs', {}),
                     'ref_devs': block_info['internal_devs'].get('ref_devs', {}),
                 },
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
             }
         else:
             print(f"Error: Unknown block type {block_info['type']}")
@@ -620,7 +620,7 @@ class DataControl:
                 'x': block_info['x'],
                 'y': block_info['y'],
                 'outputs': block_info.get('outputs', 1),
-                'in_connections': block_info.get('in_connections', []),
-                'out_connections': block_info.get('out_connections', []),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
             }
         return info

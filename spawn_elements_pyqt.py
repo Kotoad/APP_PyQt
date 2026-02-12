@@ -51,6 +51,7 @@ class BlockGraphicsItem(QGraphicsObject):
         self.outputs = 0
         self.condition_count = conditions
         self.network_count = networks
+        self.width_changed = False
         self.font = "Consolas"
         #print(f"self.canvas: {self.canvas}, self.block_id: {self.block_id}, self.block_type: {self.block_type}, self.x: {x}, self.y: {y}, self.name: {self.name}")
         self.value_1_name = "N"
@@ -105,6 +106,24 @@ class BlockGraphicsItem(QGraphicsObject):
         #print("Drawing connection circles for:", self.block_id)
         self._draw_connection_circles(painter)
 
+    def recalculate_size(self):
+        """
+        Force calculation of dimensions immediately.
+        Call this whenever text/properties change that affect size.
+        """
+        # We need a painter to calculate text width, but paint() is async.
+        # We create a temporary dummy painter to do the math synchronously.
+        pixmap = QPixmap(1, 1)
+        painter = QPainter(pixmap)
+        
+        # Notify Qt that geometry is about to change (Critical for update logic)
+        self.prepareGeometryChange()
+        
+        # Run your existing calculation logic
+        self._calculate_dimensions(painter)
+        
+        painter.end()
+
     def _calculate_dimensions(self, painter):
         """Recalculate block dimensions based on current properties"""
         self._setup_dimensions()
@@ -112,8 +131,7 @@ class BlockGraphicsItem(QGraphicsObject):
         #self.prepareGeometryChange()
 
     def _setup_dimensions(self):
-        v_count = 0
-        d_count = 0
+        
         """Set block dimensions based on type"""
         if self.block_type in ["While", "Button"]:
             self.width = 100
@@ -126,6 +144,8 @@ class BlockGraphicsItem(QGraphicsObject):
             self.width = 100
             self.height = 50
         elif self.block_type == "Function":
+            v_count = 0
+            d_count = 0
             #print(f"Utils.variables['function_canvases']: {Utils.variables['function_canvases']}")
             for canvas, canvas_info in Utils.canvas_instances.items():
                 if canvas_info.get('ref') == 'function' and canvas_info.get('name') == self.name:
@@ -153,6 +173,7 @@ class BlockGraphicsItem(QGraphicsObject):
             print(f"[Warning] Unknown block type '{self.block_type}', using default dimensions.")
             self.width = 100
             self.height = 50
+        #print(f"Set dimensions for block '{self.block_id}' ({self.block_type}): width={self.width}, height={self.height}")
 
     def _calculate_width_from_text(self, painter):
         """Calculate required width based on text content"""
@@ -215,8 +236,10 @@ class BlockGraphicsItem(QGraphicsObject):
             text_width = metrics.horizontalAdvance(text_to_measure)
 
             text_width = (math.ceil(text_width/self.grid_size)*self.grid_size)+25
-            
+            width = self.width
             self.width = max(self.width, text_width)
+            if self.width != width:
+                self.width_changed = True
             #print(f"Calculated text width for block '{self.block_id}' ({self.block_type}): {text_width}, setting block width to: {self.width}")
 
     def _get_block_color(self):
@@ -394,53 +417,45 @@ class BlockGraphicsItem(QGraphicsObject):
         
         # Output circle(s) (red)
         if self.block_type != "End":
+            painter.setBrush(QBrush(QColor("red")))
             if self.block_type in ["While", "Button"]:
-                # Two output circles
-                out_y1 = self.grid_size * ((self.height / self.grid_size) - 2)
-                out_y2 = self.grid_size * ((self.height / self.grid_size) - 1)
-                
-                for out_y in [out_y1, out_y2]:
+                for i in range(1, 3):
+                    out_y = i * self.grid_size
                     out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
-                    painter.setBrush(QBrush(QColor("red")))
                     painter.drawEllipse(out_circle)
                     self.outputs += 1
+
             elif self.block_type == "If":
                 for i in range(1, self.condition_count + 2):
-                    out_y = self.grid_size * ((self.height / self.grid_size) - i)
+                    out_y = i * self.grid_size
                     out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
-                    painter.setBrush(QBrush(QColor("red")))
                     painter.drawEllipse(out_circle)
                     self.outputs += 1
+                    
             elif self.block_type == "Networks":
                 for i in range(1, self.network_count + 1):
-                    out_y = self.grid_size * ((self.height / self.grid_size) - i)
+                    out_y = i * self.grid_size
                     out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
-                    painter.setBrush(QBrush(QColor("red")))
                     painter.drawEllipse(out_circle)
                     self.outputs += 1
+                    
             else:
-                out_y = self.grid_size * ((self.height / self.grid_size) - 1)
+                out_y = self.grid_size
                 out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
-                painter.setBrush(QBrush(QColor("red")))
                 painter.drawEllipse(out_circle)
                 self.outputs += 1
+
+            # Update Utils data if changed
             if self.canvas.reference == 'canvas':
                 if self.block_id in Utils.main_canvas['blocks']:
                     current_stored = Utils.main_canvas['blocks'][self.block_id].get('outputs')
-                    # Only write if different to avoid unnecessary dictionary operations
                     if current_stored != self.outputs:
                         Utils.main_canvas['blocks'][self.block_id]['outputs'] = self.outputs
-                        print(f"Updated outputs for block {self.block_id} in main canvas: {self.outputs}")
-                        print(f"Current main canvas blocks: {Utils.main_canvas['blocks'][self.block_id]}")
-                        
             elif self.canvas.reference == 'function':
-                # Find which function this canvas belongs to
                 for f_id, f_info in Utils.functions.items():
                     if self.canvas == f_info.get('canvas'):
                         if self.block_id in f_info['blocks']:
-                            current_stored = f_info['blocks'][self.block_id].get('outputs')
-                            if current_stored != self.outputs:
-                                f_info['blocks'][self.block_id]['outputs'] = self.outputs
+                            f_info['blocks'][self.block_id]['outputs'] = self.outputs
                         break
     #MARK: - Event Handling
     def connect_graphics_signals(self):
@@ -711,7 +726,7 @@ class BlockGraphicsItem(QGraphicsObject):
         """
         effective_radius = self.radius + radius_margin
         
-        in_x, in_y = self.radius, self.height / 2
+        in_x, in_y = self.radius, self.height - self.grid_size
         dist_in = ((click_pos.x() - in_x)**2 + (click_pos.y() - in_y)**2)**0.5
         if dist_in <= effective_radius:
             return 'in'
@@ -768,6 +783,7 @@ class spawning_elements:
         self.parent = parent
         self.elements_window = elements_window
         self.element_spawner = Element_spawn()
+        self.path_manager = parent.path_manager if hasattr(parent, 'path_manager') else None
         self.state_manager = Utils.state_manager
         self.ghost_block = None
 
@@ -909,47 +925,131 @@ class Elements_events(QObject):
         """Handle adding condition to If block"""
         #print(f"✓ on_add_condition for block: {block.block_id}")
         block.condition_count += 1
+        block.recalculate_size()
+
         if self.canvas.reference == 'canvas':
             data = Utils.main_canvas['blocks'].get(block.block_id)
             if data:
                 data['conditions'] = block.condition_count
+                str_1 = 'value_{}_1_name'.format(block.condition_count)
+                str_2 = 'operator_{}'.format(block.condition_count)
+                str_3 = 'value_{}_2_name'.format(block.condition_count)
+                data['first_vars'][str_1] = 'N'
+                data['operators'][str_2] = '=='
+                data['second_vars'][str_3] = 'N'
+                for path_id, path_info in list(Utils.main_canvas['paths'].items()):
+                    #print(f"Checking path {path_id} for update: {path_info}, looking for from {block.block_id} and from_circle out_{block.condition_count}")
+                    if path_info['from'] == block.block_id and path_info['from_circle_type'] == f'out_{block.condition_count}':
+                        #print(f"Updating path {path_id} from block {block.block_id} to new output circle out_{block.condition_count+1}")
+                        Utils.main_canvas['paths'][path_id]['from_circle_type'] = f'out_{block.condition_count+1}'
+                        data['out_connections'][path_id] = f'out_{block.condition_count+1}'
+                        #print(f"Updated path {path_id} in main canvas to new output circle out_{block.condition_count+1}")
         elif self.canvas.reference == 'function':
-            for f_id, f_info in Utils.functions.items():
+            for f_id, f_info in list(Utils.functions.items()):
                 if self.canvas == f_info.get('canvas'):
                     data = f_info['blocks'].get(block.block_id)
                     if data:
                         data['conditions'] = block.condition_count
+                        for path_id, path_info in list(Utils.functions[f_id]['paths'].items()):
+                            #print(f"Checking path {path_id} for update: {path_info}, looking for from {block.block_id} and from_circle out_{block.condition_count}")
+                            if path_info['from'] == block.block_id and path_info['from_circle_type'] == f'out_{block.condition_count}':
+                                #print(f"Updating path {path_id} from block {block.block_id} to new output circle out_{block.condition_count+1}")
+                                Utils.functions[f_id]['paths'][path_id]['from_circle_type'] = f'out_{block.condition_count+1}'
+                                data['out_connections'][path_id] = f'out_{block.condition_count+1}'
                     break
+        
+        self.path_manager.update_paths_for_widget(block)
+
         block.update()
         if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
-            print(f"Updating inspector for block {block.block_id} after adding condition")
+            #print(f"Updating inspector for block {block.block_id} after adding condition")
             self.canvas.main_window.update_inspector_content(block)
         
     def on_remove_condition(self, block):
         """Handle removing condition from If block"""
         #print(f"✓ on_remove_condition for block: {block.block_id}")
         if block.condition_count > 1:
-            block.condition_count -= 1
             if self.canvas.reference == 'canvas':
                 data = Utils.main_canvas['blocks'].get(block.block_id)
                 if data:
                     data['conditions'] = block.condition_count
+                    str_1 = 'value_{}_1_name'.format(block.condition_count)
+                    str_2 = 'operator_{}'.format(block.condition_count)
+                    str_3 = 'value_{}_2_name'.format(block.condition_count)
+                    #print(f"data before deletion: {data}")
+                    if str_1 in data['first_vars']:
+                        del data['first_vars'][str_1]
+                    if str_2 in data['operators']:
+                        del data['operators'][str_2]
+                    if str_3 in data['second_vars']:
+                        del data['second_vars'][str_3]
+                    block.str_1 = 'N'
+                    block.str_2 = '=='
+                    block.str_3 = 'N'
+                    for path_id, path_info in list(Utils.main_canvas['paths'].items()):
+                        #print(f"Checking path {path_id} for removal: {path_info}, looking for from {block.block_id} and from_circle out_{block.condition_count}")
+                        if path_info['from'] == block.block_id and path_info['from_circle_type'] == f'out_{block.condition_count}':
+                            self.path_manager.remove_path(path_id)
+                            del Utils.main_canvas['paths'][path_id]
+                            out_part, in_part = path_id.split('-')
+                            if in_part in Utils.main_canvas['blocks']:
+                                #print(f"Removing path from block {in_part} in main_canvas")
+                                del Utils.main_canvas['blocks'][in_part]['in_connections'][path_id]
+                            if out_part in Utils.main_canvas['blocks']:
+                                #print(f"Removing path from block {out_part} in main_canvas")
+                                del Utils.main_canvas['blocks'][out_part]['out_connections'][path_id]
+                        if path_info['from'] == block.block_id and path_info['from_circle_type'] == f'out_{block.condition_count+1}':
+                            #print(f"Updating path {path_id} from block {block.block_id} to new output circle out_{block.condition_count}")
+                            Utils.main_canvas['paths'][path_id]['from_circle_type'] = f'out_{block.condition_count}'
+                            Utils.main_canvas['blocks'][block.block_id]['out_connections'][path_id] = f'out_{block.condition_count}'
+                    
             elif self.canvas.reference == 'function':
-                for f_id, f_info in Utils.functions.items():
+                for f_id, f_info in list(Utils.functions.items()):
                     if self.canvas == f_info.get('canvas'):
                         data = f_info['blocks'].get(block.block_id)
                         if data:
                             data['conditions'] = block.condition_count
+                            str_1 = 'value_{}_1_name'.format(block.condition_count)
+                            str_2 = 'operator_{}'.format(block.condition_count)
+                            str_3 = 'value_{}_2_name'.format(block.condition_count)
+                            if str_1 in data['first_vars']:
+                                del data['first_vars'][str_1]
+                            if str_2 in data['operators']:
+                                del data['operators'][str_2]
+                            if str_3 in data['second_vars']:
+                                del data['second_vars'][str_3]
+                            block.str_1 = 'N'
+                            block.str_2 = '=='
+                            block.str_3 = 'N'
+                            for path_id, path_info in list(Utils.functions[f_id]['paths'].items()):
+                                if path_info['from'] == block.block_id and path_info['from_circle_type'] == f'out_{block.condition_count}':
+                                    self.path_manager.remove_path(path_id)
+                                    del Utils.functions[f_id]['paths'][path_id]
+                                    out_part, in_part = path_id.split('-')
+                                    if in_part in Utils.functions[f_id]['blocks']:
+                                        #print(f"Removing path from block {in_part} in function {f_id}")
+                                        del Utils.functions[f_id]['blocks'][in_part]['in_connections'][path_id]
+                                    if out_part in Utils.functions[f_id]['blocks']:
+                                        #print(f"Removing path from block {out_part} in function {f_id}")
+                                        del Utils.functions[f_id]['blocks'][out_part]['out_connections'][path_id]
+                                if path_info['from'] == block.block_id and path_info['from_circle_type'] == f'out_{block.condition_count+1}':
+                                    #print(f"Updating path {path_id} from block {block.block_id} to new output circle out_{block.condition_count}")
+                                    Utils.functions[f_id]['paths'][path_id]['from_circle_type'] = f'out_{block.condition_count}'
+                                    Utils.functions[f_id]['blocks'][block.block_id]['out_connections'][path_id] = f'out_{block.condition_count}'
                         break
+            block.condition_count -= 1
+            block.recalculate_size()
+            self.path_manager.update_paths_for_widget(block)
             block.update()
             if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
-                print(f"Updating inspector for block {block.block_id} after removing condition")
+                #print(f"Updating inspector for block {block.block_id} after removing condition")
                 self.canvas.main_window.update_inspector_content(block)
     
     def on_add_network(self, block):
         """Handle adding network to Networks block"""
         #print(f"✓ on_add_network for block: {block.block_id}")
         block.network_count += 1
+        block.recalculate_size()
         if self.canvas.reference == 'canvas':
             data = Utils.main_canvas['blocks'].get(block.block_id)
             if data:
@@ -961,6 +1061,7 @@ class Elements_events(QObject):
                     if data:
                         data['networks'] = block.network_count
                     break
+        self.path_manager.update_paths_for_widget(block)
         block.update()
         if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
             print(f"Updating inspector for block {block.block_id} after adding network")
@@ -970,18 +1071,44 @@ class Elements_events(QObject):
         """Handle removing network from Networks block"""
         #print(f"✓ on_remove_network for block: {block.block_id}")
         if block.network_count > 1:
-            block.network_count -= 1
             if self.canvas.reference == 'canvas':
                 data = Utils.main_canvas['blocks'].get(block.block_id)
                 if data:
                     data['networks'] = block.network_count
+                    for path_id, path_info in list(Utils.main_canvas['paths'].items()):
+                        if path_info['from'] == block.block_id and path_info['from_circle_type'] == f'out_{block.network_count}':
+                            self.path_manager.remove_path(path_id)
+                            del Utils.main_canvas['paths'][path_id]
+                            out_part, in_part = path_id.split('-')
+                            if in_part in Utils.main_canvas['blocks']:
+                                #print(f"Removing path from block {in_part} in function {f_id}")
+                                del Utils.main_canvas['blocks'][in_part]['in_connections'][path_id]
+                            if out_part in Utils.main_canvas['blocks']:
+                                #print(f"Removing path from block {out_part} in function {f_id}")
+                                del Utils.main_canvas['blocks'][out_part]['out_connections'][path_id]
+
             elif self.canvas.reference == 'function':
                 for f_id, f_info in Utils.functions.items():
                     if self.canvas == f_info.get('canvas'):
                         data = f_info['blocks'].get(block.block_id)
                         if data:
                             data['networks'] = block.network_count
+                            for path_id, path_info in list(Utils.functions[f_id]['paths'].items()):
+                                if path_info['from'] == block.block_id and path_info['from_circle_type'] == f'out_{block.network_count}':
+                                    self.path_manager.remove_path(path_id)
+                                    del Utils.functions[f_id]['paths'][path_id]
+                                    out_part, in_part = path_id.split('-')
+                                    if in_part in Utils.functions[f_id]['blocks']:
+                                        #print(f"Removing path from block {in_part} in function {f_id}")
+                                        del Utils.functions[f_id]['blocks'][in_part]['in_connections'][path_id]
+                                    if out_part in Utils.functions[f_id]['blocks']:
+                                        #print(f"Removing path from block {out_part} in function {f_id}")
+                                        del Utils.functions[f_id]['blocks'][out_part]['out_connections'][path_id]
+    
                         break
+            block.network_count -= 1
+            block.recalculate_size()
+            self.path_manager.update_paths_for_widget(block)
             block.update()
             if hasattr(self.canvas, 'inspector_frame_visible') and self.canvas.inspector_frame_visible:
                 print(f"Updating inspector for block {block.block_id} after removing network")

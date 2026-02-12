@@ -161,7 +161,6 @@ class CodeCompiler:
             print(f"Handling If block {block}")
             self.handle_if_block(block)
         elif block['type'] in ('While', 'While_true'):
-            #print(f"Handling While block {block}")
             self.handle_while_block(block)
         elif block['type'] == 'Timer':
             self.handle_timer_block(block)
@@ -178,8 +177,9 @@ class CodeCompiler:
         elif block['type'] == 'Random_number':
             self.handle_random_block(block)
         elif block['type'] == 'Function':
-            # Function call block
             self.handle_function_block(block)
+        elif block['type'] == 'Networks':
+            self.handle_networks_block(block)
         else:
             print(f"Unknown block type: {block['type']}")
             pass
@@ -865,10 +865,12 @@ class CodeCompiler:
         operators = []
         outputs = []
         for i in range(block['conditions']):
-            first_values.append(self.resolve_value(block['first_vars'][f'value_{i+1}_1_name'], block['first_vars'][f'value_{i+1}_1_type']))
-            second_values.append(self.resolve_value(block['second_vars'][f'value_{i+1}_2_name'], block['second_vars'][f'value_{i+1}_2_type']))
+            first_values.append(self.resolve_value(block['first_vars'][f'value_{i+1}_1_name'], block['first_vars'][f'value_{i+1}_1_type'] if f'value_{i+1}_1_type' in block['first_vars'] else 'Variable'))
+            second_values.append(self.resolve_value(block['second_vars'][f'value_{i+1}_2_name'], block['second_vars'][f'value_{i+1}_2_type'] if f'value_{i+1}_2_type' in block['second_vars'] else 'Variable'))
             operators.append(self.get_comparison_operator(block['operators'][f'operator_{i+1}']))
             outputs.append(self.get_next_block_from_output(block['id'], f'out_{i+1}'))  # True path for this condition
+
+
 
         self.write_condition("if", first_values[0], operators[0], second_values[0])
         self.indent_level += 1
@@ -881,11 +883,12 @@ class CodeCompiler:
             self.process_block(outputs[i])
             #print(f"Completed Elif branch {i}, now checking next condition or else")
             self.indent_level -= 1
-        self.writeline("else:")
-        #print(f"Processing else branch for If block")
-        self.indent_level += 1
-        self.process_block(outputs[-1])
-        self.indent_level -= 1
+        if len(outputs) > block['conditions']:
+            self.writeline("else:")
+            #print(f"Processing else branch for If block")
+            self.indent_level += 1
+            self.process_block(outputs[-1])
+            self.indent_level -= 1
     
     def handle_while_block(self, block):
         if block['type'] == 'While_true':
@@ -898,8 +901,8 @@ class CodeCompiler:
             self.indent_level -= 1
             return
         
-        value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
-        value_2 = self.resolve_value(block['value_2_name'], block['value_2_type'])
+        value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'] if block['value_1_type'] in block else 'Variable')
+        value_2 = self.resolve_value(block['value_2_name'], block['value_2_type'] if block['value_2_type'] in block else 'Variable')
         #print(f"Resolved While block values: {value_1}, {value_2}")
         operator = self.get_comparison_operator(block['operator'])
         #print(f"Using operator: {operator}")
@@ -1085,7 +1088,14 @@ class CodeCompiler:
             pass
         self.process_block(next_id)
     
-
+    def handle_networks_block(self, block):
+        outputs = []
+        for i in range(1, block['networks']+1):
+            outputs.append(self.get_next_block_from_output(block['id'], f'out_{i}'))
+        print(f"Handling Networks block {block['id']} with outputs: {outputs}, length: {len(outputs)}")
+        for i in range(block['networks']):
+            print(f"Processing network block output {i} with next block ID: {outputs[i]}")
+            self.process_block(outputs[i])
 
     def handle_end_block(self, block):
         #print(f"Handling End block {block['id']}")

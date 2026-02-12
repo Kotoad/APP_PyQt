@@ -1091,7 +1091,7 @@ class GridCanvas(QGraphicsView):
         self.elements_events = elementevents(self)
         
         # Create graphics scene
-        self.scene = GridScene(grid_size=grid_size)  # ✅ Use custom scene
+        self.scene = GridScene(grid_size=grid_size)
         self.scene.setSceneRect(-5000, -5000, 5000, 5000)
         self.setScene(self.scene)
         
@@ -1306,6 +1306,14 @@ class GridCanvas(QGraphicsView):
 
         if self.reference == 'canvas':
             Utils.main_canvas['blocks'].setdefault(block_id, info)
+            if block_type == 'If':
+                for i in range(1, block.condition_count + 1):
+                    str_1 = f'value_{i}_1_name'
+                    str_2 = f'value_{i}_2_name'
+                    str_op = f'operator_{i}'
+                    Utils.main_canvas['blocks'][block_id]['first_vars'].setdefault(str_1, 'N')
+                    Utils.main_canvas['blocks'][block_id]['second_vars'].setdefault(str_2, 'N')
+                    Utils.main_canvas['blocks'][block_id]['operators'].setdefault(str_op, 'N')
         elif self.reference == 'function':
             for f_id, f_info in Utils.functions.items():
                 #print(f"Utils.functions key: {f_id}, value: {f_info}")
@@ -3039,18 +3047,20 @@ class MainWindow(QMainWindow):
                 else:
                     block_data['value_1_type'] = 'Device'
                 break
-        if block_data['type'] == 'Button':
-            if len(text) > 6:
-                text = text[:4] + "..."
-        else:
-            if len(text) > 5:
-                text = text[:3] + "..."
+        if len(text) > 20:
+            text = text[:20]
         if block_data['type'] == 'If':
             block_data['first_vars'][f'value_{idx if idx is not None else 1}_1_name'] = text
             setattr(block_data['widget'], f'value_{idx if idx is not None else 1}_1_name', text)
         else: 
             block_data['value_1_name'] = text
             block_data['widget'].value_1_name = text
+
+        block_data['widget'].recalculate_size()
+
+        if hasattr(self.current_canvas, 'path_manager'):
+            self.current_canvas.path_manager.update_paths_for_widget(block_data['widget'])
+        
         block_data['widget'].update()
     
     def Block_operator_changed(self, text, block_data, idx=None):
@@ -3063,6 +3073,12 @@ class MainWindow(QMainWindow):
         else:
             block_data['operator'] = text
             block_data['widget'].operator = text   
+
+        block_data['widget'].recalculate_size()
+
+        if hasattr(self.current_canvas, 'path_manager'):
+            self.current_canvas.path_manager.update_paths_for_widget(block_data['widget'])
+
         block_data['widget'].update()
     
     def Block_value_2_name_changed(self, text, block_data, idx=None):
@@ -3099,14 +3115,20 @@ class MainWindow(QMainWindow):
                 else:
                     block_data['value_2_type'] = 'Device'
                 break
-        if len(text) > 5:
-            text = text[:3] + "..."
+        if len(text) > 20:
+            text = text[:20]
         if block_data['type'] == 'If':
             block_data['second_vars'][f'value_{idx if idx is not None else 2}_2_name'] = text
             setattr(block_data['widget'], f'value_{idx if idx is not None else 2}_2_name', text)
         else:
             block_data['value_2_name'] = text
             block_data['widget'].value_2_name = text
+
+        block_data['widget'].recalculate_size()
+
+        if hasattr(self.current_canvas, 'path_manager'):
+            self.current_canvas.path_manager.update_paths_for_widget(block_data['widget'])
+
         block_data['widget'].update()
     
     def Block_result_var_name_changed(self, text, block_data):
@@ -3137,21 +3159,39 @@ class MainWindow(QMainWindow):
             if dev_info['name'] == text:
                 block_data['result_var_type'] = 'Device'
                 break
-        if len(text) > 5:
-            text = text[:3] + "..."
+        if len(text) > 20:
+            text = text[:20]
         block_data['result_var_name'] = text
         block_data['widget'].result_var_name = text
+
+        block_data['widget'].recalculate_size()
+
+        if hasattr(self.current_canvas, 'path_manager'):
+            self.current_canvas.path_manager.update_paths_for_widget(block_data['widget'])
+
         block_data['widget'].update()
     
     def Block_switch_changed(self, state, block_data):
         block_data['switch_state'] = state
         block_data['widget'].switch_state = state
+
+        block_data['widget'].recalculate_size()
+
+        if hasattr(self.current_canvas, 'path_manager'):
+            self.current_canvas.path_manager.update_paths_for_widget(block_data['widget'])
+
         block_data['widget'].update()
     
     def Block_sleep_interval_changed(self, text, block_data):
         #print("Updating sleep interval")
         block_data['sleep_time'] = text
         block_data['widget'].sleep_time = text
+
+        block_data['widget'].recalculate_size()
+
+        if hasattr(self.current_canvas, 'path_manager'):
+            self.current_canvas.path_manager.update_paths_for_widget(block_data['widget'])
+
         block_data['widget'].update()
 
     def Block_PWM_value_changed(self, text, block_data):
@@ -3166,6 +3206,12 @@ class MainWindow(QMainWindow):
             self.PWM_value_input.setText(text)
         block_data['PWM_value'] = text
         block_data['widget'].PWM_value = text
+
+        block_data['widget'].recalculate_size()
+
+        if hasattr(self.current_canvas, 'path_manager'):
+            self.current_canvas.path_manager.update_paths_for_widget(block_data['widget'])
+
         block_data['widget'].update()
 
     def insert_items(self, block, line_edit, type=None):
@@ -4940,34 +4986,34 @@ class MainWindow(QMainWindow):
                 break
         if canvas_info['ref'] == 'canvas':
             if block_type in ('While', 'Button'):
-                block.value_1_name = data.get('value_1_name', "var1")
-                block.value_2_name = data.get('value_2_name', "var2")
+                block.value_1_name = data.get('value_1_name', "N")
+                block.value_2_name = data.get('value_2_name', "N")
                 block.operator = data.get('operator', "==")
             elif block_type == 'If':
                 for i in range(data.get('conditions', 1)):
                     str_1 = f"value_{i+1}_1_name"
                     str_2 = f"value_{i+1}_2_name"
                     str_op = f"operator_{i+1}"
-                    setattr(block, str_1, data['first_vars'].get(str_1, f"var{i+1}_1"))
-                    setattr(block, str_2, data['second_vars'].get(str_2, f"var{i+1}_2"))
+                    setattr(block, str_1, data['first_vars'].get(str_1, f"N"))
+                    setattr(block, str_2, data['second_vars'].get(str_2, f"N"))
                     setattr(block, str_op, data['operators'].get(str_op, "=="))
             elif block_type == 'Switch':
-                block.value_1_name = data.get('value_1_name', "var1")
+                block.value_1_name = data.get('value_1_name', "N")
                 block.switch_state = data.get('switch_state', False)
             elif block_type == 'Sleep':
                 block.sleep_time = data.get('sleep_time', "1000")
             elif block_type in ('Basic_operations', 'Exponential_operations', 'Random_number'):
-                block.value_1_name = data.get('value_1_name', "var1")
-                block.value_2_name = data.get('value_2_name', "var2")
+                block.value_1_name = data.get('value_1_name', "N")
+                block.value_2_name = data.get('value_2_name', "N")
                 block.operator = data.get('operator', None)
                 block.result_var_name = data.get('result_var_name', "result")
             elif block_type == 'Blink_LED':
-                block.value_1_name = data.get('value_1_name', "var1")
+                block.value_1_name = data.get('value_1_name', "N")
                 block.sleep_time = data.get('sleep_time', "1000")
             elif block_type == 'Toggle_LED':
-                block.value_1_name = data.get('value_1_name', "var1")
+                block.value_1_name = data.get('value_1_name', "N")
             elif block_type == 'PWM_LED':
-                block.value_1_name = data.get('value_1_name', "var1")
+                block.value_1_name = data.get('value_1_name', "N")
                 block.PWM_value = data.get('PWM_value', "50")
         if canvas_info['ref'] == 'function':
             #print("Setting function canvas block properties")
@@ -4976,26 +5022,26 @@ class MainWindow(QMainWindow):
                 if function_info['canvas'] == canvas:
                     #print(f" Found matching canvas for function: {function_id}")
                     if block_type in ('If', 'While', 'Button'):
-                        block.value_1_name = data.get('value_1_name', "var1")
-                        block.value_2_name = data.get('value_2_name', "var2")
+                        block.value_1_name = data.get('value_1_name', "N")
+                        block.value_2_name = data.get('value_2_name', "N")
                         block.operator = data.get('operator', "==")
                     elif block_type == 'Switch':
-                        block.value_1_name = data.get('value_1_name', "var1")
+                        block.value_1_name = data.get('value_1_name', "N")
                         block.switch_state = data.get('switch_state', False)
                     elif block_type == 'Sleep':
                         block.sleep_time = data.get('sleep_time', "1000")
                     elif block_type in ('Basic_operations', 'Exponential_operations', 'Random_number'):
-                        block.value_1_name = data.get('value_1_name', "var1")
-                        block.value_2_name = data.get('value_2_name', "var2")
+                        block.value_1_name = data.get('value_1_name', "N")
+                        block.value_2_name = data.get('value_2_name', "N")
                         block.operator = data.get('operator', None)
                         block.result_var_name = data.get('result_var_name', "result")
                     elif block_type == 'Blink_LED':
-                        block.value_1_name = data.get('value_1_name', "var1")
+                        block.value_1_name = data.get('value_1_name', "N")
                         block.sleep_time = data.get('sleep_time', "1000")
                     elif block_type == 'Toggle_LED':
-                        block.value_1_name = data.get('value_1_name', "var1")
+                        block.value_1_name = data.get('value_1_name', "N")
                     elif block_type == 'PWM_LED':
-                        block.value_1_name = data.get('value_1_name', "var1")
+                        block.value_1_name = data.get('value_1_name', "N")
                         block.PWM_value = data.get('PWM_value', "50")
                     break
                 

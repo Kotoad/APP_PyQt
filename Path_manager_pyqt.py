@@ -30,7 +30,7 @@ class WaypointHandle(QGraphicsEllipseItem):
 
         if change == QGraphicsItem.GraphicsItemChange.ItemPositionHasChanged:
             new_pos = self.pos()
-            print(f" → New position: {new_pos}")
+            #print(f" → New position: {new_pos}")
             self.parent_path.move_waypoint(self.index, new_pos)
         return super().itemChange(change, value)
 
@@ -72,7 +72,7 @@ class PathGraphicsItem(QGraphicsPathItem):
         path.moveTo(start_point)
 
         for point in waypoints[1:]:
-            print(f"Adding line to point: {point}")
+            #print(f"Adding line to point: {point}")
             path.lineTo(QPointF(point[0], point[1]))
         
         self.setPath(path)
@@ -379,61 +379,69 @@ class PathManager:
         
         for path_id, path_item in Utils.scene_paths.items():
             if path_item.to_block == widget:
-                print(f"Updating to block path: {path_id}")
+                #print(f"Updating to block path: {path_id}")
                 if self.canvas.reference == 'function':
                     for f_id, f_info in Utils.functions.items():
                         if self.canvas == f_info.get('canvas'):
                             for path_id, path_info in Utils.functions[f_id]['paths'].items():
                                 if path_id == path_item.path_id:
                                     waypoints = path_info['waypoints']
-                                    print(f"    Pos_x: {path_item.to_block.pos().x()+6}, Pos_y: {path_item.to_block.pos().y()}")
+                                    #print(f"    Pos_x: {path_item.to_block.pos().x()+6}, Pos_y: {path_item.to_block.pos().y()}")
                                     if path_info['to_circle_type'] == 'in':
                                         waypoints[-1] = (path_item.to_block.pos().x()+6, path_item.to_block.pos().y() + (25 * ((path_item.to_block.height / 25) - 1)))
-                                    print(f" → Found waypoints for path {path_id}: {waypoints}")
+                                    #print(f" → Found waypoints for path {path_id}: {waypoints}")
                                     path_item.draw_path(waypoints)
                 elif self.canvas.reference == 'canvas':
                     for path_id, path_info in Utils.main_canvas['paths'].items():
                         if path_id == path_item.path_id:
                             waypoints = path_info['waypoints']
-                            print(f"    Pos_x: {path_item.to_block.pos().x()+6}, Pos_y: {path_item.to_block.pos().y()}")
+                            #print(f"    Pos_x: {path_item.to_block.pos().x()+6}, Pos_y: {path_item.to_block.pos().y()}")
                             if path_info['to_circle_type'] == 'in':
                                 waypoints[-1] = (path_item.to_block.pos().x()+6, path_item.to_block.pos().y() + (25 * ((path_item.to_block.height / 25) - 1)))
-                            print(f" → Found waypoints for path {path_id}: {waypoints}")
+                            #print(f" → Found waypoints for path {path_id}: {waypoints}")
                             path_item.draw_path(waypoints)
             elif path_item.from_block == widget:
-                print(f"Updating from block path: {path_id}")
+                #print(f"Updating from block path: {path_id}")
                 if self.canvas.reference == 'function':
                     for f_id, f_info in Utils.functions.items():
                         if self.canvas == f_info.get('canvas'):
                             for path_id, path_info in Utils.functions[f_id]['paths'].items():
                                 if path_id == path_item.path_id:
                                     waypoints = path_info['waypoints']
-                                    print(f"    Pos_x: {path_item.from_block.pos().x()+6}, Pos_y: {path_item.from_block.pos().y()}")
+                                    #print(f"    Pos_x: {path_item.from_block.pos().x()+6}, Pos_y: {path_item.from_block.pos().y()}")
                                     if path_info['from_circle_type'].startswith('out'):
-                                        print(f"    Detected output circle type: {path_info['from_circle_type']}")
+                                        #print(f"    Detected output circle type: {path_info['from_circle_type']}")
                                         for block_id, block_info in f_info['blocks'].items():
                                             if block_info.get('widget') == path_item.from_block:
-                                                i = block_info['conditions'] + 1
+                                                i = block_info['outputs']
                                                 break
                                         j = int(path_info['from_circle_type'].split('_')[1])
-
-                                        waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + (25 * ((path_item.from_block.height / 25) - ((i - j) + 1))))
-                                    print(f" → Found waypoints for path {path_id}: {waypoints}")
-                                    path_item.draw_path(waypoints)
+                                        y_offset = j * 25
+                                    
+                                        waypoints[0] = (
+                                            path_item.from_block.pos().x() + path_item.from_block.width + 6,
+                                            path_item.from_block.pos().y() + y_offset
+                                        )
+                                        #print(f" → Found waypoints for path {path_id}: {waypoints}")
+                                        path_item.draw_path(waypoints)
                 elif self.canvas.reference == 'canvas':
                     for path_id, path_info in Utils.main_canvas['paths'].items():
                         if path_id == path_item.path_id:
                             waypoints = path_info['waypoints']
-                            print(f"    Pos_x: {path_item.from_block.pos().x()+6}, Pos_y: {path_item.from_block.pos().y()}")
+                            #print(f"    Pos_x: {path_item.from_block.pos().x()+6}, Pos_y: {path_item.from_block.pos().y()}")
                             if path_info['from_circle_type'].startswith('out'):
-                                print(f"    Detected output circle type: {path_info['from_circle_type']}")
+                                #print(f"    Detected output circle type: {path_info['from_circle_type']}")
                                 for block_id, block_info in Utils.main_canvas['blocks'].items():
                                     if block_info.get('widget') == path_item.from_block:
-                                        i = block_info['conditions'] + 1
+                                        i = block_info['outputs']
                                         break
                                 j = int(path_info['from_circle_type'].split('_')[1])
-                                waypoints[0] = (path_item.from_block.pos().x() + path_item.from_block.width+6, path_item.from_block.pos().y() + (25 * ((path_item.from_block.height / 25) - ((i - j) + 1))))
-                            print(f" → Found waypoints for path {path_id}: {waypoints}")
+                                y_offset = j * 25
+                                waypoints[0] = (
+                                    path_item.from_block.pos().x() + path_item.from_block.width + 6,
+                                    path_item.from_block.pos().y() + y_offset
+                                )
+                            #print(f" → Found waypoints for path {path_id}: {waypoints}")
                             path_item.draw_path(waypoints)
     
     def remove_paths_for_block(self, block_id):
