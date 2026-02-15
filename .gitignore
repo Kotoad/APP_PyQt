@@ -32,3 +32,4 @@ env/
 .DS_Store
 Thumbs.db
 File.py
+last_report.json
