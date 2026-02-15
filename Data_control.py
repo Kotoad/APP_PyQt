@@ -201,6 +201,22 @@ class DataControl:
                 'out_connections': {},
                 'canvas': self
             }
+        elif block_type == 'RGB_LED':
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'outputs': 1,
+                'first_vars': {},
+                'second_vars': {},
+                'in_connections': {},
+                'out_connections': {},
+                'canvas': self
+            }
         else:
             print(f"Error: Unknown block type {block_type}")
             info = {
@@ -423,6 +439,22 @@ class DataControl:
                 'out_connections': data.get('out_connections', {}),
                 'canvas': canvas
             }
+        elif block_type == 'RGB_LED':
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'outputs': data.get('outputs', 1),
+                'first_vars': data.get('first_vars', {}),
+                'second_vars': data.get('second_vars', {}),
+                'in_connections': data.get('in_connections', {}),
+                'out_connections': data.get('out_connections', {}),
+                'canvas': canvas
+            }
         else:
             print(f"Error: Unknown block type {block_type}")
             info = {
@@ -607,6 +639,20 @@ class DataControl:
                     'main_devs': block_info['internal_devs'].get('main_devs', {}),
                     'ref_devs': block_info['internal_devs'].get('ref_devs', {}),
                 },
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
+            }
+        elif block_info['type'] == 'RGB_LED':
+            info = {
+                'type': block_info['type'],
+                'id': block_id,
+                'width': block_info['widget'].boundingRect().width(),
+                'height': block_info['widget'].boundingRect().height(),
+                'x': block_info['x'],
+                'y': block_info['y'],
+                'outputs': block_info.get('outputs', 1),
+                'first_vars': block_info.get('first_vars', {}),
+                'second_vars': block_info.get('second_vars', {}),
                 'in_connections': block_info.get('in_connections', {}),
                 'out_connections': block_info.get('out_connections', {}),
             }

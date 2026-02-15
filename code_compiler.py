@@ -120,12 +120,22 @@ class CodeCompiler:
         start_block = self.find_block_by_type('Start')
         if start_block:
             print(f"Found Start block: {start_block['id']}")
-            if self.led_in_code:
-                self.writeline("\nled = LED()")
-            if self.btn_in_code:
-                self.writeline("\nbtn = Button()")
             self.writeline("try:")
             self.indent_level += 1
+            if self.GPIO_compile:
+                self.writeline("print(\"System booting... waiting 1.5s\", flush=True)")
+            if self.MC_compile:
+                self.writeline("print(\"System booting... waiting 1.5s\")")
+            self.writeline("time.sleep(1.5)  # Initial delay to allow reporter thread to start and stabilize")
+            if self.led_in_code:
+                self.writeline("led = LED()")
+            if self.btn_in_code:
+                self.writeline("btn = Button()")
+            if self.GPIO_compile:
+                self.writeline("report_thread = threading.Thread(target=data_reporter, daemon=True)")
+                self.writeline("report_thread.start()")
+            elif self.MC_compile:
+                self.writeline("_thread.start_new_thread(data_reporter, ())")
             next_id = self.get_next_block(start_block['id'])
             print(f"Processing blocks starting from: {next_id}")
             self.process_block(next_id)
@@ -145,7 +155,8 @@ class CodeCompiler:
 
         if self.MC_compile:
             #print("\n--- Transferring to Pico W ---")
-            PicoWAutoTransfer.transfer_file("File.py", "main.py")
+            #PicoWAutoTransfer.transfer_file("File.py", "main.py")
+            pass
     
     def process_block(self, block_id):
         """Process single block - dispatch to handler"""
@@ -172,6 +183,8 @@ class CodeCompiler:
             self.handle_button_block(block)
         elif block['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED'):
             self.handle_LED_block(block)
+        elif block['type'] == 'RGB_LED':
+            self.handle_RGB_LED_block(block)
         elif block['type'] in ("Basic_operations", "Exponential_operations"):
             self.handle_math_block(block)
         elif block['type'] == 'Random_number':
@@ -203,13 +216,16 @@ class CodeCompiler:
 
     def write_setup(self):
         #print("Writing setup code...")
+        self.writeline("shutdown = False\n")
+        self.writeline("reporter_running = False  # Flag to control reporter thread\n")
+        self.writeline("last_report = ''")
+        self.writeline("printed_report = False  # Flag to track if we've printed at least one report\n")
         if self.GPIO_compile:
-            self.writeline("shutdown = False")
+            self.writeline("data_lock = threading.Lock()  # Lock for synchronizing access to shared data if needed\n")
             self.writeline("# Gracefully handle SIGTERM (pkill)")
             self.writeline("def handle_sigterm(signum, frame):")
             self.indent_level += 1
-            self.writeline("global shutdown")
-            self.writeline("shutdown = True")
+            self.writeline("sys.exit(0)")
             self.indent_level -= 1
             self.writeline("signal.signal(signal.SIGTERM, handle_sigterm)\n")
             self.writeline("signal.signal(signal.SIGINT, handle_sigterm)\n")
@@ -272,11 +288,15 @@ class CodeCompiler:
             self.writeline("if dev_config['type'] == 'PWM':")
             self.indent_level+=1
             self.writeline("GPIO.setup(dev_config['PIN'], GPIO.OUT)")
-            self.writeline("dev_config['name'] = GPIO.PWM(dev_config['PIN'], 1000)")
-            self.writeline("dev_config['name'].start(0)")
-            self.writeline("if not hasattr(dev_config['name'], 'CurrentDutyCycle'):")
+            self.writeline("PWM_instance = GPIO.PWM(dev_config['PIN'], 1000)")
+            self.writeline("PWM_instance.start(0)")
+            self.writeline("if 'CurrentDutyCycle' not in dev_config:")
             self.indent_level+=1
-            self.writeline("dev_config['name'].CurrentDutyCycle = 0")
+            self.writeline("dev_config['CurrentDutyCycle'] = 0")
+            self.indent_level-=1
+            self.writeline("if 'PWM_instance' not in dev_config:")
+            self.indent_level+=1
+            self.writeline("dev_config['PWM_instance'] = PWM_instance")
             self.indent_level-=3
             #self.writeline("GPIO.setwarnings(True)")
 
@@ -289,10 +309,11 @@ class CodeCompiler:
             self.writeline("}\n")
             
         elif self.MC_compile:
-            self.writeline("shutdown = False\n")
+            self.writeline("data_lock = _thread.allocate_lock()  # Lock for synchronizing access to shared data if needed\n")   
             self.writeline("Devices_main = {")
             self.indent_level+=1
             for dev_name, dev_info in Utils.devices['main_canvas'].items():
+                #print(f"Compiling device: {dev_info['name']} (PIN: {dev_info['PIN']}, Type Index: {dev_info['type_index']})")
                 if dev_info['type_index'] == 0:
                     dev_type_str = "Output"
                 elif dev_info['type_index'] == 1:
@@ -301,7 +322,7 @@ class CodeCompiler:
                     dev_type_str = "Button"
                 elif dev_info['type_index'] == 3:
                     dev_type_str = "PWM"
-                text = f"\"{dev_info['name']}\":{{"f"\"PIN\": {dev_info['PIN'] if dev_info['PIN'] else 'None'}, \"type\":\"{dev_type_str}\"}},"
+                text = f"\"{dev_info['name']}\":{{\"name\":\"{dev_info['name']}\", \"PIN\": {dev_info['PIN']}, \"type\":\"{dev_type_str}\", \"state\": None}},"
                 self.writeline(text)
             self.indent_level-=1
             self.writeline("}")
@@ -337,7 +358,7 @@ class CodeCompiler:
             self.writeline("pwm_obj.duty_u16(0)  # Start with 0 duty cycle")
             self.writeline("hardware_map[dev_config['PIN']] = pwm_obj  # Store PWM object in hardware map")
             self.writeline("dev_config['driver'] = pwm_obj  # Link PWM object in config for easy access")
-            self.writeline("if not hasattr(dev_config, 'CurrentDutyCycle'):")
+            self.writeline("if 'CurrentDutyCycle' not in dev_config:")
             self.indent_level+=1
             self.writeline("dev_config['CurrentDutyCycle'] = 0")
             self.indent_level-=3
@@ -345,13 +366,13 @@ class CodeCompiler:
         for block_id, block_info in Utils.main_canvas['blocks'].items():
                 if block_info['type'] == 'Button':
                     self.btn_in_code = True
-                if block_info['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED'):
+                if block_info['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED', 'RGB_LED'):
                     self.led_in_code = True
         for func_id, func_info in Utils.functions.items():
             for block_id, block_info in func_info['blocks'].items():
                 if block_info['type'] == 'Button':
                     self.btn_in_code = True
-                if block_info['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED'):
+                if block_info['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED', 'RGB_LED'):
                     self.led_in_code = True
         if self.btn_in_code:
             self.create_btn_class()
@@ -361,10 +382,16 @@ class CodeCompiler:
     def write_reporting_system(self):
         """Injects a background thread to report state via stdout"""
         self.writeline("\n# --- Real-time Reporting Thread ---")
-        
         self.writeline("def data_reporter():")
         self.indent_level += 1
-        self.writeline("while True:")
+        self.writeline("global last_report, reporter_running, printed_report")
+        self.writeline("reporter_running = True")
+        self.writeline("time.sleep(1)  # Initial delay to allow main thread to set up")
+        self.writeline("while not shutdown:")
+        self.indent_level += 1
+        self.writeline("try:")
+        self.indent_level += 1
+        self.writeline("with data_lock:  # Ensure thread-safe access to shared data")
         self.indent_level += 1
         
         # 1. Sanitize Devices_main (remove non-serializable objects like GPIO instances)
@@ -377,54 +404,80 @@ class CodeCompiler:
         self.writeline("'PIN': v.get('PIN', ''),")
         self.writeline("'type': v.get('type', ''),")
         self.writeline("'state': v.get('state', None) if v.get('type') in ['Input', 'Output', 'Button'] else None,")
-        # Add duty cycle for PWM if it exists
         self.writeline("'value': v.get('CurrentDutyCycle', 0) if v.get('type') == 'PWM' else 0")
-        self.indent_level -= 2
+        self.indent_level -= 1
         self.writeline("}")
+        self.indent_level -= 1
         
         # 2. Prepare Report Data
         self.writeline("report = {")
         self.indent_level += 1
         self.writeline("'variables': Variables_main,")
         self.writeline("'devices': sanitized_devices,")
-        # Add active block ID if you track it in your logic
         self.indent_level -= 1
         self.writeline("}")
-        
+        self.indent_level -= 1
         # 3. Print with Prefix (flush=True is critical for real-time SSH)
-        self.writeline("try:")
+        if self.GPIO_compile:
+            self.writeline("current_report_str = json.dumps(report, sort_keys=True)")
+        elif self.MC_compile:
+            self.writeline("current_report_str = json.dumps(report)")
+        self.writeline("if current_report_str != last_report:")
         self.indent_level += 1
         if self.GPIO_compile:
-            self.writeline("print('__REPORT__' + json.dumps(report), flush=True)")
+            self.writeline("print('__REPORT__' + current_report_str, flush=True)")
         elif self.MC_compile:
-            self.writeline("print('__REPORT__' + json.dumps(report))")
+            self.writeline("print('__REPORT__' + current_report_str)")
+        self.writeline("last_report = current_report_str")
+        self.writeline("printed_report = True")
+        while self.indent_level > 2:
+            self.indent_level -= 1
+        self.writeline("except Exception as e:")
+        self.indent_level += 1
+        self.writeline("print(f\"Error in reporter thread: {e}\")")
+        self.writeline("time.sleep(1)  # Sleep longer on error to avoid spamming")
+        self.writeline("if printed_report:")
+        self.indent_level += 1
+        self.writeline("time.sleep(0.25)")
+        self.writeline("printed_report = False  # Reset flag after sleeping")
         self.indent_level -= 1
-        self.writeline("except Exception as e: pass")
-        
-        self.writeline("time.sleep(0.5)")
-        self.indent_level -= 2 
+        self.writeline("else:")
+        self.indent_level += 1
+        self.writeline("time.sleep(0.1)")
+        while self.indent_level > 1:
+            self.indent_level -= 1
+        self.writeline("reporter_running = False  # Signal reporter thread is stopping")
+        while self.indent_level > 0:
+            self.indent_level -= 1
 
         # Start the thread
-        if self.GPIO_compile:
-            self.writeline("report_thread = threading.Thread(target=data_reporter, daemon=True)")
-            self.writeline("report_thread.start()")
-        elif self.MC_compile:
-            self.writeline("_thread.start_new_thread(data_reporter, ())")
         self.writeline("# --------------------------------\n")
 
     def write_cleanup(self):
-        self.writeline("\nexcept KeyboardInterrupt:")
+        self.writeline("\nexcept (KeyboardInterrupt, SystemExit):")
         self.indent_level += 1
         self.writeline("print(\"\\nProgram interrupted by user.\")")
         self.indent_level -= 1
+        self.writeline("except Exception as e:")
+        self.indent_level += 1
+        if self.GPIO_compile:
+            self.writeline("print(f\"Unexpected error: {e}\", flush=True)")
+        if self.MC_compile:
+            self.writeline("print(f\"Unexpected error: {e}\")")
+        self.indent_level -= 1
         self.writeline("finally:")
         self.indent_level += 1
+        self.writeline("shutdown = True  # Signal any running threads to stop")
+        self.writeline("while reporter_running:")  # Wait for reporter thread to finish
+        self.indent_level += 1
+        self.writeline("time.sleep(0.1)")
+        self.indent_level -= 1
         if self.GPIO_compile:
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level += 1
             self.writeline("if dev_config['type'] == 'PWM':")
             self.indent_level += 1
-            self.writeline("dev_config['name'].stop()")
+            self.writeline("dev_config['PWM_instance'].stop()")
             self.indent_level -= 2
             self.writeline("GPIO.cleanup()")
             self.indent_level -= 1
@@ -469,12 +522,13 @@ class CodeCompiler:
             self.indent_level += 1
             self.writeline("dev_config['state'] = \"LOW\"")
             self.writeline("return False")
-            self.indent_level -= 5  # Back to class level
         if self.MC_compile:
             self.writeline("if pin in hardware_map:")
             self.indent_level += 1
             self.writeline("pin_obj = hardware_map[pin]")
             self.writeline("if pin_obj.value() == 1:")
+            self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
             self.indent_level += 1
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level += 1
@@ -491,7 +545,8 @@ class CodeCompiler:
             self.indent_level += 1
             self.writeline("dev_config['state'] = \"LOW\"")
             self.writeline("return False")
-            self.indent_level -= 6  # Back to class level
+        while self.indent_level > 0:
+            self.indent_level -= 1
     
     def create_led_class(self):
         #print("Creating LED class...")
@@ -500,6 +555,8 @@ class CodeCompiler:
         self.writeline("def __init__(self):")
         self.indent_level += 1
         self.writeline("self.pin_state = {}")
+        self.writeline("with data_lock:  # Ensure thread-safe access to shared state")
+        self.indent_level += 1
         self.writeline("for dev_name, dev_config in Devices_main.items():")
         self.indent_level += 1
         self.writeline("if dev_config['type'] == 'Output':")
@@ -514,12 +571,15 @@ class CodeCompiler:
             self.indent_level -= 1
             self.writeline("dev_config['state'] = \"LOW\"")
             self.writeline("self.pin_state[dev_config['PIN']] = 0")
-        self.indent_level -= 3
+        while self.indent_level > 1:
+            self.indent_level -= 1
         #Toggle method
         self.writeline("def Toggle_LED(self, pin):")
         self.indent_level += 1
         if self.GPIO_compile:
             self.writeline("if pin in self.pin_state and self.pin_state[pin] == GPIO.HIGH:")
+            self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
             self.indent_level += 1
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level += 1
@@ -528,8 +588,11 @@ class CodeCompiler:
             self.writeline("dev_config['state'] = \"LOW\"")
             self.writeline("GPIO.output(pin, GPIO.LOW)")
             self.writeline("self.pin_state[pin] = GPIO.LOW")
-            self.indent_level -= 3
+            while self.indent_level > 2:
+                self.indent_level -= 1
             self.writeline("elif pin in self.pin_state and self.pin_state[pin] == GPIO.LOW:")
+            self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
             self.indent_level += 1
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level += 1
@@ -538,12 +601,13 @@ class CodeCompiler:
             self.writeline("dev_config['state'] = \"HIGH\"")
             self.writeline("GPIO.output(pin, GPIO.HIGH)")
             self.writeline("self.pin_state[pin] = GPIO.HIGH")
-            self.indent_level -= 4  # Back to method level
         if self.MC_compile:
             self.writeline("if pin in self.pin_state and pin in hardware_map:")
             self.indent_level += 1
             self.writeline("pin_obj = hardware_map[pin]")
             self.writeline("if self.pin_state[pin] == 1:")
+            self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
             self.indent_level += 1
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level += 1
@@ -552,8 +616,11 @@ class CodeCompiler:
             self.writeline("dev_config['state'] = \"LOW\"")
             self.writeline("pin_obj.value(0)")
             self.writeline("self.pin_state[pin] = 0")
-            self.indent_level -= 3
+            while self.indent_level > 3:
+                self.indent_level -= 1
             self.writeline("elif self.pin_state[pin] == 0:")
+            self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
             self.indent_level += 1
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level += 1
@@ -562,7 +629,8 @@ class CodeCompiler:
             self.writeline("dev_config['state'] = \"HIGH\"")
             self.writeline("pin_obj.value(1)")
             self.writeline("self.pin_state[pin] = 1")
-            self.indent_level -= 5  # Back to method level
+        while self.indent_level > 1:
+            self.indent_level -= 1
         #Blink method
         self.writeline("def Blink_LED(self, pin, duration_ms):")
         self.indent_level += 1
@@ -573,30 +641,42 @@ class CodeCompiler:
             self.indent_level += 1
             self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
             self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
             self.writeline("dev_config['state'] = \"LOW\"")
             self.writeline("self.pin_state[pin] = GPIO.LOW")
             self.writeline("GPIO.output(pin, GPIO.LOW)")
+            self.indent_level -= 1
             self.writeline("time.sleep(duration_ms / 1000)")
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
             self.writeline("dev_config['state'] = \"HIGH\"")
             self.writeline("self.pin_state[pin] = GPIO.HIGH")
             self.writeline("GPIO.output(pin, GPIO.HIGH)")
+            self.indent_level -= 1
             self.writeline("time.sleep(duration_ms / 1000)")
-            self.indent_level -= 3
+            while self.indent_level > 2:
+                self.indent_level -= 1
             self.writeline("elif pin in self.pin_state and self.pin_state[pin] == GPIO.LOW:")
             self.indent_level += 1
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level += 1
             self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
             self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
             self.writeline("dev_config['state'] = \"HIGH\"")
             self.writeline("GPIO.output(pin, GPIO.HIGH)")
             self.writeline("self.pin_state[pin] = GPIO.HIGH")
+            self.indent_level -= 1
             self.writeline("time.sleep(duration_ms / 1000)")
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
             self.writeline("dev_config['state'] = \"LOW\"")
             self.writeline("self.pin_state[pin] = GPIO.LOW")
             self.writeline("GPIO.output(pin, GPIO.LOW)")
+            self.indent_level -= 1
             self.writeline("time.sleep(duration_ms / 1000)")
-            self.indent_level -= 4  # Back to method level
         if self.MC_compile:
             self.writeline("if pin in self.pin_state and pin in hardware_map:")
             self.indent_level += 1
@@ -607,28 +687,44 @@ class CodeCompiler:
             self.indent_level += 1
             self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
             self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
             self.writeline("dev_config['state'] = \"LOW\"")
             self.writeline("pin_obj.value(0)")
             self.writeline("self.pin_state[pin] = 0")
+            self.indent_level -= 1
             self.writeline("time.sleep(duration_ms / 1000)")
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
             self.writeline("dev_config['state'] = \"HIGH\"")
             self.writeline("pin_obj.value(1)")
             self.writeline("self.pin_state[pin] = 1")
-            self.indent_level -= 3
+            self.indent_level -= 1
+            self.writeline("time.sleep(duration_ms / 1000)")
+            while self.indent_level > 3:
+                self.indent_level -= 1
             self.writeline("elif self.pin_state[pin] == 0:")
             self.indent_level += 1
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level += 1
             self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
             self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
             self.writeline("dev_config['state'] = \"HIGH\"")
             self.writeline("pin_obj.value(1)")
             self.writeline("self.pin_state[pin] = 1")
+            self.indent_level -= 1
             self.writeline("time.sleep(duration_ms / 1000)")
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
             self.writeline("dev_config['state'] = \"LOW\"")
             self.writeline("pin_obj.value(0)")
             self.writeline("self.pin_state[pin] = 0")
-            self.indent_level -= 5  # Back to method level
+            self.indent_level -= 1
+            self.writeline("time.sleep(duration_ms / 1000)")
+        while self.indent_level > 1:
+            self.indent_level -= 1
         #PWM method
         self.writeline("def PWM_LED(self, pin, PWM_value):")
         self.indent_level += 1
@@ -637,25 +733,13 @@ class CodeCompiler:
             self.indent_level += 1
             self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'PWM':")
             self.indent_level += 1
-            self.writeline("pwm_instance = dev_config['name']")
-            self.writeline("current_duty = dev_config.get('CurrentDutyCycle', 0)")
-            self.indent_level -= 2  # Back to method level
-            self.writeline("if PWM_value < current_duty:")
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
             self.indent_level += 1
-            self.writeline("for duty_cycle in range(current_duty, PWM_value - 1, -1):")
-            self.indent_level += 1
-            self.writeline("pwm_instance.ChangeDutyCycle(duty_cycle)")
-            self.writeline("time.sleep(0.05)")
-            self.indent_level -= 2
-            self.writeline("elif PWM_value > current_duty:")
-            self.indent_level += 1
-            self.writeline("for duty_cycle in range(current_duty, PWM_value + 1):")
-            self.indent_level += 1
-            self.writeline("pwm_instance.ChangeDutyCycle(duty_cycle)")
-            self.writeline("time.sleep(0.05)")
-            self.indent_level -= 2
+            self.writeline("pwm_instance = dev_config['PWM_instance']")
+            self.writeline("pwm_instance.ChangeDutyCycle(PWM_value)")
             self.writeline("dev_config['CurrentDutyCycle'] = PWM_value")
-            self.indent_level -= 2    # Back to class level
+            self.indent_level -= 1
+            self.writeline("time.sleep(0.05)")
         if self.MC_compile:
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level += 1
@@ -663,25 +747,71 @@ class CodeCompiler:
             self.indent_level += 1
             self.writeline("if pin in hardware_map:")
             self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
             self.writeline("pwm_instance = hardware_map[pin]")
-            self.writeline("current_duty = dev_config.get('CurrentDutyCycle', 0)")
-            self.indent_level -= 2  # Back to method level
-            self.writeline("if PWM_value < current_duty:")
-            self.indent_level += 1
-            self.writeline("for duty_cycle in range(current_duty, PWM_value - 1, -1):")
-            self.indent_level += 1
-            self.writeline("pwm_instance.duty_u16(duty_cycle * 655)")  # Scale 0-100 to 0-65500
-            self.writeline("time.sleep(0.05)")
-            self.indent_level -= 2
-            self.writeline("elif PWM_value > current_duty:")
-            self.indent_level += 1
-            self.writeline("for duty_cycle in range(current_duty, PWM_value + 1):")
-            self.indent_level += 1
-            self.writeline("pwm_instance.duty_u16(duty_cycle * 655)")  # Scale 0-100 to 0-65500
-            self.writeline("time.sleep(0.05)")
-            self.indent_level -= 2
+            self.writeline("if PWM_value < 0: PWM_value = 0")
+            self.writeline("if PWM_value > 100: PWM_value = 100")
+            self.writeline("pwm_instance.duty_u16(int(PWM_value * 655.35))")  # Scale 0-100 to 0-65500
             self.writeline("dev_config['CurrentDutyCycle'] = PWM_value")
-            self.indent_level -= 3    # Back to class level
+            self.indent_level -= 1
+            self.writeline("time.sleep(0.05)")
+        while self.indent_level > 1:
+            self.indent_level -= 1
+        #RGB method
+        self.writeline("def RGB_LED(self, pin_r, pin_g, pin_b, r_value, g_value, b_value):")
+        self.indent_level += 1
+        if self.GPIO_compile:
+            self.writeline("with data_lock:  # Ensure thread-safe access to shared state")
+            self.indent_level += 1
+            self.writeline("for def_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] in [pin_r, pin_g, pin_b] and dev_config['type'] == 'PWM':")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin_r:")
+            self.indent_level += 1
+            self.writeline("dev_config['PWM_instance'].ChangeDutyCycle(r_value)")
+            self.writeline("dev_config['CurrentDutyCycle'] = r_value")
+            self.indent_level -= 1
+            self.writeline("elif dev_config['PIN'] == pin_g:")
+            self.indent_level += 1
+            self.writeline("dev_config['PWM_instance'].ChangeDutyCycle(g_value)")
+            self.writeline("dev_config['CurrentDutyCycle'] = g_value")
+            self.indent_level -= 1
+            self.writeline("elif dev_config['PIN'] == pin_b:")
+            self.indent_level += 1
+            self.writeline("dev_config['PWM_instance'].ChangeDutyCycle(b_value)")
+            self.writeline("dev_config['CurrentDutyCycle'] = b_value")
+        if self.MC_compile:
+            self.writeline("with data_lock:  # Ensure thread-safe access to shared state")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] in [pin_r, pin_g, pin_b] and dev_config['type'] == 'PWM':")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin_r:")
+            self.indent_level += 1
+            self.writeline("if pin_r in hardware_map:")
+            self.indent_level += 1
+            self.writeline("hardware_map[pin_r].duty_u16(int(r_value * 655.35))")
+            self.writeline("dev_config['CurrentDutyCycle'] = r_value")
+            self.indent_level -= 2
+            self.writeline("elif dev_config['PIN'] == pin_g:")
+            self.indent_level += 1
+            self.writeline("if pin_g in hardware_map:")
+            self.indent_level += 1
+            self.writeline("hardware_map[pin_g].duty_u16(int(g_value * 655.35))")
+            self.writeline("dev_config['CurrentDutyCycle'] = g_value")
+            self.indent_level -= 2
+            self.writeline("elif dev_config['PIN'] == pin_b:")
+            self.indent_level += 1
+            self.writeline("if pin_b in hardware_map:")
+            self.indent_level += 1
+            self.writeline("hardware_map[pin_b].duty_u16(int(b_value * 655.35))")
+            self.writeline("dev_config['CurrentDutyCycle'] = b_value")
+        while self.indent_level > 0:
+            self.indent_level -= 1
+
 
     #MARK: Helper Methods
     def find_block_by_type(self, block_type):
@@ -894,7 +1024,7 @@ class CodeCompiler:
         if block['type'] == 'While_true':
             #print(f"Handling While true block {block}")
             next_id = self.get_next_block(block['id'])
-            self.writeline("while not shutdown:")
+            self.writeline("while True:")
             self.indent_level += 1
             #print(f"Processing While true branch for While true block")
             self.process_block(next_id)
@@ -906,8 +1036,8 @@ class CodeCompiler:
         #print(f"Resolved While block values: {value_1}, {value_2}")
         operator = self.get_comparison_operator(block['operator'])
         #print(f"Using operator: {operator}")
-        out1_id = self.get_next_block_from_output(block['id'], 'out1')  # True path
-        out2_id = self.get_next_block_from_output(block['id'], 'out2')  # False path
+        out1_id = self.get_next_block_from_output(block['id'], 'out_1')  # True path
+        out2_id = self.get_next_block_from_output(block['id'], 'out_2')  # False path
         #print(f"While block outputs: out1 -> {out1_id}, out2 -> {out2_id}")
         self.write_condition("while", value_1, operator, value_2)
         self.indent_level += 1
@@ -967,8 +1097,8 @@ class CodeCompiler:
     
     def handle_button_block(self, block):
         DEV_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
-        out1_id = self.get_next_block_from_output(block['id'], 'out1')  # ON path
-        out2_id = self.get_next_block_from_output(block['id'], 'out2')
+        out1_id = self.get_next_block_from_output(block['id'], 'out_1')  # ON path
+        out2_id = self.get_next_block_from_output(block['id'], 'out_2')
         #print(f"Resolved Button block device: {DEV_1}")
         if self.GPIO_compile:
             self.writeline(f"if Button().is_pressed({DEV_1}):")
@@ -1088,6 +1218,22 @@ class CodeCompiler:
             pass
         self.process_block(next_id)
     
+    def handle_RGB_LED_block(self, block):
+        Pins = []
+        PWM_values = []
+        for i in range(1, 4):
+            DEV_i = self.resolve_value(block['first_vars'][f'value_{i}_1_name'], block['first_vars'][f'value_{i}_1_type'] if f'value_{i}_1_type' in block['first_vars'] else 'Device')
+            PWM_value = self.resolve_value(block['second_vars'][f'value_{i}_2_PWM'], block['second_vars'][f'value_{i}_2_type'] if f'value_{i}_2_type' in block['second_vars'] else 'Variable')
+            Pins.append(DEV_i)
+            PWM_values.append(PWM_value)
+        self.writeline(f"led.RGB_LED({Pins[0]}, {Pins[1]}, {Pins[2]}, {PWM_values[0]}, {PWM_values[1]}, {PWM_values[2]})")
+
+        next_id = self.get_next_block(block['id'])
+        if next_id:
+            #print(f"Processing next block after RGB LED: {next_id}")
+            pass
+        self.process_block(next_id)
+
     def handle_networks_block(self, block):
         outputs = []
         for i in range(1, block['networks']+1):

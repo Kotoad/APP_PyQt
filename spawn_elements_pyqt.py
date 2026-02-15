@@ -169,6 +169,9 @@ class BlockGraphicsItem(QGraphicsObject):
         elif self.block_type == "Networks":
             self.width = 100
             self.height = 25 + (self.network_count * 25)
+        elif self.block_type == "RGB_LED":
+            self.width = 100
+            self.height = 100
         else:  #Fallback for other blocks
             print(f"[Warning] Unknown block type '{self.block_type}', using default dimensions.")
             self.width = 100
@@ -213,6 +216,13 @@ class BlockGraphicsItem(QGraphicsObject):
             text_to_measure = f"{self.value_1_name} - {self.PWM_value}"
         elif self.block_type == "Toggle_LED":
             text_to_measure = f"{self.value_1_name}"
+        elif self.block_type == "RGB_LED":
+            for i in range(1, 4):
+                val_name = getattr(self, f"value_{i}_1_name", "N")
+                PWM_value = getattr(self, f"value_{i}_2_PWM", "N")
+                text = f"{val_name} - {PWM_value}"
+                if len(text) > len(text_to_measure):
+                    text_to_measure = text
         elif self.block_type == "Function":
              # Function blocks calculate height in _setup_dimensions, but here we check width
              longest_line = metrics.horizontalAdvance(self.name)
@@ -257,10 +267,12 @@ class BlockGraphicsItem(QGraphicsObject):
             "Basic_operations": QColor("#9900FF"),  # Light orange
             "Exponential_operations": QColor("#9900FF"),      # Purple
             "Random_number": QColor("#9900FF"),  # Purple
-            "Blink_LED": QColor("#57A139"),      # Yellow
-            "Toggle_LED": QColor("#57A139"),     # Yellow
-            "PWM_LED": QColor("#57A139"),        # Yellow
+            "Blink_LED": QColor("#57A139"),      # Green
+            "Toggle_LED": QColor("#57A139"),     # Green
+            "PWM_LED": QColor("#57A139"),        # Green
+            "RGB_LED": QColor("#57A139"),        # Green
             "Networks": QColor("#00CED1"),       # Dark turquoise
+
         }
         return colors.get(self.block_type, QColor("#FFD700"))  # Default yellow
 
@@ -396,6 +408,15 @@ class BlockGraphicsItem(QGraphicsObject):
             device_text = f"{self.value_1_name} - {self.PWM_value}"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
+        elif self.block_type in ["RGB_LED"]:
+            y_offset = 17.5
+            for i in range(1, 4):
+                val_name = getattr(self, f"value_{i}_1_name", "N")
+                PWM_value = getattr(self, f"value_{i}_2_PWM", "N")
+                text = f"{val_name} - {PWM_value}"
+                text_rect = QRectF(self.radius, y_offset, self.width, 15)
+                painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
+                y_offset += 25
         else:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
@@ -406,10 +427,7 @@ class BlockGraphicsItem(QGraphicsObject):
         self.outputs = 0 
         # Input circle (white)
         if self.block_type != "Start":
-            if self.block_type in ["If", "While", "Switch", "Button", "Networks"]:
-                in_y = self.grid_size*((self.height/self.grid_size)-1)
-            else:
-                in_y = self.height / 2
+            in_y = self.grid_size*((self.height/self.grid_size)-1)
             
             in_circle = QRectF(0, in_y - self.radius, 2*self.radius, 2*self.radius)
             painter.setBrush(QBrush(QColor("white")))
@@ -438,7 +456,6 @@ class BlockGraphicsItem(QGraphicsObject):
                     out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
                     painter.drawEllipse(out_circle)
                     self.outputs += 1
-                    
             else:
                 out_y = self.grid_size
                 out_circle = QRectF(self.width, out_y - self.radius, 2*self.radius, 2*self.radius)
@@ -713,7 +730,7 @@ class BlockGraphicsItem(QGraphicsObject):
             number = int(circle_type.split('_')[1])
             print(f"Calculating circle center for output {number} of {outputs} outputs")
             local_x = self.width
-            local_y = self.grid_size * ((self.height / self.grid_size) - ((outputs - number) + 1))
+            local_y = self.grid_size * (number)
         
         # Convert to scene coordinates
         scene_pos = self.mapToScene(local_x, local_y)
@@ -767,7 +784,7 @@ class BlockGraphicsItem(QGraphicsObject):
                 helper += 1
         else:
             # Standard output at center height
-            out_y = self.grid_size * ((self.height / self.grid_size) - 1)
+            out_y = self.grid_size
             dist_out = ((click_pos.x() - out_x)**2 + (click_pos.y() - out_y)**2)**0.5
             if dist_out <= effective_radius:
                 return 'out_1'

@@ -1,5 +1,7 @@
 from random import random
 import traceback as tb
+from pyboard import Pyboard, PyboardError
+import serial.tools.list_ports
 from Imports import (
     sys, QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, threading,
     QMenuBar, QMenu, QPushButton, QLabel, QFrame, QScrollArea, QListWidget, QMovie,
@@ -649,6 +651,84 @@ class RPiExecutionThread(QThread):
         except Exception as e:
             print(f"⚠️  GPIO hardware reset warning: {e}")
 
+
+class PicoListenerThread(QThread):
+    """
+    Background thread to listen to Pico W serial output after a hard reset.
+    """
+    output = pyqtSignal(str)
+    status = pyqtSignal(str)
+    finished = pyqtSignal()
+
+    def __init__(self, port):
+        super().__init__()
+        self.port = port
+        self.running = True
+        self.ser = None
+
+    def run(self):
+
+        self.status.emit("⏳ Waiting for Pico to reboot...")
+        time.sleep(2.0)  # Short initial wait
+        
+        # 2. Dynamic Port Hunting Loop
+        # We will look for the Pico for up to 15 seconds
+        start_time = time.time()
+        new_port = None
+        # 1. Wait for Pico to reboot and reappear
+        while time.time() - start_time < 15:
+            # Search all active ports for the Pico's USB ID (0x2E8A = RPi, 0x0005 = Pico)
+            found = False
+            for p in serial.tools.list_ports.comports():
+                if (p.vid == 0x2E8A and p.pid == 0x0005):
+                    new_port = p.device
+                    found = True
+                    break
+            
+            if found:
+                break # We found it!
+            
+            time.sleep(0.25) # Check 4 times a second
+            
+        # 3. Handle specific failure (Timout or Success)
+        if not new_port:
+            self.status.emit("❌ Pico not found after reboot.")
+            self.finished.emit()
+            return
+            
+        # 4. Attempt Connection (with retries for "Access Denied" race conditions)
+        for attempt in range(5):
+            try:
+                self.port = new_port # Update port in case it changed (e.g. COM3 -> COM4)
+                self.ser = serial.Serial(self.port, 115200, timeout=1)
+                self.status.emit(f"✓ Reconnected to {self.port}")
+                break
+            except Exception as e:
+                time.sleep(0.5)
+                if attempt == 4:
+                     self.status.emit(f"⚠️ Connection failed: {str(e)}")
+                     self.finished.emit()
+                     return
+
+        # 5. Listen loop (Same as your original code)
+        self.running = True
+        while self.running and self.ser and self.ser.is_open:
+            try:
+                if self.ser.in_waiting:
+                    line = self.ser.readline().decode('utf-8', errors='ignore').strip()
+                    if line:
+                        self.output.emit(line)
+                else:
+                    time.sleep(0.01)
+            except Exception:
+                break
+        
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+        self.finished.emit()
+
+    def stop(self):
+        self.running = False
 
 class GridScene(QGraphicsScene):
     def __init__(self, grid_size=25):
@@ -1665,6 +1745,7 @@ class MainWindow(QMainWindow):
         self.last_canvas = None
         self.blockIDs = {}
         self.execution_thread = None
+        self.pico_thread = None
         self.canvas_added = None
         self.pages = {}
         self.page_count = 0
@@ -1809,14 +1890,18 @@ class MainWindow(QMainWindow):
         #self.toolbar.addAction(test_icon)
 
     def stop_execution(self):
-        if self.execution_thread and self.execution_thread.isRunning():
-            print("[MainWindow] Stopping execution thread...")
-            self.execution_thread.kill_process()
-            self.execution_thread.stop()
-            self.execution_thread.wait(3000)
-            self.execution_thread.terminate()
+        if Utils.app_settings.rpi_model_index == 0:
+            print("[MainWindow] Stopping Pico W")
+            self.stop_pico_execution()
         else:
-            print("[MainWindow] No execution thread is running.")
+            if self.execution_thread and self.execution_thread.isRunning():
+                print("[MainWindow] Stopping execution thread...")
+                self.execution_thread.kill_process()
+                self.execution_thread.stop()
+                self.execution_thread.wait(3000)
+                self.execution_thread.terminate()
+            else:
+                print("[MainWindow] No execution thread is running.")
 
     def create_canvas_frame(self):
         self.central_widget = QWidget()
@@ -2692,8 +2777,8 @@ class MainWindow(QMainWindow):
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_2_input)
         if block_data['type'] == 'If':
-            for i in range(block_data.get('conditions', 1)):
-                print(f"Adding condition {i+1} for If block")
+            for i in range(1, block_data.get('conditions', 1) + 1):
+                print(f"Adding condition {i} for If block")
                 cond_widget = QWidget()
                 cond_layout = QHBoxLayout(cond_widget)
                 cond_layout.setContentsMargins(0, 0, 0, 0)
@@ -2701,9 +2786,9 @@ class MainWindow(QMainWindow):
                 value_1_label = QLabel(f"{self.t('main_GUI.inspector.value_1_name')}:")
                 cond_layout.addWidget(value_1_label)
                 value_1_input = SearchableLineEdit()
-                value_1_input.setText(block_data.get('first_vars', {}).get(f'value_{i+1}_1_name', ''))
+                value_1_input.setText(block_data.get('first_vars', {}).get(f'value_{i}_1_name', ''))
                 value_1_input.setPlaceholderText(self.t("main_GUI.inspector.value_1_name_placeholder"))
-                value_1_input.textChanged.connect(lambda text, bd=block_data, idx=i+1: self.Block_value_1_name_changed(text, bd, idx))
+                value_1_input.textChanged.connect(lambda text, bd=block_data, idx=i: self.Block_value_1_name_changed(text, bd, idx))
                 self.insert_items(block, value_1_input)
                 cond_layout.addWidget(value_1_input)
 
@@ -2711,16 +2796,16 @@ class MainWindow(QMainWindow):
                 cond_layout.addWidget(operator_label)
                 operator_input = QComboBox()
                 operator_input.addItems(["==", "!=", "<", ">", "<=", ">="])
-                operator_input.setCurrentText(block_data.get('operators', {}).get(f'operator_{i+1}', '=='))
-                operator_input.currentTextChanged.connect(lambda text, bd=block_data, idx=i+1: self.Block_operator_changed(text, bd, idx))
+                operator_input.setCurrentText(block_data.get('operators', {}).get(f'operator_{i}', '=='))
+                operator_input.currentTextChanged.connect(lambda text, bd=block_data, idx=i: self.Block_operator_changed(text, bd, idx))
                 cond_layout.addWidget(operator_input)
 
                 value_2_label = QLabel(f"{self.t('main_GUI.inspector.value_2_name')}:")
                 cond_layout.addWidget(value_2_label)
                 value_2_input = SearchableLineEdit()
-                value_2_input.setText(block_data.get('second_vars', {}).get(f'value_{i+1}_2_name', ''))
+                value_2_input.setText(block_data.get('second_vars', {}).get(f'value_{i}_2_name', ''))
                 value_2_input.setPlaceholderText(self.t("main_GUI.inspector.value_2_name_placeholder"))
-                value_2_input.textChanged.connect(lambda text, bd=block_data, idx=i+1: self.Block_value_2_name_changed(text, bd, idx))
+                value_2_input.textChanged.connect(lambda text, bd=block_data, idx=i: self.Block_value_2_name_changed(text, bd, idx))
                 self.insert_items(block, value_2_input)
                 cond_layout.addWidget(value_2_input)
                 current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), cond_widget)
@@ -2829,6 +2914,35 @@ class MainWindow(QMainWindow):
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), PWM_label)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.PWM_value_input)
+        if block_data['type'] == 'RGB_LED':
+            for i in range(1, 4):
+                line_widget = QWidget()
+                line_layout = QHBoxLayout(line_widget)
+                line_layout.setContentsMargins(0, 0, 0, 0)
+
+                name_label = QLabel(self.t("main_GUI.inspector.led_device_name"))
+                
+                self.name_1_input = SearchableLineEdit()
+                self.name_1_input.setText(block_data['first_vars'].get(f'value_{i}_1_name', ''))
+                self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.led_device_name_placeholder"))
+                self.name_1_input.textChanged.connect(lambda text, bd=block_data, inx=i: self.Block_value_1_name_changed(text, bd, inx))
+                
+                self.insert_items(block, self.name_1_input)
+
+                PWM_label = QLabel(self.t("main_GUI.inspector.pwm_value"))
+
+                PWM_value_input = SearchableLineEdit()
+                PWM_value_input.setText(block_data['second_vars'].get(f'value_{i}_2_PWM', ''))
+                PWM_value_input.setPlaceholderText(self.t("main_GUI.inspector.pwm_value_placeholder"))
+                PWM_value_input.textChanged.connect(lambda text, bd=block_data, inx=i, w=PWM_value_input: self.Block_PWM_value_changed(text, bd, inx, w))
+
+                line_layout.addWidget(name_label)
+                line_layout.addWidget(self.name_1_input)
+                line_layout.addWidget(PWM_label)
+                line_layout.addWidget(PWM_value_input)
+
+                current_canvas.inspector_content_layout.addWidget(line_widget)
+
         if block_data['type'] in ("Basic_operations", "Exponential_operations", "Random_number"):
             name_label = QLabel(self.t("main_GUI.inspector.first_variable"))
             
@@ -3020,7 +3134,6 @@ class MainWindow(QMainWindow):
             print("ERROR: No current canvas available")
             return
         
-        block_data['value_1_name'] = text
         if current_canvas.reference == 'canvas':
             #print(f"Current Utils.main_canvas['blocks']: {Utils.main_canvas['blocks']}")
             variables = Utils.variables['main_canvas']
@@ -3035,21 +3148,21 @@ class MainWindow(QMainWindow):
         for var_id, var_info in variables.items():
             #print(f"Checking variable: {var_info}")
             if var_info['name'] == text:
-                if block_data['type'] == 'If':
+                if block_data['type'] in ('If', 'RGB_LED'):
                     block_data['first_vars'][f'value_{idx if idx is not None else 1}_1_type'] = 'Variable'
                 else:
                     block_data['value_1_type'] = 'Variable'
                 break
         for dev_id, dev_info in devices.items():
             if dev_info['name'] == text:
-                if block_data['type'] == 'If':
+                if block_data['type'] in ('If', 'RGB_LED'):
                     block_data['first_vars'][f'value_{idx if idx is not None else 1}_1_type'] = 'Device'
                 else:
                     block_data['value_1_type'] = 'Device'
                 break
         if len(text) > 20:
             text = text[:20]
-        if block_data['type'] == 'If':
+        if block_data['type'] in ('If', 'RGB_LED'):
             block_data['first_vars'][f'value_{idx if idx is not None else 1}_1_name'] = text
             setattr(block_data['widget'], f'value_{idx if idx is not None else 1}_1_name', text)
         else: 
@@ -3083,7 +3196,6 @@ class MainWindow(QMainWindow):
     
     def Block_value_2_name_changed(self, text, block_data, idx=None):
         #print("Updating vlaue 2 name") 
-        block_data['value_2_name'] = text
         current_canvas = self.current_canvas
         if current_canvas is None:
             print("ERROR: No current canvas available")
@@ -3103,21 +3215,21 @@ class MainWindow(QMainWindow):
 
         for var_id, var_info in variables.items():
             if var_info['name'] == text:
-                if block_data['type'] == 'If':
+                if block_data['type'] in ('If', 'RGB_LED'):
                     block_data['second_vars'][f'value_{idx if idx is not None else 2}_2_type'] = 'Variable'
                 else:
                     block_data['value_2_type'] = 'Variable'
                 break
         for dev_id, dev_info in devices.items():
             if dev_info['name'] == text:
-                if block_data['type'] == 'If':
+                if block_data['type'] in ('If', 'RGB_LED'):
                     block_data['second_vars'][f'value_{idx if idx is not None else 2}_2_type'] = 'Device'
                 else:
                     block_data['value_2_type'] = 'Device'
                 break
         if len(text) > 20:
             text = text[:20]
-        if block_data['type'] == 'If':
+        if block_data['type'] in ('If', 'RGB_LED'):
             block_data['second_vars'][f'value_{idx if idx is not None else 2}_2_name'] = text
             setattr(block_data['widget'], f'value_{idx if idx is not None else 2}_2_name', text)
         else:
@@ -3194,7 +3306,7 @@ class MainWindow(QMainWindow):
 
         block_data['widget'].update()
 
-    def Block_PWM_value_changed(self, text, block_data):
+    def Block_PWM_value_changed(self, text, block_data, inx=None, w=None):
         #print("Updating PWM value")
         if text != '' and text.isdigit():
             pwm_val = int(text)
@@ -3203,9 +3315,23 @@ class MainWindow(QMainWindow):
             elif pwm_val > 100:
                 pwm_val = 100
             text = str(pwm_val)
-            self.PWM_value_input.setText(text)
-        block_data['PWM_value'] = text
-        block_data['widget'].PWM_value = text
+            if w is not None:
+                w.blockSignals(True)
+                w.setText(text)
+                w.blockSignals(False)
+            else:
+                self.PWM_value_input.blockSignals(True)
+                self.PWM_value_input.setText(text)
+                self.PWM_value_input.blockSignals(False)
+        if len(text) > 20:
+                text = text[:20]
+        if block_data['type'] == 'RGB_LED':
+            print(f"Updating RGB LED PWM value for index {inx}: {text}")
+            block_data['second_vars'][f'value_{inx if inx is not None else 2}_2_PWM'] = text
+            setattr(block_data['widget'], f'value_{inx if inx is not None else 2}_2_PWM', text)
+        else:
+            block_data['PWM_value'] = text
+            block_data['widget'].PWM_value = text
 
         block_data['widget'].recalculate_size()
 
@@ -4075,7 +4201,10 @@ class MainWindow(QMainWindow):
             for dev_id in Utils.devices['main_canvas'].keys():
                 if Utils.devices['main_canvas'][dev_id]['name'] == dev_name:
                     widget = Utils.devices['main_canvas'][dev_id]['current_state_display']
-                    widget.setText(str(dev['state']))
+                    if Utils.reports['devices'][dev_name]['type'] == "PWM":
+                        widget.setText(str(dev['value']) + "%")
+                    else:
+                        widget.setText(str(dev['state']))
         
     #MARK: - Other Methods
 
@@ -4216,6 +4345,7 @@ class MainWindow(QMainWindow):
             "Select project:", items, 0, False)
         
         if ok and item:
+            self.stop_execution()
             self.wipe_canvas()
             if Utils.file_manager.load_project(item):
                 self.opend_project = item
@@ -4289,6 +4419,7 @@ class MainWindow(QMainWindow):
         self.last_canvas = None
         self.blockIDs = {}
         self.execution_thread = None
+        self.pico_thread = None
         self.canvas_added = None
         self.pages = {}
         self.page_count = 0
@@ -4302,6 +4433,7 @@ class MainWindow(QMainWindow):
     def on_new_file(self):
         """Create new project"""
         self.opend_project = None
+        self.stop_execution()
         self.wipe_canvas()
         
         self.create_canvas_frame()
@@ -4367,12 +4499,7 @@ class MainWindow(QMainWindow):
             self.auto_save_timer.stop()
         
         # Stop execution thread
-        if hasattr(self, 'execution_thread') and self.execution_thread is not None:
-            if self.execution_thread.isRunning():
-                self.execution_thread.kill_process()
-                self.execution_thread.stop()
-                self.execution_thread.wait(3000)
-                self.execution_thread.terminate()
+        self.stop_execution()
         
         name = Utils.project_data.metadata.get("name", "Untitled")
         
@@ -4651,8 +4778,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.StandardButton.Ok
             )
     
-    # ===== Signal handlers for thread communication =====
-    
+    #MARK: - RPi Execution Thread Signal Handlers
     def on_execution_status(self, status):
         """Handle status updates from execution thread"""
         print(f"[RPi Status] {status}")
@@ -4661,7 +4787,12 @@ class MainWindow(QMainWindow):
         """Handle output from execution thread"""
         #print(f"[RPi Output] {output}")
 
+        output = str(output).strip()
+        if output.startswith("MicroPython") or 'Type "help()"' in output or output == ">>>":
+            return
+
         if '__REPORT__' not in str(output):
+            print(output)  # Regular log output
             QMessageBox.information(
                 self,
                 self.t("main_GUI.dialogs.progress_dialogs.execution_output"),
@@ -4669,25 +4800,37 @@ class MainWindow(QMainWindow):
                 QMessageBox.StandardButton.Ok
             )
         else:
-            #print(f"[RPi Report] {output}")
-            _, report = output.split('__REPORT__')
-            Utils.reports = json.loads(report)
-
-            print("Reports received:", Utils.reports)
-            self.update_current_values()
-            if _:
-                _.strip()
-                QMessageBox.information(
-                    self,
-                    self.t("main_GUI.dialogs.progress_dialogs.execution_report"),
-                    _,
-                    QMessageBox.StandardButton.Ok
-                )
-                Reports_path = Utils.get_base_path()/"Resources"
-                os.makedirs(Reports_path, exist_ok=True)
-                with open(Reports_path/"last_report.json", "w+") as f:
-                    json.dump(_, f, indent=4, ensure_ascii=False)
-            #pass
+            try:
+                # Split by tag to handle cases where output has text before the tag
+                parts = str(output).split('__REPORT__')
+                
+                # parts[0] is garbage/text before the tag
+                # parts[1] starts with the JSON, but may have trailing data (newlines, next logs)
+                if len(parts) > 1:
+                    json_candidate = parts[1]
+                    
+                    # FIX: Use raw_decode instead of loads.
+                    # raw_decode returns a tuple: (json_data, index_where_json_ended)
+                    # This ignores any "Extra data" (newlines, subsequent logs) automatically.
+                    data, _ = json.JSONDecoder().raw_decode(json_candidate)
+                    
+                    Utils.reports = data
+                    print("Reports received:", Utils.reports)
+                    
+                    # Update GUI
+                    self.update_current_values()
+                    
+                    # Save local copy
+                    Reports_path = Utils.get_base_path() / "Resources"
+                    os.makedirs(Reports_path, exist_ok=True)
+                    with open(Reports_path / "last_report.json", "w+") as f:
+                        json.dump(data, f, indent=4, ensure_ascii=False)
+                    print(parts[0])  # Print any text before the tag (optional)
+                        
+            except json.JSONDecodeError as e:
+                print(f"JSON Decode Error (Chunk might be incomplete): {e}")
+            except Exception as e:
+                print(f"Error processing report: {e}")
     
     def on_execution_error(self, error):
         """Handle errors from execution thread"""
@@ -4701,86 +4844,99 @@ class MainWindow(QMainWindow):
 
     def execute_on_pico_w(self):
         """
-        Execute on Pico W using pyboard.py (already imported)
+        Execute on Pico W using native pyboard library (No subprocess/Admin rights needed)
         """
-        try:
-            import subprocess
-            
-            # Method 1: Using mpremote (if available)
-            try:
-                #print("Attempting to use mpremote...")
-                # mpremote will automatically detect and connect to Pico W
-                result = subprocess.run(
-                    ["mpremote", "cp", "File.py", ":/main.py"],
-                    capture_output=True,
-                    text=True,
-                    timeout=15
-                )
-                
-                if result.returncode == 0:
-                    #print("✓ File uploaded via mpremote")
-                    
-                    # Run the code
-                    result = subprocess.run(
-                        ["mpremote", "run", "main.py"],
-                        capture_output=True,
-                        text=True,
-                        timeout=15
-                    )
-                    
-                    if result.returncode == 0:
-                        #print("✓ Code executed successfully")
-                        if result.stdout:
-                            #print(f"Output: {result.stdout}")
-                            pass
-                        return True
-                    else:
-                        print(f"⚠ Execution error: {result.stderr}")
-                        return False
-                else:
-                    raise Exception("mpremote cp failed")
-                    
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                # Fallback: Use pyboard.py
-                #print("Attempting fallback: pyboard.py method...")
-                return self.execute_on_pico_w_pyboard()
+        self.stop_pico_execution()  # Ensure any existing execution is stopped before starting new one
+        print("🔍 Searching for Pico W...")
+        target_port = None
         
-        except Exception as e:
-            print(f"❌ Pico W execution error: {e}")
+        # 1. Auto-detect COM port
+        # Look for typical Pico USB IDs or descriptions
+        for p in serial.tools.list_ports.comports():
+            # VID 2E8A is Raspberry Pi, PID 0005 is Pico
+            if (p.vid == 0x2E8A and p.pid == 0x0005) or \
+               "Board in FS mode" in p.description or \
+               "USB Serial Device" in p.description:
+                target_port = p.device
+                break
+        
+        if not target_port:
+            QMessageBox.warning(self, "Connection Error", "Could not find Raspberry Pi Pico.\nEnsure it is connected and not in Bootloader mode.")
             return False
 
-    def execute_on_pico_w_pyboard(self):
-        """
-        Fallback: Execute on Pico W using pyboard.py
-        """
+        print(f"✓ Found Pico on {target_port}")
+
         try:
-            import subprocess
+            # 2. Connect directly using Pyboard class
+            pyb = Pyboard(target_port, 115200)
+            Utils.config['pico_port'] = target_port  # Save for future use
+            # Enter Raw REPL (stops current program)
+            pyb.enter_raw_repl()
             
-            # Assuming pyboard.py is in the same directory
-            result = subprocess.run(
-                [
-                    "python", "pyboard.py",
-                    "--device", "/dev/ttyACM0",  # Adjust for your system
-                    "File.py"
-                ],
-                capture_output=True,
-                text=True,
-                timeout=15
-            )
+            # 3. Upload File.py as main.py
+            print("📤 Uploading main.py...")
+            with open("File.py", "rb") as f:
+                pyb.fs_put("File.py", "main.py")     
+            print("✓ Upload complete")
+
+            print("🔄 Resetting board to start code...")
+            try:
+                pyb.exec_("import machine; machine.reset()")  
+            except Exception as e:
+                print(f"Error during reset command: {e}")
             
-            if result.returncode == 0:
-                #print("✓ Code executed via pyboard.py")
-                if result.stdout:
-                    #print(f"Output: {result.stdout}")
-                    pass
-                return True
-            else:
-                print(f"⚠ Error: {result.stderr}")
-                return False
-                
+            # Give it a moment to flush the command before closing
+            time.sleep(0.5) 
+            try:
+                pyb.close()
+            except Exception as e:
+                print(f"Error closing Pyboard connection: {e}")
+
+            if hasattr(self, 'pico_thread') and self.pico_thread is not None:
+                self.pico_thread.stop()
+                self.pico_thread.wait()
+
+            self.pico_thread = PicoListenerThread(target_port)
+            self.pico_thread.output.connect(self.on_execution_output) # Reuse existing parser
+            self.pico_thread.status.connect(self.on_execution_status)
+            self.pico_thread.start()
+
+            return True
+
         except Exception as e:
-            print(f"❌ Pyboard execution error: {e}")
+            print(f"❌ Execution Error: {e}")
+            QMessageBox.critical(self, "Execution Error", f"Failed to upload code:\n{str(e)}")
             return False
+    
+    def stop_pico_execution(self):
+
+        if hasattr(self, 'pico_thread') and self.pico_thread is not None:
+            print("Stopping listener thread...")
+            self.pico_thread.stop()
+            self.pico_thread.wait()
+            self.pico_thread = None
+
+        try:
+            port = Utils.config.get('pico_port')
+            if not port:
+                return
+            print(f"Connecting to {port} to stop execution...")
+            pyb = Pyboard(port, 115200)
+            
+            pyb.enter_raw_repl()
+            pyb.close()
+
+            print("✓ Pico W stopped and reset.")
+            
+            QMessageBox.information(
+                self,
+                self.t("main_GUI.dialogs.progress_dialogs.success"),
+                "Pico W has been stopped and reset.",
+                QMessageBox.StandardButton.Ok
+            )
+
+        except Exception as e:
+            print(f"Error stopping Pico: {e}")
 
     def execute_on_rpi_ssh_background(self):
         """
@@ -4997,10 +5153,16 @@ class MainWindow(QMainWindow):
                     setattr(block, str_1, data['first_vars'].get(str_1, f"N"))
                     setattr(block, str_2, data['second_vars'].get(str_2, f"N"))
                     setattr(block, str_op, data['operators'].get(str_op, "=="))
+            elif block_type == 'RGB_LED':
+                for i in range(1, 4):
+                    str_1 = f"value_{i}_1_name"
+                    str_2 = f"value_{i}_2_PWM"
+                    setattr(block, str_1, data['first_vars'].get(str_1, f"N"))
+                    setattr(block, str_2, data['second_vars'].get(str_2, f"N"))
             elif block_type == 'Switch':
                 block.value_1_name = data.get('value_1_name', "N")
                 block.switch_state = data.get('switch_state', False)
-            elif block_type == 'Sleep':
+            elif block_type == 'Timer':
                 block.sleep_time = data.get('sleep_time', "1000")
             elif block_type in ('Basic_operations', 'Exponential_operations', 'Random_number'):
                 block.value_1_name = data.get('value_1_name', "N")
@@ -5028,7 +5190,7 @@ class MainWindow(QMainWindow):
                     elif block_type == 'Switch':
                         block.value_1_name = data.get('value_1_name', "N")
                         block.switch_state = data.get('switch_state', False)
-                    elif block_type == 'Sleep':
+                    elif block_type == 'Timer':
                         block.sleep_time = data.get('sleep_time', "1000")
                     elif block_type in ('Basic_operations', 'Exponential_operations', 'Random_number'):
                         block.value_1_name = data.get('value_1_name', "N")

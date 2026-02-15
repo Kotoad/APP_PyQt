@@ -450,7 +450,11 @@ class ElementsWindow(QDialog):
         if element_type == "LED":
             if element_type not in self.dropdown_menus:
                 self.dropdown_menus.append(element_type)
-                for blocks in ((self.t("elements_window.io_blocks_tab.Blink_LED"), 'Blink_LED'), (self.t("elements_window.io_blocks_tab.Toggle_LED"), 'Toggle_LED'), (self.t("elements_window.io_blocks_tab.PWM_LED"), 'PWM_LED')):
+                for blocks in ((self.t("elements_window.io_blocks_tab.Blink_LED"), 'Blink_LED'),
+                               (self.t("elements_window.io_blocks_tab.Toggle_LED"), 'Toggle_LED'),
+                               (self.t("elements_window.io_blocks_tab.PWM_LED"), 'PWM_LED'),
+                               (self.t("elements_window.io_blocks_tab.RBG_LED"), 'RGB_LED')
+                               ):
                     label, block_name = blocks
                     btn = QPushButton(label)
                     btn.clicked.connect(lambda checked, e=block_name, t=tab_name: self.on_block_selected(e, t))
