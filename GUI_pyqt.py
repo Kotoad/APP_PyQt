@@ -1824,8 +1824,8 @@ class MainWindow(QMainWindow):
         Get_stared = Help_menu.addAction(self.t("main_GUI.menu.get_started"))
         Get_stared.triggered.connect(lambda: self.open_help(0))
         
-        examples = Help_menu.addAction(self.t("main_GUI.menu.examples"))
-        examples.triggered.connect(lambda: self.open_help(1))
+        tutorials = Help_menu.addAction(self.t("main_GUI.menu.tutorials"))
+        tutorials.triggered.connect(lambda: self.open_help(1))
         
         FAQ = Help_menu.addAction(self.t("main_GUI.menu.faq"))
         FAQ.triggered.connect(lambda: self.open_help(2))
@@ -2878,7 +2878,7 @@ class MainWindow(QMainWindow):
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), time_label)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.blink_time_input)
-        if block_data['type'] == 'Toggle_LED':
+        if block_data['type'] in ["Toggle_LED", "Turn_OFF_LED", "Turn_ON_LED"]:
             name_label = QLabel(self.t("main_GUI.inspector.led_device_name"))
             
             self.name_1_input = SearchableLineEdit()
@@ -5172,7 +5172,7 @@ class MainWindow(QMainWindow):
             elif block_type == 'Blink_LED':
                 block.value_1_name = data.get('value_1_name', "N")
                 block.sleep_time = data.get('sleep_time', "1000")
-            elif block_type == 'Toggle_LED':
+            elif block_type in ('Toggle_LED', 'Turn_OFF_LED', 'Turn_ON_LED'):
                 block.value_1_name = data.get('value_1_name', "N")
             elif block_type == 'PWM_LED':
                 block.value_1_name = data.get('value_1_name', "N")
@@ -5200,7 +5200,7 @@ class MainWindow(QMainWindow):
                     elif block_type == 'Blink_LED':
                         block.value_1_name = data.get('value_1_name', "N")
                         block.sleep_time = data.get('sleep_time', "1000")
-                    elif block_type == 'Toggle_LED':
+                    elif block_type in ('Toggle_LED', 'Turn_OFF_LED', 'Turn_ON_LED'):
                         block.value_1_name = data.get('value_1_name', "N")
                     elif block_type == 'PWM_LED':
                         block.value_1_name = data.get('value_1_name', "N")

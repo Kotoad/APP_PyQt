@@ -19,7 +19,7 @@
       "settings": "Settings",
       "help": "Help",
       "get_started": "Get Started",
-      "examples": "Examples",
+      "tutorials": "Tutorials",
       "faq": "FAQ",
       "compile": "Compile",
       "compile_code": "Compile Code",
@@ -269,37 +269,42 @@
       "file_not_found": "<p>Getting Started file not found.</p>",
       "error_loading_file": "<p>Error loading Getting Started file.</p>"
     },
-    "examples_tab": {
-      "title": "Examples",
-      "show_example_button": "View Example",
-      "back_to_examples_button": "← Back to Examples",
-      "file_not_found": "<p>Example file not found.</p>",
-      "error_loading_file": "<p>Error loading example file.</p>",
-      "examples": {
-        "example_1": {
+    "tutorials_tab": {
+      "title": "Tutorials",
+      "show_tutorial_button": "View tutorial",
+      "back_to_tutorial_button": "← Back to tutorials",
+      "file_not_found": "<p>tutorial file not found.</p>",
+      "error_loading_file": "<p>Error loading tutorial file.</p>",
+      "tutorials": {
+        "tutorial_0_linux_based_RPI": {
+          "title": "Linux-based Raspberry Pi",
+          "description": "Learn how to set up your Raspberry Pi for use with OmniBoard Studio and understand the Linux-based environment.",
+          "content": "resources/Translations/Tutorials/Tutorial_0_linux_based_RPI_variant_en.html"
+        },
+        "tutorial_1": {
           "title": "Blinking LED",
-          "description": "This example demonstrates how to blink an LED connected to your Raspberry Pi.",
-          "content": "resources/Translations/example_1_en.html"
+          "description": "This tutorial demonstrates how to blink an LED connected to your Raspberry Pi.",
+          "content": "resources/Translations/Tutorials/Tutorial_1_en.html"
         },
-        "example_2": {
+        "tutorial_2": {
           "title": "Button Controlled LED",
-          "description": "This example shows how to control an LED using a button input.",
-          "content": "resources/Translations/example_2_en.html"
+          "description": "This tutorial shows how to control an LED using a button input.",
+          "content": "resources/Translations/Tutorials/Tutorial_2_en.html"
         },
-        "example_3": {
+        "tutorial_3": {
           "title": "LED lighthouse",
           "description": "Working with different LED patterns and timings.",
-          "content": "resources/Translations/example_3_en.html"
+          "content": "resources/Translations/Tutorials/Tutorial_3_en.html"
         },
-        "example_4": {
+        "tutorial_4": {
           "title": "Complex Logic",
           "description": "Combine multiple elements for advanced workflows.",
-          "content": "resources/Translations/example_4_en.html"
+          "content": "resources/Translations/Tutorials/Tutorial_4_en.html"
         },
-        "example_5": {
+        "tutorial_5": {
           "title": "Using Variables",
           "description": "Learn how to use variables to store and manipulate data.",
-          "content": "resources/Translations/example_5_en.html"
+          "content": "resources/Translations/Tutorials/Tutorial_5_en.html"
         }
       }
     },

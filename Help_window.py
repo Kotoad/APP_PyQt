@@ -1,5 +1,5 @@
 from Imports import (QDialog, Qt, QVBoxLayout, QLabel, QTabWidget, QWidget, QFont, QTextEdit,
-                     QScrollArea, QPushButton,Path, os, get_utils, QScroller)
+                     QScrollArea, QPushButton,Path, os, get_utils, QScroller, QTextBrowser)
 
 Utils = get_utils()
 
@@ -88,7 +88,7 @@ class HelpWindow(QDialog):
         layout.addWidget(self.tab_widget)
         
         self.create_getting_started_tab()
-        self.create_examples_tab()
+        self.create_tutorial_tab()
         self.create_faq_tab()
         
         self.tab_widget.setCurrentIndex(self.which)
@@ -114,7 +114,7 @@ class HelpWindow(QDialog):
                 html_content = html_template.format(css=css)
             
             # Now use html_content in your QTextEdit or wherever you need it
-            # For example:
+            # For tutorial:
             # self.help_text_widget.setHtml(html_content)
             
         except FileNotFoundError:
@@ -124,31 +124,31 @@ class HelpWindow(QDialog):
             print(f"Error loading help content: {e}")
             html_content = self.t("help_window.getting_started_tab.error_loading_file")
 
-        text_edit = QTextEdit()
+        text_edit = QTextBrowser()
         text_edit.setReadOnly(True)
         text_edit.setHtml(html_content)
-        
+        text_edit.setOpenExternalLinks(True)
         layout.addWidget(text_edit)
         #print("Added label to Getting Started tab")
         self.tab_widget.addTab(tab, self.t("help_window.getting_started_tab.title"))
 
-    def create_examples_tab(self):
-        """Create the Examples tab with scrollable vertical examples"""
-        #print("Creating Examples tab")
-        self.examples_tab = QWidget()
-        self.examples_layout = QVBoxLayout(self.examples_tab)
-        self.examples_layout.setContentsMargins(0, 0, 0, 0)
+    def create_tutorial_tab(self):
+        """Create the tutorial tab with scrollable vertical tutorial"""
+        #print("Creating tutorial tab")
+        self.tutorial_tab = QWidget()
+        self.tutorial_layout = QVBoxLayout(self.tutorial_tab)
+        self.tutorial_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.show_examples_list()
+        self.show_tutorial_list()
         
-        self.tab_widget.addTab(self.examples_tab, self.t("help_window.examples_tab.title"))
-        #print("Added scrollable examples to Examples tab")
+        self.tab_widget.addTab(self.tutorial_tab, self.t("help_window.tutorials_tab.title"))
+        #print("Added scrollable tutorial to tutorial tab")
 
-    def show_examples_list(self):
-        """Show the examples list view"""
+    def show_tutorial_list(self):
+        """Show the tutorial list view"""
         # Clear layout
-        while self.examples_layout.count():
-            self.examples_layout.takeAt(0).widget().deleteLater()
+        while self.tutorial_layout.count():
+            self.tutorial_layout.takeAt(0).widget().deleteLater()
         
         # Create scroll area
         scroll = QScrollArea()
@@ -170,25 +170,26 @@ class HelpWindow(QDialog):
         scroll_layout.setSpacing(10)
         scroll_layout.setContentsMargins(10, 10, 10, 10)
         
-        # Add examples
-        examples = [
-            (self.t("help_window.examples_tab.examples.example_1.title"), self.t("help_window.examples_tab.examples.example_1.description"), "1"),
-            (self.t("help_window.examples_tab.examples.example_2.title"), self.t("help_window.examples_tab.examples.example_2.description"), "2"),
-            (self.t("help_window.examples_tab.examples.example_3.title"), self.t("help_window.examples_tab.examples.example_3.description"), "3"),
-            (self.t("help_window.examples_tab.examples.example_4.title"), self.t("help_window.examples_tab.examples.example_4.description"), "4"),
-            (self.t("help_window.examples_tab.examples.example_5.title"), self.t("help_window.examples_tab.examples.example_5.description"), "5"),
+        # Add tutorial
+        tutorial = [
+            (self.t("help_window.tutorials_tab.tutorials.tutorial_0_linux_based_RPI.title"), self.t("help_window.tutorials_tab.tutorials.tutorial_0_linux_based_RPI.description"), "0"),
+            (self.t("help_window.tutorials_tab.tutorials.tutorial_1.title"), self.t("help_window.tutorials_tab.tutorials.tutorial_1.description"), "1"),
+            (self.t("help_window.tutorials_tab.tutorials.tutorial_2.title"), self.t("help_window.tutorials_tab.tutorials.tutorial_2.description"), "2"),
+            (self.t("help_window.tutorials_tab.tutorials.tutorial_3.title"), self.t("help_window.tutorials_tab.tutorials.tutorial_3.description"), "3"),
+            (self.t("help_window.tutorials_tab.tutorials.tutorial_4.title"), self.t("help_window.tutorials_tab.tutorials.tutorial_4.description"), "4"),
+            (self.t("help_window.tutorials_tab.tutorials.tutorial_5.title"), self.t("help_window.tutorials_tab.tutorials.tutorial_5.description"), "5"),
         ]
         
-        for title, description, example_id in examples:
-            item_widget = self._create_example_item(title, description, example_id)
+        for title, description, tutorial_id in tutorial:
+            item_widget = self._create_tutorial_item(title, description, tutorial_id)
             scroll_layout.addWidget(item_widget)
         
         scroll_layout.addStretch()
         scroll.setWidget(scroll_content)
-        self.examples_layout.addWidget(scroll)
+        self.tutorial_layout.addWidget(scroll)
     
-    def _create_example_item(self, title, description, example_id):
-        """Helper method to create a styled example item"""
+    def _create_tutorial_item(self, title, description, tutorial_id):
+        """Helper method to create a styled tutorial item"""
         item = QWidget()
         item_layout = QVBoxLayout(item)
         item_layout.setContentsMargins(10, 10, 10, 10)
@@ -202,11 +203,11 @@ class HelpWindow(QDialog):
         desc_label.setWordWrap(True)
         desc_label.setStyleSheet("color: #CCCCCC;")
         
-        view_btn = QPushButton(self.t("help_window.examples_tab.show_example_button"))
+        view_btn = QPushButton(self.t("help_window.tutorials_tab.show_tutorial_button"))
         view_btn.setMaximumWidth(120)
         view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
-        view_btn.clicked.connect(lambda: self.show_example_detail(title, description, example_id))
+        view_btn.clicked.connect(lambda: self.show_tutorial_detail(title, description, tutorial_id))
         
         item_layout.addWidget(title_label)
         item_layout.addWidget(desc_label)
@@ -215,13 +216,13 @@ class HelpWindow(QDialog):
         item.setStyleSheet("QWidget { border-bottom: 1px solid #3A3A3A; }")
         return item
 
-    def show_example_detail(self, title, description, example_id):
-        """Show detailed view of an example"""
-        self.current_example = (title, description)
+    def show_tutorial_detail(self, title, description, tutorial_id):
+        """Show detailed view of an tutorial"""
+        self.current_tutorial = (title, description)
         
         # Clear layout
-        while self.examples_layout.count():
-            self.examples_layout.takeAt(0).widget().deleteLater()
+        while self.tutorial_layout.count():
+            self.tutorial_layout.takeAt(0).widget().deleteLater()
         
         # Create detail view
         detail_widget = QWidget()
@@ -230,10 +231,10 @@ class HelpWindow(QDialog):
         detail_layout.setSpacing(10)
         
         # Back button
-        back_btn = QPushButton(self.t("help_window.examples_tab.back_to_examples_button"))
+        back_btn = QPushButton(self.t("help_window.tutorials_tab.back_to_tutorial_button"))
         back_btn.setMaximumWidth(150)
         back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        back_btn.clicked.connect(self.show_examples_list)
+        back_btn.clicked.connect(self.show_tutorial_list)
         detail_layout.addWidget(back_btn)
         
         # Title
@@ -242,20 +243,41 @@ class HelpWindow(QDialog):
         title_label.setStyleSheet("color: #1F538D;")
         detail_layout.addWidget(title_label)
         
-        content = QTextEdit()
+        content = QTextBrowser()
         content.setReadOnly(True)
-        self.fill_content_area(content, example_id)
+        content.setOpenExternalLinks(True)
+        self.fill_content_area(content, tutorial_id)
         detail_layout.addWidget(content)
         
         # Add to tab
-        self.examples_layout.addWidget(detail_widget)
+        self.tutorial_layout.addWidget(detail_widget)
 
-    def fill_content_area(self, content, example_id):
+    def fill_content_area(self, content, tutorial_id):
         css = self.get_content_stylesheet()
-        #print(f"Filling content area for example ID: {example_id}")
-        match example_id:
+        #print(f"Filling content area for tutorial ID: {tutorial_id}")
+        match tutorial_id:
+            case "0":
+                html_file_path = self.t("help_window.tutorials_tab.tutorials.tutorial_0_linux_based_RPI.content")
+
+                full_path = self.base_path / html_file_path
+
+                try:
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        html_template = f.read()
+
+                        html_content = html_template.format(css=css)
+
+                except FileNotFoundError:
+                    print(f"Help file not found: {full_path}")
+                    html_content = self.t("help_window.tutorials_tab.file_not_found")
+                except Exception as e:
+                    print(f"Error loading help content: {e}")
+                    html_content = self.t("help_window.tutorials_tab.error_loading_file")
+
+                #print("Filling content for tutorial 0")
+                content.setHtml(html_content)
             case "1":
-                #print("Filling content for Example 1")
+                #print("Filling content for tutorial 1")
                 current_dir = self.base_path
                 Blinking_LED_Diagram = os.path.join(current_dir, "resources", "images", "Blinking_LED", "blinking_led_diagram.png")
                 Blinking_LED_Diagram = os.path.abspath(Blinking_LED_Diagram)  # Convert to absolute path
@@ -264,7 +286,7 @@ class HelpWindow(QDialog):
                 Blinking_LED_Flowchart = os.path.abspath(Blinking_LED_Flowchart)
                 Blinking_LED_Flowchart = Blinking_LED_Flowchart.replace("\\", "/")
 
-                html_file_path = self.t("help_window.examples_tab.examples.example_1.content")
+                html_file_path = self.t("help_window.tutorials_tab.tutorials.tutorial_1.content")
  
                 full_path = current_dir / html_file_path
 
@@ -277,20 +299,20 @@ class HelpWindow(QDialog):
                             Blinking_LED_Flowchart=Blinking_LED_Flowchart
                         )
                     # Now use html_content in your QTextEdit or wherever you need it
-                    # For example:
+                    # For tutorial:
                     # self.help_text_widget.setHtml(html_content)
                     
                 except FileNotFoundError:
                     print(f"Help file not found: {full_path}")
-                    html_content = self.t("help_window.examples_tab.file_not_found")
+                    html_content = self.t("help_window.tutorials_tab.file_not_found")
                 except Exception as e:
                     print(f"Error loading help content: {e}")
-                    html_content = self.t("help_window.examples_tab.error_loading_file")
+                    html_content = self.t("help_window.tutorials_tab.error_loading_file")
                 #print(f"Image path for help content: {Blinking_LED_Diagram}")
 
                 content.setHtml(html_content)
             case "2":
-                html_file_path = self.t("help_window.examples_tab.examples.example_2.content")
+                html_file_path = self.t("help_window.tutorials_tab.tutorials.tutorial_2.content")
 
                 full_path = self.base_path / html_file_path
 
@@ -302,15 +324,15 @@ class HelpWindow(QDialog):
 
                 except FileNotFoundError:
                     print(f"Help file not found: {full_path}")
-                    html_content = self.t("help_window.examples_tab.file_not_found")
+                    html_content = self.t("help_window.tutorials_tab.file_not_found")
                 except Exception as e:
                     print(f"Error loading help content: {e}")
-                    html_content = self.t("help_window.examples_tab.error_loading_file")
+                    html_content = self.t("help_window.tutorials_tab.error_loading_file")
 
-                    #print("Filling content for Example 2")
+                    #print("Filling content for tutorial 2")
                 content.setHtml(html_content)
             case "3":
-                html_file_path = self.t("help_window.examples_tab.examples.example_3.content")
+                html_file_path = self.t("help_window.tutorials_tab.tutorials.tutorial_3.content")
                 
                 full_path = self.base_path / html_file_path
 
@@ -321,14 +343,14 @@ class HelpWindow(QDialog):
                         html_content = html_template.format(css=css)
                 except FileNotFoundError:
                     print(f"Help file not found: {full_path}")
-                    html_content = self.t("help_window.examples_tab.file_not_found")
+                    html_content = self.t("help_window.tutorials_tab.file_not_found")
                 except Exception as e:
                     print(f"Error loading help content: {e}")
-                    html_content = self.t("help_window.examples_tab.error_loading_file")
-                #print("Filling content for Example 3")
+                    html_content = self.t("help_window.tutorials_tab.error_loading_file")
+                #print("Filling content for tutorial 3")
                 content.setHtml(html_content)
             case "4":
-                html_file_path = self.t("help_window.examples_tab.examples.example_4.content")
+                html_file_path = self.t("help_window.tutorials_tab.tutorials.tutorial_4.content")
 
                 full_path = self.base_path / html_file_path
 
@@ -339,15 +361,15 @@ class HelpWindow(QDialog):
                         html_content = html_template.format(css=css)
                 except FileNotFoundError:
                     print(f"Help file not found: {full_path}")
-                    html_content = self.t("help_window.examples_tab.file_not_found")
+                    html_content = self.t("help_window.tutorials_tab.file_not_found")
                 except Exception as e:
                     print(f"Error loading help content: {e}")
-                    html_content = self.t("help_window.examples_tab.error_loading_file")
+                    html_content = self.t("help_window.tutorials_tab.error_loading_file")
     
-                #print("Filling content for Example 4")
+                #print("Filling content for tutorial 4")
                 content.setHtml(html_content)
             case "5":
-                html_file_path = self.t("help_window.examples_tab.examples.example_5.content")
+                html_file_path = self.t("help_window.tutorials_tab.tutorials.tutorial_5.content")
 
                 full_path = self.base_path / html_file_path
 
@@ -358,12 +380,12 @@ class HelpWindow(QDialog):
                         html_content = html_template.format(css=css)
                 except FileNotFoundError:
                     print(f"Help file not found: {full_path}")
-                    html_content = self.t("help_window.examples_tab.file_not_found")
+                    html_content = self.t("help_window.tutorials_tab.file_not_found")
                 except Exception as e:
                     print(f"Error loading help content: {e}")
-                    html_content = self.t("help_window.examples_tab.error_loading_file")
+                    html_content = self.t("help_window.tutorials_tab.error_loading_file")
 
-                #print("Filling content for Example 5")
+                #print("Filling content for tutorial 5")
                 content.setHtml(html_content)
         
     def create_faq_tab(self):
@@ -371,8 +393,9 @@ class HelpWindow(QDialog):
         #print("Creating FAQ tab")
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        text_edit = QTextEdit()
+        text_edit = QTextBrowser()
         text_edit.setReadOnly(True)
+        text_edit.setOpenExternalLinks(True)
         css = self.get_content_stylesheet()
 
         html_file_path = self.t("help_window.faq_tab.content")

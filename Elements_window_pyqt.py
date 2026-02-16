@@ -448,13 +448,16 @@ class ElementsWindow(QDialog):
     def open_dropdown_menu(self, element_type, tab_name):
 
         if element_type == "LED":
+            led_blocks = ((self.t("elements_window.io_blocks_tab.Blink_LED"), 'Blink_LED'),
+                            (self.t("elements_window.io_blocks_tab.Toggle_LED"), 'Toggle_LED'),
+                            (self.t("elements_window.io_blocks_tab.PWM_LED"), 'PWM_LED'),
+                            (self.t("elements_window.io_blocks_tab.RBG_LED"), 'RGB_LED'),
+                            (self.t("elements_window.io_blocks_tab.Turn_OFF_LED"), 'Turn_OFF_LED'),
+                            (self.t("elements_window.io_blocks_tab.Turn_ON_LED"), 'Turn_ON_LED')
+                            )
             if element_type not in self.dropdown_menus:
                 self.dropdown_menus.append(element_type)
-                for blocks in ((self.t("elements_window.io_blocks_tab.Blink_LED"), 'Blink_LED'),
-                               (self.t("elements_window.io_blocks_tab.Toggle_LED"), 'Toggle_LED'),
-                               (self.t("elements_window.io_blocks_tab.PWM_LED"), 'PWM_LED'),
-                               (self.t("elements_window.io_blocks_tab.RBG_LED"), 'RGB_LED')
-                               ):
+                for blocks in led_blocks:
                     label, block_name = blocks
                     btn = QPushButton(label)
                     btn.clicked.connect(lambda checked, e=block_name, t=tab_name: self.on_block_selected(e, t))
@@ -464,7 +467,7 @@ class ElementsWindow(QDialog):
                 self.dropdown_menus.remove(element_type)
                 for i in range(self.IO_left_layout.count() - 1, -1, -1):
                     item = self.IO_left_layout.itemAt(i)
-                    if item and item.widget() and item.widget().text() in (self.t("elements_window.io_blocks_tab.Blink_LED"), self.t("elements_window.io_blocks_tab.Toggle_LED"), self.t("elements_window.io_blocks_tab.PWM_LED")):
+                    if item and item.widget() and item.widget().text() in [b[0] for b in led_blocks]:
                         widget = item.widget()
                         self.IO_left_layout.removeWidget(widget)
                         widget.deleteLater()

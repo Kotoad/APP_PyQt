@@ -140,7 +140,7 @@ class BlockGraphicsItem(QGraphicsObject):
                                 "Random_number", "Blink_LED", "PWM_LED"]:
             self.width = 150
             self.height = 50
-        elif self.block_type in [ "Start", "End", "While_true", "Toggle_LED", "Switch"]:
+        elif self.block_type in [ "Start", "End", "While_true", "Toggle_LED", "Switch", "Turn_OFF_LED", "Turn_ON_LED"]:
             self.width = 100
             self.height = 50
         elif self.block_type == "Function":
@@ -214,7 +214,7 @@ class BlockGraphicsItem(QGraphicsObject):
             text_to_measure = f"{self.value_1_name} - {self.sleep_time} ms"
         elif self.block_type == "PWM_LED":
             text_to_measure = f"{self.value_1_name} - {self.PWM_value}"
-        elif self.block_type == "Toggle_LED":
+        elif self.block_type in ["Toggle_LED", "Turn_OFF_LED", "Turn_ON_LED"]:
             text_to_measure = f"{self.value_1_name}"
         elif self.block_type == "RGB_LED":
             for i in range(1, 4):
@@ -271,6 +271,8 @@ class BlockGraphicsItem(QGraphicsObject):
             "Toggle_LED": QColor("#57A139"),     # Green
             "PWM_LED": QColor("#57A139"),        # Green
             "RGB_LED": QColor("#57A139"),        # Green
+            "Turn_OFF_LED": QColor("#57A139"),   # Green
+            "Turn_ON_LED": QColor("#57A139"),    # Green
             "Networks": QColor("#00CED1"),       # Dark turquoise
 
         }
@@ -396,7 +398,7 @@ class BlockGraphicsItem(QGraphicsObject):
             math_text = f"{self.result_var_name} = {self.value_1_name} {self.operator} {self.value_2_name}"
             math_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(math_rect, Qt.AlignmentFlag.AlignCenter, math_text)
-        elif self.block_type in ["Toggle_LED",]:
+        elif self.block_type in ["Toggle_LED", "Turn_OFF_LED", "Turn_ON_LED"]:
             device_text = f"{self.value_1_name}"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)

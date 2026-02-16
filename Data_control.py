@@ -168,7 +168,7 @@ class DataControl:
                 'out_connections': {},
                 'canvas': self
             }
-        elif block_type == "Toggle_LED":
+        elif block_type in ("Toggle_LED", "Turn_OFF_LED", "Turn_ON_LED"):
             info = {
                 'type': block_type,
                 'id': block_id,
@@ -383,7 +383,7 @@ class DataControl:
                 'out_connections': data.get('out_connections', {}),
                 'canvas': canvas
             }
-        elif block_type == 'Toggle_LED':
+        elif block_type in ('Toggle_LED', 'Turn_OFF_LED', 'Turn_ON_LED'):
             info = {
                 'type': block_type,
                 'id': block_id,
@@ -592,7 +592,7 @@ class DataControl:
                 'in_connections': block_info.get('in_connections', {}),
                 'out_connections': block_info.get('out_connections', {}),
             }
-        elif block_info['type'] == 'Toggle_LED':
+        elif block_info['type'] in ('Toggle_LED', 'Turn_OFF_LED', 'Turn_ON_LED'):
             info = {
                 'type': block_info['type'],
                 'id': block_id,

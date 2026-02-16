@@ -279,27 +279,27 @@
         "example_1": {
           "title": "Blikající LED",
           "description": "Tento příklad ukazuje, jak blikat LED připojenou k vašemu Raspberry Pi.",
-          "content": "resources/Translations/example_1_cs.html"
+          "content": "resources/Translations/Tutorials/tutorial_1_cs.html"
         },
         "example_2": {
           "title": "LED řízená tlačítkem",
           "description": "Tento příklad ukazuje, jak ovládat LED pomocí vstupního tlačítka.",
-          "content": "resources/Translations/example_2_cs.html"
+          "content": "resources/Translations/Tutorials/tutorial_2_cs.html"
         },
         "example_3": {
           "title": "LED maják",
           "description": "Práce s různými LED vzory a časováním.",
-          "content": "resources/Translations/example_3_cs.html"
+          "content": "resources/Translations/Tutorials/tutorial_3_cs.html"
         },
         "example_4": {
           "title": "Složitá logika",
           "description": "Kombinujte více prvků pro pokročilé pracovní toky.",
-          "content": "resources/Translations/example_4_cs.html"
+          "content": "resources/Translations/Tutorials/tutorial_4_cs.html"
         },
         "example_5": {
           "title": "Použití proměnných",
           "description": "Naučte se používat proměnné k ukládání a manipulaci dat.",
-          "content": "resources/Translations/example_5_cs.html"
+          "content": "resources/Translations/Tutorials/tutorial_5_cs.html"
         }
       }
     },

@@ -181,7 +181,7 @@ class CodeCompiler:
             self.handle_switch_block(block)
         elif block['type'] == 'Button':
             self.handle_button_block(block)
-        elif block['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED'):
+        elif block['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED', 'RGB_LED', 'Turn_OFF_LED', 'Turn_ON_LED'):
             self.handle_LED_block(block)
         elif block['type'] == 'RGB_LED':
             self.handle_RGB_LED_block(block)
@@ -366,13 +366,13 @@ class CodeCompiler:
         for block_id, block_info in Utils.main_canvas['blocks'].items():
                 if block_info['type'] == 'Button':
                     self.btn_in_code = True
-                if block_info['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED', 'RGB_LED'):
+                if 'LED' in block_info['type']:
                     self.led_in_code = True
         for func_id, func_info in Utils.functions.items():
             for block_id, block_info in func_info['blocks'].items():
                 if block_info['type'] == 'Button':
                     self.btn_in_code = True
-                if block_info['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED', 'RGB_LED'):
+                if 'LED' in block_info['type']:
                     self.led_in_code = True
         if self.btn_in_code:
             self.create_btn_class()
@@ -536,8 +536,11 @@ class CodeCompiler:
             self.indent_level += 1
             self.writeline("dev_config['state'] = \"HIGH\"")
             self.writeline("return True")
-            self.indent_level -= 3
+            while self.indent_level > 3:
+                self.indent_level -= 1
             self.writeline("else:")
+            self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
             self.indent_level += 1
             self.writeline("for dev_name, dev_config in Devices_main.items():")
             self.indent_level += 1
@@ -629,6 +632,66 @@ class CodeCompiler:
             self.writeline("dev_config['state'] = \"HIGH\"")
             self.writeline("pin_obj.value(1)")
             self.writeline("self.pin_state[pin] = 1")
+        while self.indent_level > 1:
+            self.indent_level -= 1
+        #Turn ON method
+        self.writeline("def Turn_ON_LED(self, pin):")
+        self.indent_level += 1
+        if self.GPIO_compile:
+            self.writeline("if pin in self.pin_state and self.pin_state[pin] == GPIO.LOW:")
+            self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"HIGH\"")
+            self.writeline("GPIO.output(pin, GPIO.HIGH)")
+            self.writeline("self.pin_state[pin] = GPIO.HIGH")
+        if self.MC_compile:
+            self.writeline("if pin in self.pin_state and pin in hardware_map and self.pin_state[pin] == 0:")
+            self.indent_level += 1
+            self.writeline("pin_obj = hardware_map[pin]")
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"HIGH\"")
+            self.writeline("pin_obj.value(1)")
+            self.writeline("self.pin_state[pin] = 1")
+        while self.indent_level > 1:
+            self.indent_level -= 1
+        #Turn OFF method
+        self.writeline("def Turn_OFF_LED(self, pin):")
+        self.indent_level += 1
+        if self.GPIO_compile:
+            self.writeline("if pin in self.pin_state and self.pin_state[pin] == GPIO.HIGH:")
+            self.indent_level += 1
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("GPIO.output(pin, GPIO.LOW)")
+            self.writeline("self.pin_state[pin] = GPIO.LOW")
+        if self.MC_compile:
+            self.writeline("if pin in self.pin_state and pin in hardware_map and self.pin_state[pin] == 1:")
+            self.indent_level += 1
+            self.writeline("pin_obj = hardware_map[pin]")
+            self.writeline("with data_lock:  # Ensure thread-safe updates to shared state")
+            self.indent_level += 1
+            self.writeline("for dev_name, dev_config in Devices_main.items():")
+            self.indent_level += 1
+            self.writeline("if dev_config['PIN'] == pin and dev_config['type'] == 'Output':")
+            self.indent_level += 1
+            self.writeline("dev_config['state'] = \"LOW\"")
+            self.writeline("pin_obj.value(0)")
+            self.writeline("self.pin_state[pin] = 0")
         while self.indent_level > 1:
             self.indent_level -= 1
         #Blink method
@@ -1211,26 +1274,23 @@ class CodeCompiler:
         elif block['type'] == 'PWM_LED':
             pwm_value = self.resolve_value(block['PWM_value'], 'Variable')
             self.writeline(f"led.PWM_LED({DEV_1}, {pwm_value})")
+        elif block['type'] == 'RGB_LED':
+            Pins = []
+            PWM_values = []
+            for i in range(1, 4):
+                DEV_i = self.resolve_value(block['first_vars'][f'value_{i}_1_name'], block['first_vars'][f'value_{i}_1_type'] if f'value_{i}_1_type' in block['first_vars'] else 'Device')
+                PWM_value = self.resolve_value(block['second_vars'][f'value_{i}_2_PWM'], block['second_vars'][f'value_{i}_2_type'] if f'value_{i}_2_type' in block['second_vars'] else 'Variable')
+                Pins.append(DEV_i)
+                PWM_values.append(PWM_value)
+            self.writeline(f"led.RGB_LED({Pins[0]}, {Pins[1]}, {Pins[2]}, {PWM_values[0]}, {PWM_values[1]}, {PWM_values[2]})")
+        elif block['type'] == 'Turn_OFF_LED':
+            self.writeline(f"led.Turn_OFF_LED({DEV_1})")
+        elif block['type'] == 'Turn_ON_LED':
+            self.writeline(f"led.Turn_ON_LED({DEV_1})")
         
         next_id = self.get_next_block(block['id'])
         if next_id:
             #print(f"Processing next block after LED: {next_id}")
-            pass
-        self.process_block(next_id)
-    
-    def handle_RGB_LED_block(self, block):
-        Pins = []
-        PWM_values = []
-        for i in range(1, 4):
-            DEV_i = self.resolve_value(block['first_vars'][f'value_{i}_1_name'], block['first_vars'][f'value_{i}_1_type'] if f'value_{i}_1_type' in block['first_vars'] else 'Device')
-            PWM_value = self.resolve_value(block['second_vars'][f'value_{i}_2_PWM'], block['second_vars'][f'value_{i}_2_type'] if f'value_{i}_2_type' in block['second_vars'] else 'Variable')
-            Pins.append(DEV_i)
-            PWM_values.append(PWM_value)
-        self.writeline(f"led.RGB_LED({Pins[0]}, {Pins[1]}, {Pins[2]}, {PWM_values[0]}, {PWM_values[1]}, {PWM_values[2]})")
-
-        next_id = self.get_next_block(block['id'])
-        if next_id:
-            #print(f"Processing next block after RGB LED: {next_id}")
             pass
         self.process_block(next_id)
 

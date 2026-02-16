@@ -34,7 +34,8 @@ from PyQt6.QtWidgets import (
     QInputDialog, QStyleOptionComboBox, QStyledItemDelegate, QTextEdit, QProgressDialog,
     QSplitter, QTreeWidget, QTreeWidgetItem, QListWidget, QGraphicsView, QGraphicsScene,
     QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem, QGraphicsPixmapItem, QGraphicsObject,
-    QListWidgetItem, QStackedWidget, QGraphicsObject, QGraphicsEllipseItem, QSplashScreen
+    QListWidgetItem, QStackedWidget, QGraphicsObject, QGraphicsEllipseItem, QSplashScreen,
+    QTextBrowser
 )
 from PyQt6.QtCore import (
     Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression, QTimer, QEvent,
