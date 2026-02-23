@@ -36,7 +36,7 @@ jobs:
       # PyQt6 sometimes requires these underlying Linux libraries to be analyzed properly by PyInstaller
       run: |
         sudo apt-get update
-        sudo apt-get install -y libxcb-cursor0 libgl1-mesa-glx
+        sudo apt-get install -y libxcb-cursor0 libgl1 libxkbcommon-x11-0
 
     - name: 🏗️ Run Build Script
       run: python build_exe.py
