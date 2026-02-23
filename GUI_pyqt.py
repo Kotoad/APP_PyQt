@@ -13,7 +13,7 @@ from Imports import (
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
     QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent,
     QStackedWidget, QSplitter, QIcon, QKeySequence, QShortcut, json, QSplashScreen, QProgressBar,
-    QScroller, QTest, QInputDevice, QEventPoint, QTouchEvent, QObject, warnings, QToolBar
+    QScroller, QTest, QInputDevice, QEventPoint, QTouchEvent, QObject, warnings, QToolBar, QSlider
 )
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
@@ -247,6 +247,7 @@ class UniversalErrorHandler(QObject):
         if msg_box.clickedButton() == copy_btn:
             clipboard = QApplication.clipboard()
             clipboard.setText(f"{title}:\n{body}")
+
 
 #MARK: - RPiExecutionThread
 class RPiExecutionThread(QThread):
@@ -767,7 +768,75 @@ class GridScene(QGraphicsScene):
             y += self.grid_size
         
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-#MARK: - CustomSwitch
+#MARK: - Custom widgets
+class CustomTickSlider(QSlider):
+    def __init__(self, orientation, parent=None):
+        super().__init__(orientation, parent)
+        # Store a list of specific numbers where we want ticks
+        self.specific_ticks = []
+
+    def setSpecificTicks(self, ticks_list):
+        self.specific_ticks = ticks_list
+        self.update()  # Tell the widget to redraw itself
+
+    # 2. Override the paintEvent to draw our own marks
+    def paintEvent(self, event):
+        # First, let the slider draw itself normally (the groove and handle)
+        super().paintEvent(event)
+
+        # Now, grab a "painter" to draw on top of the slider
+        painter = QPainter(self)
+        pen = QPen(QColor("red"))  # Make the custom ticks red so they stand out
+
+        font = painter.font()
+        font.setPointSize(8)
+        font.setBold(True)
+
+        painter.setFont(font)
+
+        # Calculate where to draw the lines based on the min/max range
+        minimum = self.minimum()
+        maximum = self.maximum()
+        range_span = maximum - minimum
+
+        if range_span == 0:
+            return
+
+        # Get the width of the slider to know how to space the marks
+        # (We pad it slightly so it aligns better with the center of the handle)
+        padding = 8 
+        available_width = self.width() - (padding * 2)
+
+        for tick_val in self.specific_ticks:
+            # Ensure the tick is within the valid range
+            if minimum <= tick_val <= maximum:
+                # Find the X center point for this tick
+                ratio = (tick_val - minimum) / range_span
+                x_pos = padding + int(ratio * available_width)
+
+                # 3. Draw the vertical tick line
+                y_top = self.height() // 2 + 2
+                y_bottom = self.height() - 15  # Leave 15 pixels at the bottom for text
+                painter.drawLine(x_pos, y_top, x_pos, y_bottom)
+
+                # 4. Draw the number
+                tick_val = tick_val / 100
+                tick_val = tick_val if tick_val % 1 else int(tick_val)  # Show as int if whole number
+                text = str(tick_val)
+                text_width = 30
+                text_height = 15
+                
+                # Create an invisible box centered exactly on the tick line to hold the text
+                text_box = QRect(
+                    x_pos - (text_width // 2),  # Shift left by half width to center it
+                    self.height() - text_height, # Position it at the very bottom
+                    text_width, 
+                    text_height
+                )
+                
+                # Draw the text perfectly centered inside that invisible box
+                painter.drawText(text_box, Qt.AlignmentFlag.AlignCenter, text)
+
 class CustomSwitch(QWidget):
     """
     YOUR CustomSwitch - Has FULL control over circle size!
@@ -1178,7 +1247,7 @@ class GridCanvas(QGraphicsView):
         # Zoom setup
         self.zoom_level = 1.0
         self.min_zoom = 0.5
-        self.max_zoom = 4.0
+        self.max_zoom = 2.0
         self.zoom_speed = 0.1
         
         # Rendering
@@ -1190,6 +1259,7 @@ class GridCanvas(QGraphicsView):
         self.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
         self.viewport().setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
         self.middle_mouse_pressed = False
+        self.pan_mode = False
         self.middle_mouse_start = QPoint()
         
         # Tracking
@@ -1243,16 +1313,34 @@ class GridCanvas(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
         self.scale(new_zoom / self.zoom_level, new_zoom / self.zoom_level)
         self.zoom_level = new_zoom
-        
+        self.main_window.zoom_slider.setValue(int(self.zoom_level * 100))
         event.accept()
     
+    def zoom_calc(self, zoom):
+        new_zoom = zoom/100
+        #print(f"Calculated new zoom: {new_zoom} from input: {zoom}")
+        new_zoom = max(self.min_zoom, min(self.max_zoom, new_zoom))
+        #print(f"Clamped new zoom: {new_zoom}")
+        return new_zoom
+
+    def zoom_change(self, zoom):
+        new_zoom = self.zoom_calc(zoom)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
+        self.scale(new_zoom / self.zoom_level, new_zoom / self.zoom_level)
+        self.zoom_level = new_zoom
+
+    def reset_zoom(self):
+        self.resetTransform()
+        self.zoom_level = 1.0
+        print(f"Resetting view to default. Zoom level: {self.zoom_level}, zoom for slider {self.zoom_level*100}")
+        self.main_window.zoom_slider.setValue(int(self.zoom_level*100))
+
     def keyPressEvent(self, event):
         """Handle keyboard shortcuts"""
-        #print(f"[GridCanvas.keyPressEvent] Key: {event.key()}")
+        print(f"[GridCanvas.keyPressEvent] Key: {event.key()}")
         if event.key() == Qt.Key.Key_Home:
             # Reset zoom and pan
-            self.resetTransform()
-            self.zoom_level = 1.0
+            self.reset_zoom()
             event.accept()
         #print(f"Spawner state: {self.spawner}, element_placed: {getattr(self.spawner, 'element_placed', None)}")
         if self.spawner and self.spawner.placing_active:
@@ -1270,6 +1358,11 @@ class GridCanvas(QGraphicsView):
                 event.accept()
             else:
                 event.ignore()
+        elif self.pan_mode:
+            if event.key() == Qt.Key.Key_Escape:
+                self.pan_mode = False
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+                event.accept()
         else:
             super().keyPressEvent(event)
     
@@ -1282,7 +1375,7 @@ class GridCanvas(QGraphicsView):
             #print("[GridCanvas] Middle mouse pressed - starting pan")
             self.middle_mouse_pressed = True
             self.middle_mouse_start = event.pos()
-            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
             event.accept()
             return
         
@@ -1325,6 +1418,12 @@ class GridCanvas(QGraphicsView):
                     self.path_manager.add_point(scene_pos)
                     event.accept()
                     return
+            if self.pan_mode:
+                self.middle_mouse_pressed = True
+                self.middle_mouse_start = event.pos()
+                self.setCursor(Qt.CursorShape.OpenHandCursor)
+                event.accept()
+                return
         # ✅ CRITICAL: Pass all other events to parent so blocks can receive them
         #print(f"[GridCanvas] Passing event to super() for block handling")
         super().mousePressEvent(event)
@@ -1332,6 +1431,7 @@ class GridCanvas(QGraphicsView):
     def mouseMoveEvent(self, event):
         """Handle mouse move - pan if middle-mouse pressed"""
         if self.middle_mouse_pressed:
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
             # Middle-mouse is held down: pan using scroll bars instead of translate
             delta = event.pos() - self.middle_mouse_start
             
@@ -1361,6 +1461,10 @@ class GridCanvas(QGraphicsView):
             # Release middle-click
             self.middle_mouse_pressed = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
+            event.accept()
+        elif event.button() == Qt.MouseButton.LeftButton:
+            self.middle_mouse_pressed = False
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
             event.accept()
         else:
             # Other buttons
@@ -1462,6 +1566,7 @@ class GridCanvas(QGraphicsView):
                     self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
                     self.scale(new_zoom / self.zoom_level, new_zoom / self.zoom_level)
                     self.zoom_level = new_zoom
+                    self.main_window.zoom_slider.setValue(int(self.zoom_level * 100))
                     event.accept()
         elif event.type() == QEvent.Type.TouchEnd:
             self.setDragMode(QGraphicsView.DragMode.NoDrag)
@@ -1763,7 +1868,8 @@ class MainWindow(QMainWindow):
         self.reset_file()
 
         self.create_menu_bar()
-        self.create_toolbar()
+        self.create_top_toolbar()
+        self.create_bottom_toolbar()
         self.create_canvas_frame()
     
     def mousePressEvent(self, event):
@@ -1771,6 +1877,12 @@ class MainWindow(QMainWindow):
         print("⚠ MainWindow.mousePressEvent fired!")
         super().mousePressEvent(event)
     
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Home:
+            if self.current_canvas:
+                self.current_canvas.reset_zoom()
+            event.accept()
+
     def reset_file(self):
         try:
             with open("File.py", "w") as f:
@@ -1839,7 +1951,7 @@ class MainWindow(QMainWindow):
         view_code_action = compile_menu.addAction(self.t("main_GUI.menu.view_code"))
         view_code_action.triggered.connect(self.view_generated_code)
     
-    def create_toolbar(self):
+    def create_top_toolbar(self):
 
         icon_path = "resources/images/Tool_bar/"
 
@@ -1871,6 +1983,7 @@ class MainWindow(QMainWindow):
         settings_icon.triggered.connect(self.open_settings_window)
         toolbar.addAction(settings_icon)
 
+
         toolbar.addSeparator()
 
         run_and_compile_icon = QAction(QIcon(icon_path+"Run_and_compile.png"), self.t("main_GUI.toolbar.compile_upload"), self)
@@ -1889,7 +2002,56 @@ class MainWindow(QMainWindow):
         #test_icon.triggered.connect(self.simulate_pinch)
         #toolbar.addAction(test_icon)
 
-        self.toolbar = self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
+        self.top_toolbar = self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
+
+    def create_bottom_toolbar(self):
+
+        toolbar = QToolBar(self.t("main_GUI.toolbar.bottom_toolbar"))
+        toolbar.setMovable(False)
+        toolbar.setIconSize(QSize(16, 16))
+
+        font = QFont("Consolas", 16)
+        font.setBold(True)
+
+        spacer = QWidget()
+
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        pan_button = QAction(QIcon("resources/images/Tool_bar/Pan.png"), self.t("main_GUI.toolbar.pan"), self)
+        pan_button.setCheckable(True)
+        pan_button.triggered.connect(lambda checked: self.toggle_pan_mode(checked))
+
+        minus_label = QLabel("-")
+
+        minus_label.setFont(font)
+
+        zoom_slider = QSlider(Qt.Orientation.Horizontal)
+        zoom_slider.setRange(50, 200)
+        zoom_slider.setValue(100)
+        zoom_slider.setFixedWidth(150)
+        zoom_slider.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        #zoom_slider.setSpecificTicks([50, 100, 200])
+
+        zoom_slider.valueChanged.connect(lambda value: self.current_canvas.zoom_change(value))
+
+        self.zoom_slider = zoom_slider
+
+        plus_label = QLabel("+")
+
+        plus_label.setFont(font)
+
+        toolbar.addWidget(spacer)
+        toolbar.addAction(pan_button)
+        toolbar.addWidget(minus_label)
+        toolbar.addWidget(zoom_slider)
+        toolbar.addWidget(plus_label)
+
+
+        self.bottom_toolbar = self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, toolbar)
+
+    def toggle_pan_mode(self, checked):
+        self.setCursor(Qt.CursorShape.OpenHandCursor if checked else Qt.CursorShape.ArrowCursor)
+        self.current_canvas.pan_mode = checked
 
     def stop_execution(self):
         if Utils.app_settings.rpi_model_index == 0:
@@ -2009,15 +2171,11 @@ class MainWindow(QMainWindow):
         if self.current_canvas != self.last_canvas:
             #print(f"Sidebar tab changed to index: {index}, widget: {self.current_canvas}")
             try:
-                for canvas, info in Utils.canvas_instances.items():
-                    canvas.var_button.hide()
-                    canvas.dev_button.hide()
-                    canvas.separator_container.hide()
-                    if info['ref'] == 'canvas' or canvas == self.current_canvas:
-                        #print("Showing variable and device buttons for main or current canvas.")
-                        canvas.var_button.show()
-                        canvas.dev_button.show()
-                        canvas.separator_container.show()
+                if hasattr(self, 'zoom_slider') and self.current_canvas:
+                    # Block signals temporarily so it doesn't trigger a zoom event just by switching tabs
+                    self.zoom_slider.blockSignals(True)
+                    self.zoom_slider.setValue(int(self.current_canvas.zoom_level * 100))
+                    self.zoom_slider.blockSignals(False)
             except Exception as e:
                 print(f"Error showing/hiding buttons on tab change: {e}")
             self.last_canvas = self.current_canvas
@@ -2529,7 +2687,7 @@ class MainWindow(QMainWindow):
             self.removeToolBar(self.toolbar)
             self.toolbar.deleteLater()
             del self.toolbar
-        self.create_toolbar()
+        self.create_top_toolbar()
 
         self.wipe_canvas()
 

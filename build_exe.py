@@ -13,6 +13,7 @@ Output:
 
 import PyInstaller.__main__
 import os
+import sys
 import shutil
 from pathlib import Path
 
@@ -99,7 +100,11 @@ def build_exe():
 
 def verify_build():
     """Check if exe was created"""
-    exe_path = Path('dist/OmniBoard Studio/OmniBoard Studio.exe')
+    exe_ext = '.exe' if sys.platform == 'win32' else ''
+    
+    exe_name = f'OmniBoard Studio{exe_ext}'
+    exe_path = Path(f'dist/OmniBoard Studio/{exe_name}')
+    
     if exe_path.exists():
         size_mb = exe_path.stat().st_size / (1024 * 1024)
         print(f"\n[✓] Executable created: {exe_path} ({size_mb:.1f} MB)")

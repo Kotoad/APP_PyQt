@@ -4,9 +4,6 @@ AppSettings.py - Application Settings
 Separate from GUI_pyqt to avoid circular imports:
 FileManager → Utils → AppSettings (no GUI dependency!)
 """
-from Imports import os, json
-
-
 class AppSettings:
     """Application-wide settings (RPI model, preferences, etc)"""
     
