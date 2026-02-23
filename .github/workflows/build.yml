@@ -39,6 +39,8 @@ jobs:
         sudo apt-get install -y libxcb-cursor0 libgl1 libxkbcommon-x11-0
 
     - name: 🏗️ Run Build Script
+      env:
+        PYTHONIOENCODING: utf8
       run: python build_exe.py
 
     - name: 📤 Upload Executable
