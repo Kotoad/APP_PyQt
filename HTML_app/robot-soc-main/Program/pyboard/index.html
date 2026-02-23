@@ -1,0 +1,124 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>Zaklad ovladani robota :)</title>
+    <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
+        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <style>
+        body {
+            background-color: lightblue;
+        }
+
+        h1 {
+            color: blue;
+        }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: repeat(3, 150px);
+        }
+
+        .btn-group>button {
+            height: 150px;
+            width: 150px;
+            color: blue;
+            background-color: powderblue;
+            border-style: hidden;
+            user-select: none;
+        }
+
+        #but1 {
+            grid-row: 1;
+            grid-column: 2;
+        }
+
+        #but2 {
+            grid-row: 2;
+            grid-column: 1;
+        }
+
+        #but3 {
+            grid-row: 2;
+            grid-column: 3;
+        }
+
+        #but4 {
+            grid-row: 3;
+            grid-column: 2
+        }
+
+        /*#rychlost_range {
+            transform: rotate(90deg);
+        }*/
+    </style>
+</head>
+
+<body>
+    <h1>Zaklad ovladani robota :)</h1>
+    <div id="log"></div>
+    <br>
+    <label for="vol">Rychlost: 0-100</label>
+    <input type="range" id="rychlost_range" name="vol" min="0" max="100">
+    <div class="btn-group" role="group" aria-label="Ovladani">
+        <button id="but1" ontouchstart="startSending(1, 100)" ontouchend="stopSending()"
+            onmousedown="startSending(1, 100)" onmouseup="stopSending()">vpřed</button>
+        <button id="but2" ontouchstart="startSending(2, 100)" ontouchend="stopSending()"
+            onmousedown="startSending(2, 100)" onmouseup="stopSending()">v levo</button>
+        <button id="but3" ontouchstart="startSending(3, 100)" ontouchend="stopSending()"
+            onmousedown="startSending(3, 100)" onmouseup="stopSending()">v pravo</button>
+        <button id="but4" ontouchstart="startSending(4, 100)" ontouchend="stopSending()"
+            onmousedown="startSending(4, 100)" onmouseup="stopSending()">vzad</button>
+        <script>
+            let rychlost_slider = document.getElementById("rychlost_range");
+
+            let socket = new WebSocket("ws://" + location.host + "/prijem");
+            let commandSent = false;
+
+            socket.addEventListener("open", (ev) => {
+                console.log("WebSocket connection opened");
+            });
+
+            socket.addEventListener("close", (ev) => {
+                console.log("WebSocket connection closed");
+            });
+
+            socket.addEventListener("error", (ev) => {
+                console.error("WebSocket error:", ev);
+            });
+
+            socket.addEventListener("message", (ev) => {
+                console.log("WebSocket message received:", ev.data);
+            });
+
+            function startSending(i1, i2) {
+                if (socket.readyState === WebSocket.OPEN && !commandSent) {
+                    odeslani_prikazu('start', i1, rychlost_slider.value);
+                    commandSent = true;
+                } else {
+                    console.error("WebSocket is not open or command already sent");
+                }
+            }
+
+            function stopSending() {
+                commandSent = false;
+                if (socket.readyState === WebSocket.OPEN) {
+                    odeslani_prikazu('stop', 0, 0);
+                } else {
+                    console.error("WebSocket is not open, stop");
+                }
+            }
+
+            function odeslani_prikazu(command, i1, i2) {
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(command + " " + i1 + " " + i2);
+                    console.log("Sent command:", command, i1, i2);
+                } else {
+                    console.error("WebSocket is not open, odeslani");
+                }
+            }
+        </script>
+</body>
+
+</html>

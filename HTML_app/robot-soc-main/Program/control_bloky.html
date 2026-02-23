@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>Blokové programování</title>
+    <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+</head>
+
+<body_BLOKY>
+    <h1>Blokové programování</h1>
+    <div id="log"></div>
+    <br>
+    <div class="dropdown">
+        <button class="dropbtn">Pohyb</button>
+        <div class="dropdown-content">
+            <div id="draggable1" class="menu-draggable" draggable="true">
+                <div style="text-align: center;">Vyber smer a rychlost</div>
+                <select class="direction-select">
+                    <option value="1">Vpřed</option>
+                    <option value="2">Vzad</option>
+                    <option value="3">Vlevo</option>
+                    <option value="4">Vpravo</option>
+                </select>
+                <input style="text-align: center;" type="number" class="number-input" value="0" min="0" max="100"
+                    onkeydown=return event.key !='e' && event.key !='E' onkeydown=return
+                    oninput="this.value = this.value.replace(/[^0-9]/g, ''); if(this.value > 100) this.value = 100;">
+                <div style="text-align: center;">Doba trvání (s)
+                    <input style="text-align: center;" type="number" class="duration-input" value="1" min="0" max="60"
+                        onkeydown=return event.key !='e' && event.key !='E'
+                        oninput="this.value = this.value.replace(/[^0-9]/g, ''); if(this.value > 60) this.value = 60;">
+                </div>
+            </div>
+            <div id="draggable4" class="menu-draggable" draggable="true">
+                <div style="text-align: center;">Čekat
+                    <input style="text-align: center;" type="number" class="duration-input" value="1" min="0" max="60"
+                        onkeydown=return event.key !='e' && event.key !='E'
+                        oninput="this.value = this.value.replace(/[^0-9]/g, ''); if(this.value > 60) this.value = 60;">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="dropdown">
+        <button class="dropbtn">Start/Stop</button>
+        <div class="dropdown-content">
+            <div id="draggable2" class="menu-draggable" draggable="true">
+                <div style="text-align: center;">START</div>
+            </div>
+            <div id="draggable3" class="menu-draggable" draggable="true">
+                <div style="text-align: center;">STOP</div>
+            </div>
+        </div>
+    </div>
+    <div class="target"></div>
+    <button id="command-button" class="command-button">Pošli příkaz</button>
+    <button id="back-button" class="back-button" onclick="window.location.href='/'">Zpět</button>
+    <script src="bloky.js"></script>
+
+</body_BLOKY>
+
+</html>

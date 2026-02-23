@@ -10,6 +10,7 @@ compare/
 build/
 dist/
 New Folder/
+Node_modules/
 
 # Python cache files
 __pycache__/

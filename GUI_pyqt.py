@@ -13,7 +13,7 @@ from Imports import (
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
     QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent,
     QStackedWidget, QSplitter, QIcon, QKeySequence, QShortcut, json, QSplashScreen, QProgressBar,
-    QScroller, QTest, QInputDevice, QEventPoint, QTouchEvent, QObject, warnings
+    QScroller, QTest, QInputDevice, QEventPoint, QTouchEvent, QObject, warnings, QToolBar
 )
 from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
@@ -739,7 +739,7 @@ class GridScene(QGraphicsScene):
     
     def drawBackground(self, painter, rect):
         """
-        Draw grid only for visible area - HUGE performance improvement!
+        Draw grid only for visible area
         Called automatically by Qt when rendering, and only for visible region
         """
         super().drawBackground(painter, rect)
@@ -1843,51 +1843,53 @@ class MainWindow(QMainWindow):
 
         icon_path = "resources/images/Tool_bar/"
 
-        self.toolbar = self.addToolBar(self.t("main_GUI.toolbar.toolbar"))
-        self.toolbar.setMovable(False)
-        self.toolbar.setIconSize(QSize(16, 16))
+        toolbar = QToolBar(self.t("main_GUI.toolbar.toolbar"))
+        toolbar.setMovable(False)
+        toolbar.setIconSize(QSize(16, 16))
 
         save_icon = QAction(QIcon(icon_path+"Save.png"), self.t("main_GUI.toolbar.save"), self)
         save_icon.triggered.connect(self.on_save_file)
-        self.toolbar.addAction(save_icon)
+        toolbar.addAction(save_icon)
 
         open_icon = QAction(QIcon(icon_path+"Open_file.png"), self.t("main_GUI.toolbar.open"), self)
         open_icon.triggered.connect(self.on_open_file)
-        self.toolbar.addAction(open_icon)
+        toolbar.addAction(open_icon)
 
         new_icon = QAction(QIcon(icon_path+"New_file.png"), self.t("main_GUI.toolbar.new"), self)
         new_icon.triggered.connect(self.on_new_file)
-        self.toolbar.addAction(new_icon)
+        toolbar.addAction(new_icon)
 
-        self.toolbar.addSeparator()
+        toolbar.addSeparator()
 
         add_block_icon = QAction(QIcon(icon_path+"Add_block.png"), self.t("main_GUI.toolbar.add_block"), self)
         add_block_icon.triggered.connect(self.open_elements_window)
-        self.toolbar.addAction(add_block_icon)
+        toolbar.addAction(add_block_icon)
 
-        self.toolbar.addSeparator()
+        toolbar.addSeparator()
 
         settings_icon = QAction(QIcon(icon_path+"Settings.png"), self.t("main_GUI.toolbar.settings"), self)
         settings_icon.triggered.connect(self.open_settings_window)
-        self.toolbar.addAction(settings_icon)
+        toolbar.addAction(settings_icon)
 
-        self.toolbar.addSeparator()
+        toolbar.addSeparator()
 
         run_and_compile_icon = QAction(QIcon(icon_path+"Run_and_compile.png"), self.t("main_GUI.toolbar.compile_upload"), self)
         run_and_compile_icon.triggered.connect(self.compile_and_upload)
-        self.toolbar.addAction(run_and_compile_icon)
+        toolbar.addAction(run_and_compile_icon)
 
         run_icon = QAction(QIcon(icon_path+"Run.png"), self.t("main_GUI.toolbar.run"), self)
         run_icon.triggered.connect(self.execute_on_rpi_ssh_background)
-        self.toolbar.addAction(run_icon)
+        toolbar.addAction(run_icon)
 
         stop_execution_icon = QAction(QIcon(icon_path+"Stop_execution.png"), self.t("main_GUI.toolbar.stop"), self)
         stop_execution_icon.triggered.connect(self.stop_execution)
-        self.toolbar.addAction(stop_execution_icon)
+        toolbar.addAction(stop_execution_icon)
 
         #test_icon = QAction(QIcon(icon_path+"Test.png"), self.t("main_GUI.toolbar.test"), self)
         #test_icon.triggered.connect(self.simulate_pinch)
-        #self.toolbar.addAction(test_icon)
+        #toolbar.addAction(test_icon)
+
+        self.toolbar = self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
 
     def stop_execution(self):
         if Utils.app_settings.rpi_model_index == 0:
