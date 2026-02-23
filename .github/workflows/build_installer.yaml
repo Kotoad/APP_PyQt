@@ -1,4 +1,4 @@
-name: Build OmniBoard Studio
+name: Build OmniBoard Studio installer
 
 on:
   
