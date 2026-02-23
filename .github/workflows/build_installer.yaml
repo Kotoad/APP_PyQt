@@ -35,8 +35,7 @@ jobs:
     - name: 🏗️ Run Build Script
       env:
         PYTHONIOENCODING: utf8
-      run: |
-        python build_exe.py
+      run: python build_standalone_installer.py
 
     - name: 📤 Upload Executable
       uses: actions/upload-artifact@v4
