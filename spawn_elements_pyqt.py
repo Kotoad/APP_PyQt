@@ -638,14 +638,15 @@ class BlockGraphicsItem(QGraphicsObject):
                 event.accept()
                 return  # Prevent further processing if add/remove clicked
         self.setSelected(True)
+        event.accept()
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
         """Handle block deselection"""
         self.setSelected(False)
-        #print("Current state before release:", self.state_manager.canvas_state.current_state())
+        print("Current state before release:", self.state_manager.canvas_state.current_state())
         if self.state_manager.canvas_state.current_state() == 'MOVING_ITEM':
-            #print("Setting state to IDLE after move")
+            print("Setting state to IDLE after move")
             self.setZValue(0)  # Reset Z value after moving
             self.state_manager.canvas_state.on_idle()
         super().mouseReleaseEvent(event)

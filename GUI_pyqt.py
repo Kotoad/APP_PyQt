@@ -1015,13 +1015,14 @@ class PassiveListPopup(QListWidget):
     """
     selected = pyqtSignal(str)
     
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         # 1. Window Flags: Tool (no taskbar) + Frameless + Always on Top
         self.setWindowFlags(
-            Qt.WindowType.Tool | 
+            Qt.WindowType.ToolTip | 
             Qt.WindowType.FramelessWindowHint | 
-            Qt.WindowType.WindowStaysOnTopHint
+            Qt.WindowType.WindowStaysOnTopHint |
+            Qt.WindowType.BypassWindowManagerHint
         )
         
         # 2. Attribute: Tell Qt NOT to activate this window when showing it
@@ -1109,7 +1110,7 @@ class SearchableLineEdit(QLineEdit):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.popup = PassiveListPopup()
+        self.popup = PassiveListPopup(parent=self)
         self.popup.selected.connect(self.set_text_and_hide)
         
         self.setStyleSheet("""
@@ -1163,6 +1164,7 @@ class SearchableLineEdit(QLineEdit):
         # Position the popup
         self._move_popup()
         self.popup.show()
+        #self.setFocus()  # Keep focus on the line edit
 
     def _move_popup(self):
         """Align popup geometry to the bottom of the line edit."""
@@ -1253,7 +1255,11 @@ class GridCanvas(QGraphicsView):
         # Rendering
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        
+
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+
         # Pan mode - middle mouse button
         self.setDragMode(QGraphicsView.DragMode.NoDrag)
         self.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
@@ -1466,6 +1472,7 @@ class GridCanvas(QGraphicsView):
             self.middle_mouse_pressed = False
             self.setCursor(Qt.CursorShape.OpenHandCursor)
             event.accept()
+            super().mouseReleaseEvent(event)
         else:
             # Other buttons
             super().mouseReleaseEvent(event)
@@ -1794,6 +1801,11 @@ class MainWindow(QMainWindow):
         
         # Style
         self.setStyleSheet("""
+            QWidget {
+                background-color: #2B2B2B;
+                color: #FFFFFF;
+            }
+
             QMainWindow {
                 background-color: #1F1F1F;
             }
@@ -1837,6 +1849,50 @@ class MainWindow(QMainWindow):
                 border: 1px solid #555555;
                 border-radius: 3px;
                 padding: 4px;
+            }
+            QToolButton {
+                background-color: transparent; 
+                border: none;
+                border-radius: 4px;
+                padding: 4px;
+            }
+            QToolButton:hover {
+                background-color: #3A3A3A; /* Dark grey hover accent */
+            }
+            QToolButton:pressed {
+                background-color: #1F538D; /* Blue active/pressed accent */
+            }
+            /* Optional: if you have checked/toggled buttons like your Pan button */
+            QToolButton:checked {
+                background-color: #1F538D; 
+            }
+            QSlider::groove:horizontal {
+                border: 1px solid #3A3A3A;
+                height: 6px;
+                border-radius: 3px;
+            }
+            
+            /* THE ACCENT COLOR: The track area filled by the slider */
+            QSlider::sub-page:horizontal {
+                background: #555555; /* Change this to your desired dark grey or blue */
+                border-radius: 3px;
+            }
+            
+            /* THE EMPTY TRACK: The track area ahead of the slider */
+            QSlider::add-page:horizontal {
+                background: #1F1F1F; 
+                border-radius: 3px;
+            }
+            
+            QSlider::handle:horizontal {
+                background: #FFFFFF;
+                border: 1px solid #555555;
+                width: 14px;
+                margin: -4px 0; 
+                border-radius: 7px;
+            }
+            QSlider::handle:horizontal:hover {
+                background: #e0e0e0;
             }
         """)
         self.opend_project = None
@@ -2014,6 +2070,8 @@ class MainWindow(QMainWindow):
         font.setBold(True)
 
         spacer = QWidget()
+
+        
 
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
@@ -5563,6 +5621,25 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     
+    dark_palette = QPalette()
+    dark_palette.setColor(QPalette.ColorRole.Window, QColor(43, 43, 43))
+    dark_palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.white)
+    dark_palette.setColor(QPalette.ColorRole.Base, QColor(25, 25, 25))
+    dark_palette.setColor(QPalette.ColorRole.AlternateBase, QColor(43, 43, 43))
+    dark_palette.setColor(QPalette.ColorRole.ToolTipBase, Qt.GlobalColor.white)
+    dark_palette.setColor(QPalette.ColorRole.ToolTipText, Qt.GlobalColor.white)
+    dark_palette.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.white)
+    dark_palette.setColor(QPalette.ColorRole.Button, QColor(43, 43, 43))
+    dark_palette.setColor(QPalette.ColorRole.ButtonText, Qt.GlobalColor.white)
+    dark_palette.setColor(QPalette.ColorRole.BrightText, Qt.GlobalColor.red)
+    dark_palette.setColor(QPalette.ColorRole.Link, QColor(42, 130, 218))
+    dark_palette.setColor(QPalette.ColorRole.Highlight, QColor(42, 130, 218))
+    dark_palette.setColor(QPalette.ColorRole.HighlightedText, Qt.GlobalColor.black)
+
+    app.setPalette(dark_palette)
+
+    app.setStyleSheet("QToolTip { color: #ffffff; background-color: #2a82da; border: 1px solid white; }")
+
     error_handler = UniversalErrorHandler()
 
     error_handler.error_occurred.connect(error_handler.show_error_dialog)

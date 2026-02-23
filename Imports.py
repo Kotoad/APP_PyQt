@@ -21,7 +21,12 @@ import math
 import time
 import warnings
 from datetime import datetime
-from ctypes import windll, wintypes, byref
+if sys.platform == 'win32':
+    # Code for Windows
+    from ctypes import windll, wintypes, byref
+elif sys.platform.startswith('linux'):
+    # Code for Linux
+    import fcntl
 from pathlib import Path
 
 # ============================================================================
