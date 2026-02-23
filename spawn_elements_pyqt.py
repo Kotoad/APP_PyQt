@@ -9,7 +9,6 @@ QIntValidator, QRegularExpressionValidator,
 QPainterPath, QFont, QStyledItemDelegate, QSortFilterProxyModel,
 QStandardItemModel, QListWidget, QEvent, ctypes, sys, time,
 QGraphicsPixmapItem, QGraphicsItem, QPointF, QCursor)
-from PIL import Image, ImageDraw, ImageFont
 import random
 from Imports import get_utils
 Utils = get_utils()
