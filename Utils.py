@@ -1,5 +1,6 @@
-from ctypes import windll, wintypes, byref
 from Imports import AppSettings, ProjectData, sys, os, Path
+if sys.platform == 'win32':
+    from ctypes import windll, wintypes, byref
 app_settings = AppSettings()
 project_data = ProjectData()
 # ============================================================================
@@ -77,6 +78,11 @@ def get_dpi_for_monitor(window_id):
     """
     DPI_100_PC = 96  # Windows standard DPI (100% scale) - baseline reference
     
+    if sys.platform != 'win32':
+        # Non-Windows platforms: DPI handling is different (e.g., Linux with X11/Wayland, macOS)
+        # For simplicity, return (1.0, 1.0) as default scaling on unsupported platforms
+        return (1.0, 1.0)
+
     try:
         # Get handle for monitor containing the window
         # MONITOR_DEFAULTTONEAREST (2) = use nearest monitor if window spans multiple displays
