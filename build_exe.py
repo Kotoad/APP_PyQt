@@ -37,7 +37,6 @@ def build_exe():
         'PyQt6.QtWidgets',
         'paramiko',
         'cryptography',
-        'PIL',
         'pyserial',
         'mpremote',
         'telnetlib3',
