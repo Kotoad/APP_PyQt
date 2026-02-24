@@ -19,7 +19,7 @@ from Imports import (
     get_code_compiler, get_spawn_elements, get_device_settings_window,
     get_file_manager, get_path_manager, get_Elements_Window, get_utils,
     get_Help_Window, get_State_Manager, get_CodeViewer_Window,
-    get_Translation_Manager, get_Data_Control
+    get_Translation_Manager, get_Data_Control, get_Code_Editor_Window
 )
 Utils = get_utils()
 Code_Compiler = get_code_compiler()
@@ -36,7 +36,7 @@ StateManager = get_State_Manager()
 CodeViewerWindow = get_CodeViewer_Window()
 TranslationManager = get_Translation_Manager()
 DataControl = get_Data_Control()
-
+CodeEditorWindow = get_Code_Editor_Window()
 # --- WORKER THREAD (Background Data Loading) ---
 class LoaderThread(QThread):
     """
@@ -197,15 +197,16 @@ class UniversalErrorHandler(QObject):
             return
 
         error_msg = "".join(tb.format_exception(exc_type, exc_value, exc_traceback))
+        print(error_msg, file=sys.stderr)  # Also print to console for logging
         self.error_occurred.emit("Critical Error", error_msg, QMessageBox.Icon.Critical)
 
     def handle_warning(self, message, category, filename, lineno, file=None, line=None):
         """Catch warnings (e.g., DeprecationWarning)."""
         msg = f"{category.__name__}:\n{message}\n\nFile: {filename}\nLine: {lineno}"
         self.error_occurred.emit("Warning", msg, QMessageBox.Icon.Warning)
-        
-        # Also call original handler to print to console
+        print(f"Warning captured: {msg}", file=sys.stderr)  # Also print to console
         if self._original_showwarning:
+            print("Original Warning Handler Output:")
             self._original_showwarning(message, category, filename, lineno, file, line)
 
     def handle_threading_exception(self, args):
@@ -214,6 +215,7 @@ class UniversalErrorHandler(QObject):
         if args.exc_type:
             error_msg += "".join(tb.format_exception(args.exc_type, args.exc_value, args.exc_traceback))
         
+        print(error_msg, file=sys.stderr)
         self.error_occurred.emit("Thread Error", error_msg, QMessageBox.Icon.Critical)
 
     # Optional: Handle Qt internal C++ messages
@@ -1367,6 +1369,8 @@ class GridCanvas(QGraphicsView):
         elif self.pan_mode:
             if event.key() == Qt.Key.Key_Escape:
                 self.pan_mode = False
+                self.main_window.pan_button.setChecked(False)
+                print(f"pan mode {self.pan_mode}, middle mouse pressed {self.middle_mouse_pressed}")
                 self.setCursor(Qt.CursorShape.ArrowCursor)
                 event.accept()
         else:
@@ -1378,7 +1382,7 @@ class GridCanvas(QGraphicsView):
         
         # Handle middle-click panning
         if event.button() == Qt.MouseButton.MiddleButton:
-            #print("[GridCanvas] Middle mouse pressed - starting pan")
+            print("[GridCanvas] Middle mouse pressed - starting pan")
             self.middle_mouse_pressed = True
             self.middle_mouse_start = event.pos()
             self.setCursor(Qt.CursorShape.OpenHandCursor)
@@ -1425,6 +1429,7 @@ class GridCanvas(QGraphicsView):
                     event.accept()
                     return
             if self.pan_mode:
+                print(f"[GridCanvas] Starting pan mode with left click")
                 self.middle_mouse_pressed = True
                 self.middle_mouse_start = event.pos()
                 self.setCursor(Qt.CursorShape.OpenHandCursor)
@@ -1437,6 +1442,7 @@ class GridCanvas(QGraphicsView):
     def mouseMoveEvent(self, event):
         """Handle mouse move - pan if middle-mouse pressed"""
         if self.middle_mouse_pressed:
+            print(f"[GridCanvas.mouseMoveEvent] Middle mouse move - panning")
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
             # Middle-mouse is held down: pan using scroll bars instead of translate
             delta = event.pos() - self.middle_mouse_start
@@ -1468,7 +1474,8 @@ class GridCanvas(QGraphicsView):
             self.middle_mouse_pressed = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
             event.accept()
-        elif event.button() == Qt.MouseButton.LeftButton:
+        elif event.button() == Qt.MouseButton.LeftButton and self.pan_mode:
+            print(f"[GridCanvas.mouseReleaseEvent] Ending pan mode with left click")
             self.middle_mouse_pressed = False
             self.setCursor(Qt.CursorShape.OpenHandCursor)
             event.accept()
@@ -2004,8 +2011,11 @@ class MainWindow(QMainWindow):
         compile_action = compile_menu.addAction(self.t("main_GUI.menu.compile_code"))
         compile_action.triggered.connect(self.compile_and_upload)
 
+        edit_code_action = compile_menu.addAction(self.t("main_GUI.menu.edit_code"))
+        edit_code_action.triggered.connect(self.open_edit_code_window)
+
         view_code_action = compile_menu.addAction(self.t("main_GUI.menu.view_code"))
-        view_code_action.triggered.connect(self.view_generated_code)
+        view_code_action.triggered.connect(self.open_view_code_window)
     
     def create_top_toolbar(self):
 
@@ -2039,7 +2049,6 @@ class MainWindow(QMainWindow):
         settings_icon.triggered.connect(self.open_settings_window)
         toolbar.addAction(settings_icon)
 
-
         toolbar.addSeparator()
 
         run_and_compile_icon = QAction(QIcon(icon_path+"Run_and_compile.png"), self.t("main_GUI.toolbar.compile_upload"), self)
@@ -2071,13 +2080,11 @@ class MainWindow(QMainWindow):
 
         spacer = QWidget()
 
-        
-
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
-        pan_button = QAction(QIcon("resources/images/Tool_bar/Pan.png"), self.t("main_GUI.toolbar.pan"), self)
-        pan_button.setCheckable(True)
-        pan_button.triggered.connect(lambda checked: self.toggle_pan_mode(checked))
+        self.pan_button = QAction(QIcon("resources/images/Tool_bar/Pan.png"), self.t("main_GUI.toolbar.pan"), self)
+        self.pan_button.setCheckable(True)
+        self.pan_button.toggled.connect(lambda checked: self.toggle_pan_mode(checked))
 
         minus_label = QLabel("-")
 
@@ -2099,7 +2106,7 @@ class MainWindow(QMainWindow):
         plus_label.setFont(font)
 
         toolbar.addWidget(spacer)
-        toolbar.addAction(pan_button)
+        toolbar.addAction(self.pan_button)
         toolbar.addWidget(minus_label)
         toolbar.addWidget(zoom_slider)
         toolbar.addWidget(plus_label)
@@ -2108,6 +2115,7 @@ class MainWindow(QMainWindow):
         self.bottom_toolbar = self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, toolbar)
 
     def toggle_pan_mode(self, checked):
+        print(f"Pan mode toggled: {'ON' if checked else 'OFF'}")
         self.setCursor(Qt.CursorShape.OpenHandCursor if checked else Qt.CursorShape.ArrowCursor)
         self.current_canvas.pan_mode = checked
 
@@ -2741,11 +2749,16 @@ class MainWindow(QMainWindow):
         self.menubar.clear()
         self.create_menu_bar()
 
-        if hasattr(self, 'toolbar'):
-            self.removeToolBar(self.toolbar)
-            self.toolbar.deleteLater()
-            del self.toolbar
+        if hasattr(self, 'top_toolbar'):
+            self.removeToolBar(self.top_toolbar)
+            self.top_toolbar.deleteLater()
+            del self.top_toolbar
+        if hasattr(self, 'bottom_toolbar'):
+            self.removeToolBar(self.bottom_toolbar)
+            self.bottom_toolbar.deleteLater()
+            del self.bottom_toolbar
         self.create_top_toolbar()
+        self.create_bottom_toolbar()
 
         self.wipe_canvas()
 
@@ -2759,7 +2772,9 @@ class MainWindow(QMainWindow):
             elif window == 'Help':
                 self.open_help()
             elif window == 'CodeViewer':
-                self.view_generated_code()
+                self.open_code_viewer_window()
+            elif window == 'EditCode':
+                self.open_edit_code_window()
         
         
 
@@ -4460,12 +4475,19 @@ class MainWindow(QMainWindow):
             help_window.open()
             self.opend_windows.append('Help')
     
-    def view_generated_code(self):
+    def open_view_code_window(self):
         """View the generated code"""
         code_viewer = CodeViewerWindow.get_instance(self.current_canvas)
         if self.state_manager.app_state.on_code_viewer_dialog_open():
             code_viewer.open()
             self.opend_windows.append('CodeViewer')
+
+    def open_edit_code_window(self):
+        """Edit the generated code"""
+        code_editor = CodeEditorWindow.get_instance()
+        if self.state_manager.app_state.on_code_editor_dialog_open():
+            code_editor.open()
+            self.opend_windows.append('EditCode')
 
     def block_management(self, block_id, window):
         """Track block windows"""
@@ -4908,6 +4930,16 @@ class MainWindow(QMainWindow):
             CodeViewerWindow._instance = None
         except:
             CodeViewerWindow._instance = None
+            pass
+
+        try:
+            code_editor_window = CodeEditorWindow.get_instance(self.current_canvas)
+            if code_editor_window.is_hidden == False:
+                print("Closing code editor window")
+                code_editor_window.close()
+            CodeEditorWindow._instance = None
+        except:
+            CodeEditorWindow._instance = None
             pass
 
     #MARK: - Compile and Upload Methods

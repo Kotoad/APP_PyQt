@@ -393,7 +393,7 @@ class CodeCompiler:
         self.indent_level += 1
         self.writeline("with data_lock:  # Ensure thread-safe access to shared data")
         self.indent_level += 1
-        
+            
         # 1. Sanitize Devices_main (remove non-serializable objects like GPIO instances)
         self.writeline("sanitized_devices = {}")
         self.writeline("for k, v in Devices_main.items():")

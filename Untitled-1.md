@@ -1,53 +1,110 @@
-# [cite_start]Stabilita a kvalita regulačního obvodu [cite: 1]
+# Operační zesilovače (OZ) – Souhrn a zapojení
 
-## 1. Základní principy a význam stability
-* [cite_start]Nejdůležitější podmínkou pro správnou činnost regulačních obvodů je jejich stabilita. [cite: 4]
-* [cite_start]Regulační obvod je stabilní, jestliže se při libovolné změně vstupní veličiny po odeznění přechodového děje výstupní veličina ustálí na nové hodnotě. [cite: 5] 
-* [cite_start]Nestabilní systémy nejčastěji kmitají nebo se překlápí do jednoho nebo druhého mezního stavu. [cite: 6]
-* [cite_start]Takovéto obvody neplní funkci regulace a navíc mohou poškodit regulovanou soustavu. [cite: 7]
-* [cite_start]U lineárních systémů nezávisí stabilita regulačního pochodu na velikosti ani na průběhu vstupních veličin. [cite: 10]
-* [cite_start]Stabilita regulačního obvodu závisí pouze na přenosových vlastnostech jeho členů, zejména u obvodů s uzavřenou ZV smyčkou. [cite: 8]
-* [cite_start]K vyšetřování stability slouží kritéria stability. [cite: 11]
+## 1. Vlastnosti operačních zesilovačů
+* **Ideální OZ**:
+  * [cite_start]Dosahuje nekonečného napěťového zesílení[cite: 4].
+  * [cite_start]Má nulové zkreslení[cite: 4].
+  * [cite_start]Má nulový šum[cite: 4].
+  * [cite_start]Vykazuje nulový fázový posun[cite: 4].
+  * *Doplněná informace:* Ideální OZ má navíc nekonečný vstupní odpor (neodebírá absolutně žádný proud) a nulový výstupní odpor (dokáže dodat libovolně velký proud bez poklesu napětí).
 
-## 2. Matematický základ a póly přenosu
-* [cite_start]V regulačním obvodu mohou být jednotlivé členy stabilní i nestabilní, ale ve výsledku musí být uzavřený regulační obvod vždy stabilní. [cite: 15]
-* Obecný tvar přenosu uzavřeného obvodu:
-  [cite_start]$$G_p = \frac{b_mp^m + b_{m-1}p^{m-1} + \dots + b_1p + b_0}{a_np^n + a_{n-1}p^{n-1} + \dots + a_1p + a_0}$$ [cite: 16, 17]
-* [cite_start]Kořeny jmenovatele ($p_1, p_2 \dots p_n$) se nazývají póly a mohou být reálné i komplexní. [cite: 20]
-* [cite_start]**Nutná a postačující podmínka stability:** Všechny kořeny jmenovatele přenosu uzavřeného obvodu musí ležet v záporné polorovině komplexní roviny. [cite: 26]
-* [cite_start]To znamená, že pokud jsou reálné kořeny, musí být záporné, a u komplexních kořenů musí být reálné části záporné a nesmí být ani nulové. [cite: 27]
-* [cite_start]Okamžitě můžeme o (ne)stabilitě rozhodnout podle tvaru polynomu jmenovatele $A(p)$: [cite: 28]
-  * [cite_start]Je-li polynom $A(p)$ maximálně 2. stupně a jsou-li všechny jeho koeficienty kladné, je systém stabilní. [cite: 29]
-  * [cite_start]Nejsou-li všechny koeficienty polynomu $A(p)$ kladné nebo některý člen chybí, je systém nestabilní. [cite: 30]
-  * [cite_start]Je-li polynom vyššího než 2. stupně a všechny koeficienty jsou kladné, nelze určit (ne)stabilitu a je potřeba buď vyřešit kořeny polynomu nebo použít některé kritérium stability. [cite: 31]
+## 2. Parametry reálného OZ
+[cite_start]**Statické parametry**[cite: 8]:
+* [cite_start]**Vstupní napěťová nesymetrie (Input offset voltage)**[cite: 10]:
+  * [cite_start]Její hodnota se pohybuje v řádech milivoltů (mV)[cite: 11].
+  * [cite_start]Představuje napětí nutné ke kompenzaci rozdílu vstupních tranzistorů[cite: 11, 12].
+  * [cite_start]Tato hodnota je závislá na teplotě[cite: 13].
+* [cite_start]**Vstupní klidový proud**[cite: 14]:
+  * [cite_start]Typická velikost se pohybuje kolem 10 nA[cite: 15].
+* [cite_start]**Vstupní proudová nesymetrie**[cite: 16].
+* [cite_start]**Činitel potlačení součtového signálu**[cite: 17]:
+  * *Doplněná informace:* Tento parametr (často označovaný jako CMRR) popisuje schopnost zesilovače potlačit signál nebo šum, který je přiveden současně na invertující i neinvertující vstup.
 
-## 3. Kritéria stability
+[cite_start]**Dynamické parametry**[cite: 18]:
+* [cite_start]**Rychlost přeběhu (Slew rate)**[cite: 18, 19]:
+  * *Doplněná informace:* Udává se ve V/µs a definuje, jak rychle je OZ schopen změnit napětí na svém výstupu při skokové změně na vstupu.
+* [cite_start]**Frekvenční charakteristika**[cite: 20]:
+  * *Doplněná informace:* Určuje frekvenční rozsah (šířku pásma), ve kterém OZ dokáže efektivně zesilovat signál bez útlumu.
 
-### A. Nyquistovo kritérium
-* [cite_start]Jedná se o grafické a kmitočtové kritérium. [cite: 80, 81]
-* [cite_start]Používá se nejčastěji, protože slouží nejen k ověření stability, ale již při návrhu regulačního obvodu udává vzdálenost od meze stability. [cite: 82]
-* [cite_start]Lze jej použít i na obvody s dopravním zpožděním. [cite: 83]
-* [cite_start]Stabilitu zjišťuje na základě změřených frekvenčních charakteristik otevřené smyčky (ta musí být stabilní). [cite: 84, 85]
-* [cite_start]Uzavřený regulační obvod je stabilní, probíhá-li frekvenční charakteristika jeho otevřené smyčky vpravo od bodu $-1+0j$. [cite: 91]
-* [cite_start]Obvod je nestabilní, je-li bod $-1+0j$ charakteristikou „obklíčen“. [cite: 92] 
-* [cite_start]Obvod je na mezi stability, prochází-li právě bodem $-1+0j$. [cite: 93]
+---
 
-### B. Michajlovovo-Leonhardovo kritérium
-* [cite_start]Grafické kritérium, které vychází z jmenovatele přenosu uzavřeného regulačního obvodu, za $p$ se dosadí $j\omega$. [cite: 244, 245, 246]
-* [cite_start]Křivka se vynese v komplexní rovině a získá se tzv. hodograf (Michajlova křivka). [cite: 247]
-* [cite_start]Nehodí se pro obvody s dopravním zpožděním. [cite: 248]
-* [cite_start]Obvod je stabilní, jestliže křivka pro $0 < \omega < \infty$ začíná na reálné ose a projde postupně proti směru hodinových ručiček $n$ kvadrantů, kde $n$ je stupeň polynomu charakteristické rovnice daného přenosu. [cite: 249]
+## [cite_start]3. Základní aplikace a zapojení OZ [cite: 21]
 
-### C. Hurwitzovo kritérium
-* [cite_start]Algebraické kritérium vycházející z charakteristické rovnice. [cite: 267, 268, 269]
-* [cite_start]Poskytuje pouze informaci o tom, zda je obvod stabilní či nestabilní, a nehodí se pro obvody s dopravním zpožděním. [cite: 270, 271]
-* [cite_start]**Podmínky nutné:** Všechny koeficienty charakteristické rovnice musejí být nenulové kladné. [cite: 278]
-* [cite_start]**Podmínky postačující:** Všechny Hurwitzovy subdeterminanty $H_i$ odpovídající prvkům na hlavní diagonále Hurwitzovy matice $H$ musejí být $> 0$. [cite: 279]
-* [cite_start]Stačí kontrolovat subdeterminanty: $H_2 > 0, H_3 > 0, \dots, H_{n-1} > 0$. [cite: 283, 284]
+### [cite_start]A. Napěťové zesilovače [cite: 22]
 
-### D. Routh-Schurovo kritérium
-* [cite_start]Algebraické kritérium, které se dá použít i jako test aperiodicity (nekmitavosti). [cite: 310, 311, 312]
-* [cite_start]Princip spočívá v postupném snižování stupně charakteristické rovnice na 2. stupeň. [cite: 313]
-* [cite_start]Všechny členy jsou kladné $\rightarrow$ systém je stabilní. [cite: 314]
-* [cite_start]Všechny členy jsou kladné nebo nulové $\rightarrow$ systém je na mezi stability. [cite: 315]
-* [cite_start]Členy jsou opačných znamének $\rightarrow$ systém je nestabilní. [cite: 316]
+[cite_start]**Invertující zapojení** [cite: 23]
+
+
+[Image of inverting operational amplifier circuit diagram]
+
+* [cite_start]Obrací fázi vstupního signálu o 180°[cite: 23].
+* [cite_start]Zapojení využívá rezistory R1 a R2[cite: 25, 44].
+* Napěťové zesílení se řídí vztahem:
+  [cite_start]$$A = -\frac{R_2}{R_1}$$ [cite: 33]
+* [cite_start]Pokud je odpor R1 roven odporu R2, funguje obvod jako přesný invertor[cite: 34].
+* [cite_start]Na invertujícím vstupu se vytváří tzv. virtuální nula[cite: 28].
+
+[cite_start]**Neinvertující zapojení** [cite: 47]
+
+
+[Image of non-inverting operational amplifier circuit diagram]
+
+* Fáze signálu zůstává zachována.
+* Napěťové zesílení je definováno vztahem:
+  [cite_start]$$A_u = 1 + \frac{R_2}{R_1}$$ [cite: 59]
+
+[cite_start]**Napěťový sledovač** [cite: 62]
+
+
+[Image of operational amplifier voltage follower circuit diagram]
+
+* Výstupní napětí je shodné se vstupním.
+* *Doplněná informace:* Obvod má napěťové zesílení rovno jedné. Slouží primárně k oddělení obvodů – má obrovský vstupní odpor (nezatěžuje zdroj signálu) a velmi nízký výstupní odpor (dokáže budit další obvody).
+
+### B. Komparátory
+
+[cite_start]**Komparátor bez hystereze** [cite: 73]
+
+
+[Image of operational amplifier comparator circuit diagram]
+
+* Slouží k porovnání dvou napěťových úrovní A a B.
+* [cite_start]Pokud je úroveň A vyšší než B (A > B), výstup se překlopí do kladného maxima (+V)[cite: 79].
+* [cite_start]Pokud je úroveň B vyšší než A (B > A), výstup se překlopí do záporného maxima (-V)[cite: 79].
+* *Doplněná informace:* Nevýhodou tohoto zapojení je, že pokud na vstupu leží zašuměný signál přesně na úrovni reference, výstup může nekontrolovatelně zakmitávat.
+
+[cite_start]**Komparátor s hysterezí (Schmittův klopný obvod)** [cite: 91]
+
+* [cite_start]Využívá rezistory R1 a R2 k vytvoření zpětné vazby[cite: 95, 96].
+* [cite_start]Tím vznikají dvě různé rozhodovací úrovně – jedna pro překlopení nahoru (X) a druhá pro překlopení dolů (Y)[cite: 98, 100].
+* [cite_start]Hranice pro překlopení se počítají z referenčního napětí (Uref) a děliče tvořeného odpory R1 a R2[cite: 94, 104].
+* *Doplněná informace:* Právě tato "mezera" mezi úrovněmi (hystereze) efektivně eliminuje zakmitávání způsobené šumem v signálu.
+
+### C. Matematické a další funkční obvody
+
+[cite_start]**Součtový zesilovač** [cite: 106]
+
+
+[Image of summing operational amplifier circuit diagram]
+
+* Součtový zesilovač dokáže sečíst více přivedených napětí.
+* Součet se řídí vztahem (pokud jsou odpory stejné):
+  [cite_start]$$-(U_1 + U_2) = U_{out}$$ [cite: 124]
+* [cite_start]Pro reálné zapojení se na neinvertující vstup často připojuje paralelní kombinace všech odporů z větve invertujícího vstupu[cite: 113].
+
+[cite_start]**Integrační zesilovač (Millerův)** [cite: 115]
+
+
+[Image of operational amplifier integrator circuit diagram]
+
+* [cite_start]Jako zpětnovazební prvek nepoužívá rezistor, ale kondenzátor C[cite: 138].
+* Na výstupu vzniká matematický integrál vstupního napětí podle času:
+  [cite_start]$$U_c = \frac{1}{C} \int i dt$$ [cite: 125]
+* Strmost průběhu na výstupu je určena časovou konstantou obvodu:
+  [cite_start]$$\tau = R \cdot C$$ [cite: 127]
+
+[cite_start]**Operační usměrňovač** [cite: 129]
+
+* [cite_start]Používá se pro usměrňování velmi malých signálů[cite: 129].
+* [cite_start]Obvod obsahuje zpětnou vazbu s diodou D[cite: 130].
+* *Doplněná informace:* Běžná usměrňovací dioda potřebuje k otevření alespoň 0,6 V až 0,7 V, což menší signály odřízne. Umístěním diody do zpětnovazební smyčky operačního zesilovače se tento úbytek téměř vyruší, čímž získáme "ideální diodu", která spolehlivě usměrní i milivoltové průběhy.

@@ -197,6 +197,20 @@ class AppStateMachine(QObject):
             return True
         return False
 
+    def on_code_editor_dialog_open(self):
+        if self.can_open_window('EditCode'):
+            self.open_windows.add('EditCode')
+            self.window_opened.emit('EditCode')
+            return True
+        return False
+    
+    def on_code_editor_dialog_close(self):
+        if self.can_close_window('EditCode'):
+            self.open_windows.discard('EditCode')
+            self.window_closed.emit('EditCode')
+            return True
+        return False
+
     def on_tab_changed(self):
         print(f"Check {self.state != AppStates.ELEMENTS_DIALOG and self.canvas_state_machine.current_state() == 'IDLE'} to go to MAIN_WINDOW")
         print(f"Current state: {self.state}, Canvas state: {self.canvas_state_machine.current_state()}")

@@ -11,6 +11,7 @@ class HelpWindow(QDialog):
         super().__init__(parent)
         self.parent_canvas = parent
         self.which = which
+        self.is_hidden = True
         self.state_manager = Utils.state_manager
         self.translation_manager = Utils.translation_manager
         self.t = self.translation_manager.translate
@@ -19,16 +20,20 @@ class HelpWindow(QDialog):
     
     @classmethod
     def get_instance(cls, parent, which):
-        """Get or create singleton instance"""
-        if cls._instance is not None:
+        if cls._instance is None:
             try:
-                if cls._instance.isVisible():
+                _ = cls._instance.isVisible()  # Check if the instance is still valid
+                if cls._instance.is_hidden:
+                    if cls._instance.parent_canvas != parent:
+                        cls._instance.parent_canvas = parent
                     return cls._instance
             except RuntimeError:
-                cls._instance = None
-        
+                cls._instance = None  # Reset instance if it was deleted
+            except Exception as e:
+                cls._instance = None  # Reset instance on any unexpected error
         if cls._instance is None:
             cls._instance = cls(parent, which)
+
         return cls._instance
     
     def setup_ui(self):
@@ -459,17 +464,17 @@ class HelpWindow(QDialog):
     
     def open(self):
         """Show the window non-blocking"""
-        self.show()
-        self.raise_()
-        self.activateWindow()
+        if self.is_hidden:
+            self.is_hidden = False
+            self.show()
+            self.raise_()
+            self.activateWindow()
         return self
 
     def reject(self):
-        """Redirect Esc key (reject) to close() so closeEvent fires"""
         self.close()
 
     def closeEvent(self, event):
-        """Handle close event"""
-        #print("HelpWindow closeEvent called")
         self.state_manager.app_state.on_help_dialog_close()
+        self.is_hidden = True
         event.accept()

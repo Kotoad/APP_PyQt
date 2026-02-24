@@ -53,6 +53,8 @@ from PyQt6.QtGui import (
     QIntValidator, QPainterPath, QIcon, QStandardItemModel, QAction, QPixmap, QInputDevice, QCursor
 )
 from PyQt6.QtTest import QTest
+
+from PyQt6.Qsci import QsciScintilla, QsciLexerPython, QsciAPIs
 # ============================================================================
 # PROJECT-SPECIFIC IMPORTS (Internal)
 # ============================================================================
@@ -120,6 +122,11 @@ def get_Data_Control():
     """Lazy import DataControl - avoid circular import"""
     from Data_control import DataControl
     return DataControl
+
+def get_Code_Editor_Window():
+    """Lazy import CodeEditorWindow - avoid circular import"""
+    from Code_editor_window import CodeEditorWindow
+    return CodeEditorWindow
 
 # ============================================================================
 # LAZY IMPORTS (Imported only when needed to avoid circular deps)
