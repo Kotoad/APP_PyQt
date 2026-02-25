@@ -73,10 +73,10 @@ def get_code_compiler():
     from code_compiler import CodeCompiler
     return CodeCompiler
 
-def get_spawn_elements():
-    """Lazy import spawning_elements and Elements_events - avoid circular import"""
-    from spawn_elements_pyqt import spawning_elements, Elements_events, BlockGraphicsItem
-    return BlockGraphicsItem, spawning_elements, Elements_events
+def get_spawn_blocks():
+    """Lazy import spawning_blocks and blocks_events - avoid circular import"""
+    from spawn_blocks_pyqt import spawning_blocks, blocks_events, BlockGraphicsItem
+    return BlockGraphicsItem, spawning_blocks, blocks_events
 
 def get_device_settings_window():
     """Lazy import DeviceSettingsWindow - avoid circular import"""
@@ -88,10 +88,10 @@ def get_path_manager():
     from Path_manager_pyqt import PathManager, PathGraphicsItem
     return PathManager, PathGraphicsItem
 
-def get_Elements_Window():
-    """Lazy import ElementsWindow - avoid circular import"""
-    from Elements_window_pyqt import ElementsWindow
-    return ElementsWindow
+def get_blocks_Window():
+    """Lazy import blocksWindow - avoid circular import"""
+    from Blocks_window_pyqt import blocksWindow
+    return blocksWindow
 
 def get_Help_Window():
     """Lazy import HelpWindow - avoid circular import"""

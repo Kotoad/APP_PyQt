@@ -27,9 +27,6 @@ class TranslationManager:
         if Utils.app_settings.language in self.available_translations:
             print("Loading user preferred language:", Utils.app_settings.language)
             self._load_translation(Utils.app_settings.language) 
-        else:
-            print("User preferred language not available. Loading default (English).")
-            self._load_translation(Utils.app_settings.language)
 
     def _load_available_translations(self):
 

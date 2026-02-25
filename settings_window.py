@@ -2,8 +2,8 @@ from operator import index
 from Imports import get_utils
 Utils = get_utils()
 from Imports import (QDialog, QVBoxLayout, QLabel, QTabWidget, QWidget, QMessageBox, QPushButton, QHBoxLayout,
-QComboBox, Qt, QEvent, QFont, QMouseEvent, json, QLineEdit, QApplication, QProgressDialog,
-QObject, pyqtSignal, QTimer, sys, os, subprocess, time)
+QComboBox, Qt, QEvent, QFont, QMouseEvent, json, QLineEdit, QApplication, QProgressDialog, QPoint, QRect,
+QObject, pyqtSignal, QTimer, sys, os, subprocess, time, QIcon, QPropertyAnimation, QEasingCurve)
 from rpi_autodiscovery import RPiAutoDiscovery, RPiConnectionWizard
 
 models = ["RPI pico/pico W", "RPI zero/zero W", "RPI 2 zero W", "RPI 1 model B/B+", "RPI 2 model B", "RPI 3 model B/B+", "RPI 4 model B", "RPI 5"]
@@ -55,14 +55,14 @@ class MaxWidthComboBox(QComboBox):
         else:
             super().mousePressEvent(event)
 
-
+#MARK: - Device Settings Window
 class DeviceSettingsWindow(QDialog):
     _instance = None
 
     reload_requested = pyqtSignal(bool)
 
     def __init__(self, parent=None):
-        super().__init__(parent)
+        super().__init__()
         self.parent_canvas = parent
         self.is_hidden = True
         self.state_manager = Utils.state_manager
@@ -71,14 +71,12 @@ class DeviceSettingsWindow(QDialog):
         self.setup_ui()
     
     @classmethod
-    def get_instance(cls, parent):
+    def get_instance(cls, parent=None):
         """Get or create singleton instance"""
         if cls._instance is not None:
             try:
                 _ = cls._instance.isVisible()
                 if not cls._instance.is_hidden:
-                    if cls._instance.parent_canvas != parent:
-                        cls._instance.parent_canvas = parent
                     return cls._instance
             except RuntimeError:
                 cls._instance = None
@@ -88,12 +86,13 @@ class DeviceSettingsWindow(QDialog):
                 cls._instance = None
         
         if cls._instance is None:
-            cls._instance = cls(parent)
+            cls._instance = cls(parent=parent)
         return cls._instance
     
     def setup_ui(self):
         """Setup the UI"""
         self.setWindowTitle(self.t("setting_window.title"))
+        self.setWindowIcon(QIcon('resources/images/APPicon.ico'))
         self.resize(400, 300)
         self.setWindowFlags(Qt.WindowType.Window)
     
@@ -492,15 +491,70 @@ class DeviceSettingsWindow(QDialog):
             QMessageBox.StandardButton.Ok
         )
         self.raise_()
-    
+
+    def pulse_window(self):
+        if hasattr(self, "_pulse_animation") and self._pulse_animation.state() == QPropertyAnimation.State.Running:
+            return
+
+        self._pulse_animation = QPropertyAnimation(self, b"geometry")
+        self._pulse_animation.setDuration(100)
+        self._pulse_animation.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+        # Get current geometry
+        orig = self.geometry()
+        
+        # Calculate a larger geometry (expanding from the center)
+        offset = 5  # Pixels to expand
+        expanded = QRect(
+            orig.x() - offset, 
+            orig.y() - offset, 
+            orig.width() + (offset * 2), 
+            orig.height() + (offset * 2)
+        )
+
+        # Define keyframes: Start -> Expanded -> Original
+        self._pulse_animation.setStartValue(orig)
+        self._pulse_animation.setKeyValueAt(0.5, expanded)
+        self._pulse_animation.setEndValue(orig)
+
+        self._pulse_animation.start()
+
+    def flash_window(self):
+        original_style = self.styleSheet()
+        highlight_style = original_style + "QDialog { background-color: #696969; }"
+        
+        def toggle_style(step):
+            if step >= 8:  # 4 flashes = 8 toggles (on/off)
+                self.setStyleSheet(original_style)
+                return
+            
+            # If step is even, show highlight; if odd, show original
+            if step % 2 == 0:
+                self.setStyleSheet(highlight_style)
+                self.pulse_window()  # Add pulse effect on highlight
+            else:
+                self.setStyleSheet(original_style)
+            
+            # Schedule the next toggle in 150ms
+            QTimer.singleShot(100, lambda: toggle_style(step + 1))
+
+        # Start the sequence
+        toggle_style(0)
+
     def open(self):
         print("Opening DeviceSettingsWindow")
         if self.is_hidden:
-            print("DeviceSettingsWindow already open, raising to front")
+            print("Initially hidden, showing window")
             self.is_hidden = False
             self.show()
             self.raise_()
             self.activateWindow()
+        else:
+            print("DeviceSettingsWindow already open, raising to front")
+            self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
+            self.raise_()           # Brings the widget to the top of the stack
+            self.activateWindow()    # Gives the window keyboard focus   
+            self.flash_window()
         return self
 
     def reject(self):

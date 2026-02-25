@@ -16,6 +16,8 @@ class AppSettings:
         self.rpi_password = "9Vv5WmDn"
         self.rpi_model_name = ""
         self.rpi_os = ""
+        self.use_ssh_key = True
+        self.ssh_key_path = "~/.ssh/id_rsa"
         self.auto_detected = False
         self.language = "en"  # Default language
         self.available_languages = ['en', 'cz']  # Populated from TranslationManager

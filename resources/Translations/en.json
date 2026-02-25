@@ -23,9 +23,10 @@
       "faq": "FAQ",
       "compile": "Compile",
       "compile_code": "Compile Code",
+      "edit_code": "Edit Generated Code",
       "view_code": "View Generated Code"
     },
-    "toolbar": {
+    "top_toolbar": {
       "toolbar": "Main Toolbar",
       "save": "Save",
       "open": "Open",
@@ -35,6 +36,10 @@
       "compile_upload": "Compile and Upload",
       "run": "Run",
       "stop": "Stop Execution"
+    },
+    "bottom_toolbar": {
+      "toolbar": "Bottom Toolbar",
+      "pan": "Pan Canvas"
     },
     "sidebar": {
       "main": "Main",
@@ -191,15 +196,16 @@
       "size": "Size {width} x {height}"
     }
   },
-  "elements_window": {
-    "window_title": "Elements Window",
+  "blocks_window": {
+    "window_title": "Blocks Window",
+    "block_details": "Block Details",
+    "add_block": "Add Block",
     "basic_blocks_tab": {
       "tab_title": "Basic blocks",
       "Start": "Start",
       "End": "End",
       "Timer": "Timer",
-      "block_details": "Block Details",
-      "add_block": "Add Block"
+      "Networks": "Networks"
     },
     "logic_blocks_tab": {
       "tab_title": "Logic blocks",
@@ -207,9 +213,7 @@
       "While": "While",
       "While_true": "While true",
       "Switch": "Switch",
-      "For_Loop": "For Loop",
-      "block_details": "Block Details",
-      "add_block": "Add Block"
+      "For_Loop": "For Loop"
     },
     "io_blocks_tab": {
       "tab_title": "I/O blocks",
@@ -217,27 +221,25 @@
       "LED": "LED",
       "Blink_LED": "Blink LED",
       "Toggle_LED": "Toggle LED",
-      "PWM_LED": "PWM LED control",
-      "block_details": "Block Details",
-      "add_block": "Add Block"
+      "LED_ON": "LED ON",
+      "LED_OFF": "LED OFF",
+      "RGB_LED": "RGB LED control",
+      "PWM_LED": "PWM LED control"
     },
     "math_blocks_tab": {
       "tab_title": "Math blocks",
       "basic_operations": "Basic operations",
       "exponential_operations": "Exponential operations",
-      "random_number": "Random Number",
-      "block_details": "Block Details",
-      "add_block": "Add Block"
+      "random_number": "Random Number"
     },
     "function_blocks_tab": {
-      "tab_title": "Function",
-      "block_details": "Block Details",
-      "add_block": "Add Block"
+      "tab_title": "Function"
     },
     "blocks_descriptions": {
       "Start": "The starting point of the program execution.",
       "End": "The endpoint of the program execution.",
       "Timer": "A block that triggers actions at specified time intervals.",
+      "Networks": "Controls the order of execution flow, allowing for branching.",
       "If": "A conditional block that executes actions based on a true/false condition.",
       "While": "A loop block that continues executing as long as a condition is true.",
       "While_true": "A loop that runs indefinitely until externally stopped.",
@@ -248,6 +250,9 @@
       "Blink_LED": "Controls an LED to blink at specified intervals.",
       "Toggle_LED": "Toggles the state of an LED on or off.",
       "PWM_LED": "Controls the brightness of an LED using PWM (Pulse Width Modulation).",
+      "LED_ON": "Turns an LED on.",
+      "LED_OFF": "Turns an LED off.",
+      "RGB_LED": "Controls an RGB LED.",
       "Basic_operations": "Performs basic arithmetic operations like addition, subtraction, multiplication, and division.",
       "Exponential_operations": "Performs exponential calculations such as power and square root.",
       "Random_number": "Generates a random number within a specified range.",
@@ -261,56 +266,64 @@
     "file_not_found": "File.py not found",
     "error_reading_file": "Error reading file: {error_type}: {error_message}"
   },
+  "code_editor_window": {
+    "window_title": "Code Editor",
+    "save_button": "Save",
+    "save_success": "Code saved successfully!",
+    "save_error": "Error saving code: {error_type}: {error_message}",
+    "file_not_found": "File.py not found",
+    "error_reading_file": "Error reading file: {error_type}: {error_message}"
+  },
   "help_window": {
     "window_title": "Help Window",
     "getting_started_tab": {
       "title": "Get Started",
-      "content": "resources/Translations/Getting_started_en.html",
+      "content": "resources/Translations/en/Getting_started_en.html",
       "file_not_found": "<p>Getting Started file not found.</p>",
       "error_loading_file": "<p>Error loading Getting Started file.</p>"
     },
     "tutorials_tab": {
       "title": "Tutorials",
       "show_tutorial_button": "View tutorial",
-      "back_to_tutorial_button": "← Back to tutorials",
+      "back_to_tutorials_button": "← Back to tutorials",
       "file_not_found": "<p>tutorial file not found.</p>",
       "error_loading_file": "<p>Error loading tutorial file.</p>",
       "tutorials": {
         "tutorial_0_linux_based_RPI": {
           "title": "Linux-based Raspberry Pi",
-          "description": "Learn how to set up your Raspberry Pi for use with OmniBoard Studio and understand the Linux-based environment.",
-          "content": "resources/Translations/Tutorials/Tutorial_0_linux_based_RPI_variant_en.html"
+          "description": "Initial setup and connecting to your Raspberry Pi",
+          "content": "resources/Translations/en/Tutorials/Tutorial_0_linux_based_RPI_variant_en.html"
         },
         "tutorial_1": {
           "title": "Blinking LED",
           "description": "This tutorial demonstrates how to blink an LED connected to your Raspberry Pi.",
-          "content": "resources/Translations/Tutorials/Tutorial_1_en.html"
+          "content": "resources/Translations/en/Tutorials/Tutorial_1_en.html"
         },
         "tutorial_2": {
           "title": "Button Controlled LED",
           "description": "This tutorial shows how to control an LED using a button input.",
-          "content": "resources/Translations/Tutorials/Tutorial_2_en.html"
+          "content": "resources/Translations/en/Tutorials/Tutorial_2_en.html"
         },
         "tutorial_3": {
           "title": "LED lighthouse",
           "description": "Working with different LED patterns and timings.",
-          "content": "resources/Translations/Tutorials/Tutorial_3_en.html"
+          "content": "resources/Translations/en/Tutorials/Tutorial_3_en.html"
         },
         "tutorial_4": {
           "title": "Complex Logic",
-          "description": "Combine multiple elements for advanced workflows.",
-          "content": "resources/Translations/Tutorials/Tutorial_4_en.html"
+          "description": "Combine multiple blocks for advanced workflows.",
+          "content": "resources/Translations/en/Tutorials/Tutorial_4_en.html"
         },
         "tutorial_5": {
           "title": "Using Variables",
           "description": "Learn how to use variables to store and manipulate data.",
-          "content": "resources/Translations/Tutorials/Tutorial_5_en.html"
+          "content": "resources/Translations/en/Tutorials/Tutorial_5_en.html"
         }
       }
     },
     "faq_tab": {
       "title": "FAQ",
-      "content": "resources/Translations/FAQ_en.html",
+      "content": "resources/Translations/en/FAQ_en.html",
       "file_not_found": "<p>FAQ file not found.</p>",
       "error_loading_file": "<p>Error loading FAQ file.</p>"
       }

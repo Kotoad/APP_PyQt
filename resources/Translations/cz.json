@@ -18,14 +18,15 @@
       "add_block": "Přidat blok",
       "settings": "Nastavení",
       "help": "Nápověda",
-      "get_started": "Začít",
-      "examples": "Příklady",
+      "get_started": "Začít", 
+      "tutorials": "Příklady",
       "faq": "Časté dotazy",
       "compile": "Kompilovat",
       "compile_code": "Kompilovat kód",
+      "edit_code": "Upravit vygenerovaný kód",
       "view_code": "Zobrazit vygenerovaný kód"
     },
-    "toolbar": {
+    "top_toolbar": {
       "toolbar": "Hlavní panel nástrojů",
       "save": "Uložit",
       "open": "Otevřít",
@@ -35,6 +36,10 @@
       "compile_upload": "Kompilovat a nahrát",
       "run": "Spustit",
       "stop": "Zastavit vykonávání"
+    },
+    "bottom_toolbar": {
+      "toolbar": "Dolní panel nástrojů",
+      "pan": "Pohybovat plátnem"
     },
     "sidebar": {
       "main": "Hlavní",
@@ -191,15 +196,16 @@
       "size": "Velikost {width} x {height}"
     }
   },
-  "elements_window": {
-    "window_title": "Okno prvků",
+  "blocks_window": {
+    "window_title": "Okno bloků",
+    "block_details": "Podrobnosti bloku",
+    "add_block": "Přidat blok",
     "basic_blocks_tab": {
       "tab_title": "Základní bloky",
       "Start": "Začátek",
       "End": "Konec",
       "Timer": "Časovač",
-      "block_details": "Podrobnosti bloku",
-      "add_block": "Přidat blok"
+      "Networks": "Větve"
     },
     "logic_blocks_tab": {
       "tab_title": "Logické bloky",
@@ -207,9 +213,7 @@
       "While": "Pokud platí",
       "While_true": "Pokud platí vždy",
       "Switch": "Přepínač",
-      "For_Loop": "Cyklus For",
-      "block_details": "Podrobnosti bloku",
-      "add_block": "Přidat blok"
+      "For_Loop": "Cyklus For"
     },
     "io_blocks_tab": {
       "tab_title": "Bloky V/V",
@@ -217,27 +221,25 @@
       "LED": "LED",
       "Blink_LED": "Blikající LED",
       "Toggle_LED": "Přepnutí LED",
-      "PWM_LED": "Řízení PWM LED",
-      "block_details": "Podrobnosti bloku",
-      "add_block": "Přidat blok"
+      "LED_ON": "LED zapnuto",
+      "LED_OFF": "LED vypnuto",
+      "RGB_LED": "Řízení RGB LED",
+      "PWM_LED": "Řízení PWM LED"
     },
     "math_blocks_tab": {
       "tab_title": "Matematické bloky",
       "basic_operations": "Základní operace",
       "exponential_operations": "Exponenciální operace",
-      "random_number": "Náhodné číslo",
-      "block_details": "Podrobnosti bloku",
-      "add_block": "Přidat blok"
+      "random_number": "Náhodné číslo"
     },
     "function_blocks_tab": {
-      "tab_title": "Funkce",
-      "block_details": "Podrobnosti bloku",
-      "add_block": "Přidat blok"
+      "tab_title": "Funkce"
     },
     "blocks_descriptions": {
       "Start": "Počáteční bod spuštění programu.",
       "End": "Koncový bod spuštění programu.",
       "Timer": "Blok, který spouští akce v zadaných časových intervalech.",
+      "Networks": "Ovládá pořadí toku vykonávání, umožňuje větvení.",
       "If": "Podmínkový blok, který provádí akce na základě podmínky pravda/nepravda.",
       "While": "Blok smyčky, který pokračuje v provádění, pokud je podmínka pravdivá.",
       "While_true": "Smyčka, která běží neurčitě, dokud není externně zastavena.",
@@ -248,6 +250,9 @@
       "Blink_LED": "Řídí blikání LED v zadaných intervalech.",
       "Toggle_LED": "Přepíná stav LED zapnuto nebo vypnuto.",
       "PWM_LED": "Řídí jas LED pomocí PWM (pulzní modulace šířky).",
+      "LED_ON": "Zapíná LED.",
+      "LED_OFF": "Vypíná LED.",
+      "RGB_LED": "Ovládá RGB LED.",
       "Basic_operations": "Provádí základní aritmetické operace jako sčítání, odčítání, násobení a dělení.",
       "Exponential_operations": "Provádí exponenciální výpočty, jako je mocnina a odmocnina.",
       "Random_number": "Generuje náhodné číslo v zadaném rozsahu.",
@@ -261,51 +266,64 @@
     "file_not_found": "Soubor.py nenalezen",
     "error_reading_file": "Chyba při čtení souboru: {error_type}: {error_message}"
   },
+  "code_editor_window": {
+    "window_title": "Editor kódu",
+    "save_button": "Uložit",
+    "save_success": "Kód úspěšně uložen!",
+    "save_error": "Chyba při ukládání kódu: {error_type}: {error_message}",
+    "file_not_found": "Soubor.py nenalezen",
+    "error_reading_file": "Chyba při čtení souboru: {error_type}: {error_message}"
+  },
   "help_window": {
     "window_title": "Okno nápovědy",
     "getting_started_tab": {
       "title": "Začít",
-      "content": "resources/Translations/Getting_started_cs.html",
+      "content": "resources/Translations/cs/Getting_started_cs.html",
       "file_not_found": "<p>Soubor Začít nenalezen.</p>",
       "error_loading_file": "<p>Chyba při načítání souboru Začít.</p>"
     },
-    "examples_tab": {
-      "title": "Příklady",
-      "show_example_button": "Zobrazit příklad",
-      "back_to_examples_button": "← Zpět na příklady",
-      "file_not_found": "<p>Soubor příkladu nenalezen.</p>",
-      "error_loading_file": "<p>Chyba při načítání souboru příkladu.</p>",
-      "examples": {
-        "example_1": {
+    "tutorials_tab": {
+      "title": "Tutorialy",
+      "show_tutorial_button": "Zobrazit tento tutorial",
+      "back_to_tutorials_button": "← Zpět na seznam tutorialů",
+      "file_not_found": "<p>Soubor tutorialu nenalezen.</p>",
+      "error_loading_file": "<p>Chyba při načítání souboru tutorialu.</p>",
+      "tutorials": {
+        "tutorial_0_linux_based_RPI": {
+          "title": "RPI založené na Linuxu",
+          "description": "Prvotní nastavení a připojení k Raspberry Pi",
+          "content": "resources/Translations/cs/Tutorials/Tutorial_0_linux_based_RPI_variant_cs.html"
+        },
+        "tutorial_1": {
           "title": "Blikající LED",
           "description": "Tento příklad ukazuje, jak blikat LED připojenou k vašemu Raspberry Pi.",
-          "content": "resources/Translations/Tutorials/tutorial_1_cs.html"
+          "content": "resources/Translations/cs/Tutorials/Tutorial_1_cs.html"
         },
-        "example_2": {
+        "tutorial_2": {
           "title": "LED řízená tlačítkem",
           "description": "Tento příklad ukazuje, jak ovládat LED pomocí vstupního tlačítka.",
-          "content": "resources/Translations/Tutorials/tutorial_2_cs.html"
+          "content": "resources/Translations/cs/Tutorials/Tutorial_2_cs.html"
         },
-        "example_3": {
+        "tutorial_3": {
           "title": "LED maják",
           "description": "Práce s různými LED vzory a časováním.",
-          "content": "resources/Translations/Tutorials/tutorial_3_cs.html"
+          "content": "resources/Translations/cs/Tutorials/Tutorial_3_cs.html"
         },
-        "example_4": {
+        "tutorial_4": {
           "title": "Složitá logika",
           "description": "Kombinujte více prvků pro pokročilé pracovní toky.",
-          "content": "resources/Translations/Tutorials/tutorial_4_cs.html"
+          "content": "resources/Translations/cs/Tutorials/Tutorial_4_cs.html"
         },
-        "example_5": {
+        "tutorial_5": {
           "title": "Použití proměnných",
           "description": "Naučte se používat proměnné k ukládání a manipulaci dat.",
-          "content": "resources/Translations/Tutorials/tutorial_5_cs.html"
+          "content": "resources/Translations/cs/Tutorials/Tutorial_5_cs.html"
         }
       }
     },
     "faq_tab": {
       "title": "Časté dotazy",
-      "content": "resources/Translations/FAQ_cs.html",
+      "content": "resources/Translations/cs/FAQ_cs.html",
       "file_not_found": "<p>Soubor FAQ nenalezen.</p>",
       "error_loading_file": "<p>Chyba při načítání souboru FAQ.</p>"
     }

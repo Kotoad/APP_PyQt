@@ -1,0 +1,55 @@
+<p>
+    Cílem tohoto příkladu je ukázat, jak vytvořit blikající LED pomocí základních prvků vývojového diagramu.<br>
+</p>
+<h2>Budete potřebovat:</h2>
+<ul>
+    <li>Jakoukoliv desku Raspberry Pi</li>
+    <li>USB kabel pro připojení desky k počítači</li>
+    <li>Jakoukoliv LED diodu</li>
+    <li>220 Ohm rezistor</li>
+    <li>Nepájivé pole (breadboard) a propojovací vodiče</li>
+</ul>
+<h2>Schéma zapojení:</h2>
+<div align="left">
+    <img src="{Blinking_LED_Diagram}" style="max-width: 100%; height: auto; image-rendering: crisp-edges;" />
+</div>
+<h2>Jak to zprovoznit:</h2>
+<p>
+    <h3>Vývojový diagram se bude skládat z následujících prvků:</h3>
+    <ul>
+        <li><span class="highlight">1x Start</span>: Inicializuje program.</li>
+        <li><span class="highlight">2x Přepínač (Switch)</span>: Ovládá stav LED (ZAPNUTO/VYPNUTO).</li>
+        <li><span class="highlight">2x Čekání (Wait)</span>: Vytváří prodlevy pro efekt blikání.</li>
+        <li><span class="highlight">1x Konec (End)</span>: Ukončuje program.</li>
+    </ul>
+    <h3>Logika vývojového diagramu:</h3>
+    <ol>
+        <li>Program začíná prvkem <span class="code">Start</span>.</li>
+        <li>Poté vstoupí do smyčky, kde zapne LED pomocí prvního prvku <span class="code">Přepínač (Switch)</span>.</li>
+        <li>Program čeká 1 sekundu pomocí prvního prvku <span class="code">Čekání (Wait)</span>.</li>
+        <li>Dále vypne LED pomocí druhého prvku <span class="code">Přepínač (Switch)</span>.</li>
+        <li>Čeká další 1 sekundu pomocí druhého prvku <span class="code">Čekání (Wait)</span>.</li>
+        <li>Tato smyčka pokračuje donekonečna, dokud není program ručně zastaven nebo ukončen pomocí prvku <span class="code">Konec (End)</span>.</li>
+    </ol>
+    <h3>Vytvoření vývojového diagramu:</h3>
+    <ol>
+        <li>Vytvořte novou proměnnou kliknutím na tlačítko "Proměnné" (Variables) na panelu nástrojů hlavního okna.<br>Pojmenujte ji <span class="highlight">jak chcete</span> a nastavte její typ na <span class="highlight">Boolean</span>.</li>
+        <li>Vytvořte nové zařízení kliknutím na tlačítko "Zařízení" (Devices) na panelu nástrojů hlavního okna.<br>Pro přehlednost jej pojmenujte <span class="highlight">LED</span> a nastavte jeho typ na <span class="highlight">Výstup (Output)</span>.</li>
+        <li>Chcete-li přidat nové prvky na plátno, klikněte na tlačítko "Prvky" (Elements) na panelu nástrojů hlavního okna a poté klikněte na "Přidat prvek" (add Element).</li>
+        <li>Vyberte požadované prvky ze seznamu a umístěte je na plátno.</li>
+        <li>Propojte prvky v následujícím pořadí:<br>
+            <ul>
+                <li>"<span class="code">Start → Zatímco (While)</span>", nezapomeňte nastavit podmínku na <span class="code">Pravda (True)</span>, abyste vytvořili nekonečnou smyčku.</li>
+                <li>"<span class="code">Zatímco (While)</span> (Připojte k hornímu bodu připojení) <span class="code">→ Přepínač (Switch)</span> (LED ZAPNUTO)"</li>
+                <li>"<span class="code">Zatímco (While)</span> (Připojte ke spodnímu bodu připojení) <span class="code">→ Konec (End)</span>"</li>
+                <li>"<span class="code">Přepínač (Switch)</span> (LED ZAPNUTO) <span class="code">→ Čekání (Wait)</span> (1s)", tímto zůstane LED svítit 1 sekundu.</li>
+                <li>"<span class="code">Čekání (Wait)</span> (1s) <span class="code">→ Přepínač (Switch)</span> (LED VYPNUTO)", tímto se LED vypne.</li>
+                <li>"<span class="code">Přepínač (Switch)</span> (LED VYPNUTO) <span class="code">→ Čekání (Wait)</span> (1s)", tímto zůstane LED vypnutá 1 sekundu.</li>
+                <li>"<span class="code">Čekání (Wait)</span> (1s) <span class="code">→ Konec (End)</span>", vždy se ujistěte, že je program správně ukončen.</li>
+            </ul>
+        </li>
+    </ol>
+    <h3>Vývojový diagram:</h3>
+    <div align="left">
+        <img src="{Blinking_LED_Flowchart}" style="max-width: 100%; height: auto; image-rendering: crisp-edges;" />   
+</p>

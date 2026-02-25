@@ -1,5 +1,6 @@
 from Imports import (QDialog, pyqtSignal, QObject, QsciLexerPython, QFont,
-                      QsciScintilla, QsciAPIs, Qt, QColor, QVBoxLayout) 
+                      QsciScintilla, QsciAPIs, Qt, QColor, QVBoxLayout,
+                      QPropertyAnimation, QEasingCurve, QTimer, QRect) 
 import keyword, builtins
 
 from Imports import get_utils
@@ -9,7 +10,7 @@ class CodeEditorWindow(QDialog):
     _instance = None
 
     @classmethod
-    def get_instance(cls):
+    def get_instance(cls, parent=None):
         if cls._instance is None:
             try:
                 _ = cls._instance.isVisible()  # Check if the instance is still valid
@@ -20,7 +21,7 @@ class CodeEditorWindow(QDialog):
             except Exception as e:
                 cls._instance = None  # Reset instance on any unexpected error
         if cls._instance is None:
-            cls._instance = cls()
+            cls._instance = cls(parent=parent)
 
         return cls._instance
 
@@ -158,17 +159,75 @@ class CodeEditorWindow(QDialog):
         # Standard identifiers and default text -> Off-White
         lexer.setColor(fg_color, QsciLexerPython.Identifier)
         lexer.setColor(fg_color, QsciLexerPython.Default)
+    
+    def pulse_window(self):
+        if hasattr(self, "_pulse_animation") and self._pulse_animation.state() == QPropertyAnimation.State.Running:
+            return
+
+        self._pulse_animation = QPropertyAnimation(self, b"geometry")
+        self._pulse_animation.setDuration(100)
+        self._pulse_animation.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+        # Get current geometry
+        orig = self.geometry()
+        
+        # Calculate a larger geometry (expanding from the center)
+        offset = 5  # Pixels to expand
+        expanded = QRect(
+            orig.x() - offset, 
+            orig.y() - offset, 
+            orig.width() + (offset * 2), 
+            orig.height() + (offset * 2)
+        )
+
+        # Define keyframes: Start -> Expanded -> Original
+        self._pulse_animation.setStartValue(orig)
+        self._pulse_animation.setKeyValueAt(0.5, expanded)
+        self._pulse_animation.setEndValue(orig)
+
+        self._pulse_animation.start()
+
+    def flash_window(self):
+        original_style = self.styleSheet()
+        highlight_style = original_style + "QDialog { background-color: #696969; }"
+        
+        def toggle_style(step):
+            if step >= 8:  # 4 flashes = 8 toggles (on/off)
+                self.setStyleSheet(original_style)
+                return
+            
+            # If step is even, show highlight; if odd, show original
+            if step % 2 == 0:
+                self.setStyleSheet(highlight_style)
+                self.pulse_window()  # Add pulse effect on highlight
+            else:
+                self.setStyleSheet(original_style)
+            
+            # Schedule the next toggle in 150ms
+            QTimer.singleShot(100, lambda: toggle_style(step + 1))
+
+        # Start the sequence
+        toggle_style(0)
 
     def open(self):
+        print("Opening DeviceSettingsWindow")
         if self.is_hidden:
+            print("Initially hidden, showing window")
             self.is_hidden = False
             with open("File.py", "r", encoding="utf-8") as f:
                 sample_code = f.read()
             if self.editor:
                 self.editor.setText(sample_code)
+
             self.show()
             self.raise_()
             self.activateWindow()
+        else:
+            print("DeviceSettingsWindow already open, raising to front")
+            self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
+            self.raise_()           # Brings the widget to the top of the stack
+            self.activateWindow()    # Gives the window keyboard focus   
+            self.flash_window()
         return self
     
     def reject(self):
