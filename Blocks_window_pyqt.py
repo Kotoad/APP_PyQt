@@ -1,19 +1,19 @@
 from cProfile import label
 from Imports import (QWidget, QDialog, QVBoxLayout, QHBoxLayout,
-QPushButton, QLabel, QFrame, QTabWidget, Qt, QFont,
-pyqtSignal, QListWidget, QScrollArea, QScroller)
+QPushButton, QLabel, QFrame, QTabWidget, Qt, QFont, QTimer, QRect,
+pyqtSignal, QListWidget, QScrollArea, QScroller, QIcon, QPropertyAnimation, QEasingCurve)
 
-from Imports import get_spawn_elements, get_utils
+from Imports import get_spawn_blocks, get_utils
 
 Utils = get_utils()
-spawning_elements = get_spawn_elements()[1]
+spawning_blocks = get_spawn_blocks()[1]
 
 
 background_color = "#2B2B2B"
 border_color = "#3A3A3A"
 
-class ElementsWindow(QDialog):
-    """Elements selection window with tabs - synced with spawn_elements"""
+class blocksWindow(QDialog):
+    """blocks selection window with tabs - synced with spawn_blocks"""
     
     _instance = None
     
@@ -21,9 +21,10 @@ class ElementsWindow(QDialog):
     element_requested = pyqtSignal(str)  # element_type
     
     def __init__(self, parent=None):
-        super().__init__(parent)
-        #print(f"Curent canvas in ElementsWindow init: {parent}")
+        super().__init__()
+        print(f"blocksWindow __init__ called with parent: {parent}")
         self.parent_canvas = parent
+        print(f"blocksWindow parent_canvas set to: {self.parent_canvas}")
         self.state_manager = Utils.state_manager
         self.translation_manager = Utils.translation_manager
         self.t = self.translation_manager.translate
@@ -35,42 +36,28 @@ class ElementsWindow(QDialog):
         self.setup_ui()
     
     @classmethod
-    def get_instance(cls, parent):
-        """Get or create singleton instance"""
-        #print(f"ElementsWindow get_instance called with parent: {parent}")
+    def get_instance(cls, parent=None):
+        print(f"blocksWindow get_instance called with parent: {parent}")
         if cls._instance is not None:
-            #print("ElementsWindow instance exists, checking visibility")
             try:
                 _ = cls._instance.isVisible()
-                #print(" Checking if instance is hidden")
-                #print(f" Instance is hidden: {cls._instance.is_hidden}")
                 if cls._instance.is_hidden:
-                    # ✓ FIX: Update parent_canvas when canvas changes
-                    #print(f"Current canvas in ElementsWindow get_instance: {parent}")
-                    #print(f"Existing ElementsWindow canvas: {cls._instance.parent_canvas}")
-                    if cls._instance.parent_canvas != parent:
-                        #print(f"Updating ElementsWindow canvas")
-                        cls._instance.parent_canvas = parent
-                        #print(f"New ElementsWindow canvas set: {cls._instance.parent_canvas}")
                     return cls._instance
             except RuntimeError:
-                #print("ElementsWindow instance was deleted, creating new one")
                 cls._instance = None
 
             except Exception as e:
-                #print(f"Error checking ElementsWindow instance: {e}")
                 cls._instance = None
 
         if cls._instance is None:
-            #print("Creating new ElementsWindow instance")
-            #print(f"New ElementsWindow canvas: {parent}")
             cls._instance = cls(parent)
         
         return cls._instance
     
     def setup_ui(self):
         """Setup the UI"""
-        self.setWindowTitle(self.t("elements_window.window_title"))
+        self.setWindowTitle(self.t("blocks_window.window_title"))
+        self.setWindowIcon(QIcon('resources/images/APPicon.ico'))
         self.resize(550, 400)
         self.setWindowFlags(Qt.WindowType.Window)
         
@@ -148,7 +135,7 @@ class ElementsWindow(QDialog):
                     break
     
     def mousePressEvent(self, event):
-        """Debug: Track if elements window gets mouse press"""
+        """Debug: Track if blocks window gets mouse press"""
         super().mousePressEvent(event)
     #MARK: Basic Tab
     def create_basic_tab(self):
@@ -164,20 +151,20 @@ class ElementsWindow(QDialog):
         right_layout = QVBoxLayout(right_widget)
         left_widget.setMinimumWidth(200)
 
-        left_label = QLabel(self.t("elements_window.basic_blocks_tab.tab_title"))
+        left_label = QLabel(self.t("blocks_window.basic_blocks_tab.tab_title"))
         left_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         left_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         left_layout.addWidget(left_label)
         left_layout.addSpacing(10)
-        # Buttons - MAPPED TO SPAWNING ELEMENTS
-        basic_elements = [
-            (self.t("elements_window.basic_blocks_tab.Start"), "Start"),
-            (self.t("elements_window.basic_blocks_tab.End"), "End"),
-            (self.t("elements_window.basic_blocks_tab.Timer"), "Timer"),
-            (self.t("elements_window.basic_blocks_tab.Networks"), "Networks")
+        # Buttons - MAPPED TO SPAWNING blocks
+        basic_blocks = [
+            (self.t("blocks_window.basic_blocks_tab.Start"), "Start"),
+            (self.t("blocks_window.basic_blocks_tab.End"), "End"),
+            (self.t("blocks_window.basic_blocks_tab.Timer"), "Timer"),
+            (self.t("blocks_window.basic_blocks_tab.Networks"), "Networks")
         ]
 
-        for label, element_type in basic_elements:
+        for label, element_type in basic_blocks:
             btn = QPushButton(label)
             btn.clicked.connect(lambda checked, s=element_type, t='basic': self.on_block_selected(s, t))
             left_layout.addWidget(btn)
@@ -193,21 +180,21 @@ class ElementsWindow(QDialog):
 
         scroll_area.setWidget(self.basic_description_text)
         scroll_area.setWidgetResizable(True)
-        right_label = QLabel(self.t("elements_window.basic_blocks_tab.block_details"))
+        right_label = QLabel(self.t("blocks_window.block_details"))
         right_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         right_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         right_layout.addWidget(right_label)
         right_layout.addSpacing(10)
         right_layout.addWidget(scroll_area)
 
-        add_button = QPushButton(self.t("elements_window.basic_blocks_tab.add_block"))
+        add_button = QPushButton(self.t("blocks_window.add_block"))
         add_button.clicked.connect(lambda: self.spawn_element(self.basic_description_text.text().split(":\n\n")[0]))
         right_layout.addWidget(add_button)
 
         left_layout.addStretch()
         layout.addWidget(left_widget)
         layout.addWidget(right_widget)
-        self.tab_widget.addTab(tab, self.t("elements_window.basic_blocks_tab.tab_title"))
+        self.tab_widget.addTab(tab, self.t("blocks_window.basic_blocks_tab.tab_title"))
         self.show_block_details("Start", 'basic')  # Show default details
     
     #MARK: Logic Tab
@@ -227,22 +214,22 @@ class ElementsWindow(QDialog):
         
         
         # Title
-        title = QLabel(self.t("elements_window.logic_blocks_tab.tab_title"))
+        title = QLabel(self.t("blocks_window.logic_blocks_tab.tab_title"))
         title.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         left_layout.addWidget(title)
         left_layout.addSpacing(10)
         
-        # Buttons - MAPPED TO SPAWNING ELEMENTS
-        logic_elements = [
-            (self.t("elements_window.logic_blocks_tab.If"), "If"),
-            (self.t("elements_window.logic_blocks_tab.While"), "While"),
-            (self.t("elements_window.logic_blocks_tab.While_true"), "While_true"),
-            (self.t("elements_window.logic_blocks_tab.Switch"), "Switch"),
-            (self.t("elements_window.logic_blocks_tab.For_Loop"), "For_Loop")
+        # Buttons - MAPPED TO SPAWNING blocks
+        logic_blocks = [
+            (self.t("blocks_window.logic_blocks_tab.If"), "If"),
+            (self.t("blocks_window.logic_blocks_tab.While"), "While"),
+            (self.t("blocks_window.logic_blocks_tab.While_true"), "While_true"),
+            (self.t("blocks_window.logic_blocks_tab.Switch"), "Switch"),
+            (self.t("blocks_window.logic_blocks_tab.For_Loop"), "For_Loop")
         ]
         
-        for label, logic_type in logic_elements:
+        for label, logic_type in logic_blocks:
             btn = QPushButton(label)
             btn.clicked.connect(lambda checked, s=logic_type, t='logic': self.on_block_selected(s, t))
             left_layout.addWidget(btn)
@@ -256,21 +243,21 @@ class ElementsWindow(QDialog):
         )
         scroll_area.setWidget(self.logic_description_text)
         scroll_area.setWidgetResizable(True)
-        right_label = QLabel(self.t("elements_window.logic_blocks_tab.block_details"))
+        right_label = QLabel(self.t("blocks_window.block_details"))
         right_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         right_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         right_layout.addWidget(right_label)
         right_layout.addSpacing(10)
         right_layout.addWidget(scroll_area)
 
-        add_button = QPushButton(self.t("elements_window.logic_blocks_tab.add_block"))
+        add_button = QPushButton(self.t("blocks_window.add_block"))
         add_button.clicked.connect(lambda: self.spawn_element(self.logic_description_text.text().split(":\n\n")[0]))
         right_layout.addWidget(add_button)
 
         left_layout.addStretch()
         layout.addWidget(left_widget)
         layout.addWidget(right_widget)
-        self.tab_widget.addTab(tab, self.t("elements_window.logic_blocks_tab.tab_title"))
+        self.tab_widget.addTab(tab, self.t("blocks_window.logic_blocks_tab.tab_title"))
         self.show_block_details("If", 'logic')  # Show default details
     #MARK: I/O Tab
     def create_io_tab(self):
@@ -288,20 +275,20 @@ class ElementsWindow(QDialog):
         
         
         # Title
-        title = QLabel(self.t("elements_window.io_blocks_tab.tab_title"))
+        title = QLabel(self.t("blocks_window.io_blocks_tab.tab_title"))
         title.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.IO_left_layout.addWidget(title)
         self.IO_left_layout.addSpacing(10)
         
-        # Buttons - MAPPED TO SPAWNING ELEMENTS
+        # Buttons - MAPPED TO SPAWNING blocks
 
-        io_elements = {
-            self.t("elements_window.io_blocks_tab.Button"): {'name': 'Button', 'is_dropdown': False},
-            self.t("elements_window.io_blocks_tab.LED"): {'name': 'LED', 'is_dropdown': True},
+        io_blocks = {
+            self.t("blocks_window.io_blocks_tab.Button"): {'name': 'Button', 'is_dropdown': False},
+            self.t("blocks_window.io_blocks_tab.LED"): {'name': 'LED', 'is_dropdown': True},
         }
         
-        for label, element in io_elements.items():
+        for label, element in io_blocks.items():
             btn = QPushButton(label)
             btn.clicked.connect(lambda checked, e=element['name'], t='io', is_d=element['is_dropdown']: self.on_block_selected(e, t, is_d))
             self.IO_left_layout.addWidget(btn)
@@ -316,21 +303,21 @@ class ElementsWindow(QDialog):
         )
         scroll_area.setWidget(self.IO_description_text)
         scroll_area.setWidgetResizable(True)
-        right_label = QLabel(self.t("elements_window.io_blocks_tab.block_details"))
+        right_label = QLabel(self.t("blocks_window.block_details"))
         right_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         right_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         right_layout.addWidget(right_label)
         right_layout.addSpacing(10)
         right_layout.addWidget(scroll_area)
 
-        add_button = QPushButton(self.t("elements_window.io_blocks_tab.add_block"))
+        add_button = QPushButton(self.t("blocks_window.add_block"))
         add_button.clicked.connect(lambda: self.spawn_element(self.IO_description_text.text().split(":\n\n")[0]))
         right_layout.addWidget(add_button)
 
         self.IO_left_layout.addStretch()
         layout.addWidget(left_widget)
         layout.addWidget(right_widget)
-        self.tab_widget.addTab(tab, self.t("elements_window.io_blocks_tab.tab_title"))
+        self.tab_widget.addTab(tab, self.t("blocks_window.io_blocks_tab.tab_title"))
         self.show_block_details("Button", 'io')  # Show default details
     #MARK: Math Tab
     def create_math_tab(self):
@@ -346,20 +333,20 @@ class ElementsWindow(QDialog):
         right_layout = QVBoxLayout(right_widget)
         
         # Title
-        title = QLabel(self.t("elements_window.math_blocks_tab.tab_title"))
+        title = QLabel(self.t("blocks_window.math_blocks_tab.tab_title"))
         title.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         left_layout.addWidget(title)
         left_layout.addSpacing(10)
         
-        # Buttons - MAPPED TO SPAWNING ELEMENTS
-        math_elements = [
-            (self.t("elements_window.math_blocks_tab.basic_operations"), "Basic_operations"),
-            (self.t("elements_window.math_blocks_tab.exponential_operations"), "Exponential_operations"), 
-            (self.t("elements_window.math_blocks_tab.random_number"), "Random_number")
+        # Buttons - MAPPED TO SPAWNING blocks
+        math_blocks = [
+            (self.t("blocks_window.math_blocks_tab.basic_operations"), "Basic_operations"),
+            (self.t("blocks_window.math_blocks_tab.exponential_operations"), "Exponential_operations"), 
+            (self.t("blocks_window.math_blocks_tab.random_number"), "Random_number")
         ]
         
-        for label, element in math_elements:
+        for label, element in math_blocks:
             btn = QPushButton(label)
             btn.clicked.connect(lambda checked, e=element, t='math': self.show_block_details(e, t))
             left_layout.addWidget(btn)
@@ -374,26 +361,26 @@ class ElementsWindow(QDialog):
         )
         scroll_area.setWidget(self.math_description_text)
         scroll_area.setWidgetResizable(True)
-        right_label = QLabel(self.t("elements_window.math_blocks_tab.block_details"))
+        right_label = QLabel(self.t("blocks_window.block_details"))
         right_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         right_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         right_layout.addWidget(right_label)
         right_layout.addSpacing(10)
         right_layout.addWidget(scroll_area)
 
-        add_button = QPushButton(self.t("elements_window.math_blocks_tab.add_block"))
+        add_button = QPushButton(self.t("blocks_window.add_block"))
         add_button.clicked.connect(lambda: self.spawn_element(self.math_description_text.text().split(":\n\n")[0]))
         right_layout.addWidget(add_button)
 
         left_layout.addStretch()
         layout.addWidget(left_widget)
         layout.addWidget(right_widget)
-        self.tab_widget.addTab(tab, self.t("elements_window.math_blocks_tab.tab_title"))
+        self.tab_widget.addTab(tab, self.t("blocks_window.math_blocks_tab.tab_title"))
         self.show_block_details("Basic_operations", 'math')  # Show default details
     #MARK: Functions Tab
     def create_functions_tab(self):
         """Create functions tab"""
-        #print("Creating Functions tab in ElementsWindow")
+        #print("Creating Functions tab in blocksWindow")
         #print(F" Self f_tab: {self.f_tab if hasattr(self, 'f_tab') else 'Not defined'}")
         
         if self.f_tab is not None and self.layout.count() > 0:
@@ -413,7 +400,7 @@ class ElementsWindow(QDialog):
             self.layout.setSpacing(5)
             self.now_created = True
             # Title
-            title = QLabel(self.t("elements_window.functions_tab.tab_title"))
+            title = QLabel(self.t("blocks_window.function_blocks_tab.tab_title"))
             title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
             title.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.layout.addWidget(title)
@@ -421,13 +408,13 @@ class ElementsWindow(QDialog):
             
         
 
-        function_elements = []
-            # Buttons - MAPPED TO SPAWNING ELEMENTS
+        function_blocks = []
+            # Buttons - MAPPED TO SPAWNING blocks
         for f, f_info in Utils.functions.items():
             #print(f"Function available: {f} with info {f_info}")
-            function_elements.append(f_info['name'])
-        #print(f"Function elements collected: {function_elements}")
-        for element in function_elements:
+            function_blocks.append(f_info['name'])
+        #print(f"Function blocks collected: {function_blocks}")
+        for element in function_blocks:
             btn = QPushButton(element)
             element_type = "Function"
             btn.clicked.connect(lambda checked, e=element_type, n=element if element else None: self.spawn_element(e, n))
@@ -435,8 +422,8 @@ class ElementsWindow(QDialog):
         self.layout.addStretch()
 
         if self.now_created:
-            #print("Adding Functions tab to ElementsWindow")
-            self.tab_widget.addTab(self.f_tab, self.t("elements_window.functions_tab.tab_title"))
+            #print("Adding Functions tab to blocksWindow")
+            self.tab_widget.addTab(self.f_tab, self.t("blocks_window.function_blocks_tab.tab_title"))
     #MARK: Block Details
     def on_block_selected(self, element_type, tab_name, is_dropdown=False):
         """Handle selection of basic block from list"""
@@ -448,12 +435,12 @@ class ElementsWindow(QDialog):
     def open_dropdown_menu(self, element_type, tab_name):
 
         if element_type == "LED":
-            led_blocks = ((self.t("elements_window.io_blocks_tab.Blink_LED"), 'Blink_LED'),
-                            (self.t("elements_window.io_blocks_tab.Toggle_LED"), 'Toggle_LED'),
-                            (self.t("elements_window.io_blocks_tab.PWM_LED"), 'PWM_LED'),
-                            (self.t("elements_window.io_blocks_tab.RBG_LED"), 'RGB_LED'),
-                            (self.t("elements_window.io_blocks_tab.Turn_OFF_LED"), 'Turn_OFF_LED'),
-                            (self.t("elements_window.io_blocks_tab.Turn_ON_LED"), 'Turn_ON_LED')
+            led_blocks = ((self.t("blocks_window.io_blocks_tab.Blink_LED"), 'Blink_LED'),
+                            (self.t("blocks_window.io_blocks_tab.Toggle_LED"), 'Toggle_LED'),
+                            (self.t("blocks_window.io_blocks_tab.PWM_LED"), 'PWM_LED'),
+                            (self.t("blocks_window.io_blocks_tab.RGB_LED"), 'RGB_LED'),
+                            (self.t("blocks_window.io_blocks_tab.LED_ON"), 'LED_ON'),
+                            (self.t("blocks_window.io_blocks_tab.LED_OFF"), 'LED_OFF')
                             )
             if element_type not in self.dropdown_menus:
                 self.dropdown_menus.append(element_type)
@@ -476,7 +463,7 @@ class ElementsWindow(QDialog):
     def show_block_details(self, element_type, tab_name):
         """Show details for selected basic block"""
         # Clear previous details
-        block_data = self.t("elements_window.blocks_descriptions." + element_type)
+        block_data = self.t("blocks_window.blocks_descriptions." + element_type)
         # Add details based on element_type
         if block_data:
             if tab_name == 'basic':
@@ -488,7 +475,7 @@ class ElementsWindow(QDialog):
             elif tab_name == 'io':
                 self.IO_description_text.setText(f"{element_type}:\n\n{block_data}")
         else:
-            data = self.t("elements_window.blocks_descriptions.no_description")
+            data = self.t("blocks_window.blocks_descriptions.no_description")
             if tab_name == 'basic':
                 self.basic_description_text.setText(f"{element_type}:\n\n{data}")
             elif tab_name == 'logic':
@@ -507,26 +494,26 @@ class ElementsWindow(QDialog):
         """
         
         try:
-            #print(f"ElementsWindow spawn_element called: {element_type}")
+            print(f"blocksWindow spawn_element called: {element_type}")
             
             # Get CURRENT canvas
-            #print(f" Parent canvas in ElementsWindow: {self.parent_canvas}, main_window: {getattr(self.parent_canvas, 'main_window', None)}")
+            print(f" Parent canvas in blocksWindow: {self.parent_canvas}, main_window: {getattr(self.parent_canvas, 'main_window', None)}")
             if self.parent and hasattr(self.parent_canvas, 'main_window'):
                 #print(" Getting current canvas from main window")
                 current_canvas = self.parent_canvas.main_window.current_canvas
             else:
                 current_canvas = self.parent_canvas
-            
+            print(f"Current canvas determined for spawning: {current_canvas}")
             if current_canvas is None:
                 return
-            
+            print(f"Spawner {getattr(current_canvas, 'spawner', None)} on canvas {id(current_canvas)} will spawn element: {element_type} with name: {name}")
             # ✓ Use CURRENT canvas's spawner, not stored self.element_spawner!
             if hasattr(current_canvas, 'spawner'):
                 print("Current state of canvas before spawning:", self.state_manager.canvas_state.current_state())
                 if self.state_manager.canvas_state.on_adding_block():
                     print("Current state of canvas before spawning:", self.state_manager.canvas_state.current_state())
                     current_canvas.spawner.start(current_canvas, element_type, name=name)
-                    #print(f"Element spawn initiated on canvas {id(current_canvas)}")
+                    print(f"Element spawn initiated on canvas {id(current_canvas)}")
                 else:
                     print("Canvas cannot add block right now.")
             else:
@@ -537,21 +524,77 @@ class ElementsWindow(QDialog):
             import traceback
             traceback.print_exc()
     
+    def pulse_window(self):
+        if hasattr(self, "_pulse_animation") and self._pulse_animation.state() == QPropertyAnimation.State.Running:
+            return
+
+        self._pulse_animation = QPropertyAnimation(self, b"geometry")
+        self._pulse_animation.setDuration(100)
+        self._pulse_animation.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+        # Get current geometry
+        orig = self.geometry()
+        
+        # Calculate a larger geometry (expanding from the center)
+        offset = 5  # Pixels to expand
+        expanded = QRect(
+            orig.x() - offset, 
+            orig.y() - offset, 
+            orig.width() + (offset * 2), 
+            orig.height() + (offset * 2)
+        )
+
+        # Define keyframes: Start -> Expanded -> Original
+        self._pulse_animation.setStartValue(orig)
+        self._pulse_animation.setKeyValueAt(0.5, expanded)
+        self._pulse_animation.setEndValue(orig)
+
+        self._pulse_animation.start()
+
+    def flash_window(self):
+        original_style = self.styleSheet()
+        highlight_style = original_style + "QDialog { background-color: #696969; }"
+        
+        def toggle_style(step):
+            if step >= 8:  # 4 flashes = 8 toggles (on/off)
+                self.setStyleSheet(original_style)
+                return
+            
+            # If step is even, show highlight; if odd, show original
+            if step % 2 == 0:
+                self.setStyleSheet(highlight_style)
+                self.pulse_window()  # Add pulse effect on highlight
+            else:
+                self.setStyleSheet(original_style)
+            
+            # Schedule the next toggle in 150ms
+            QTimer.singleShot(100, lambda: toggle_style(step + 1))
+
+        # Start the sequence
+        toggle_style(0)
+
     def open(self):
-        """Show the window"""
-        print("ElementsWindow open() called")
+        print("Opening blocksWindow")
         if self.is_hidden:
-            print(" Showing ElementsWindow")
-            self.is_hidden = False 
-            for canvas_id, canvas_info in Utils.canvas_instances.items():
+            print("Initially hidden, showing window")
+            self.is_hidden = False
+            for canvas_info in Utils.canvas_instances.values():
+                print(f"Checking canvas {id(canvas_info['canvas'])} with ref {canvas_info['ref']} against parent_canvas {self.parent_canvas}")
                 if canvas_info['canvas'] == self.parent_canvas:
-                    if canvas_info['ref'] == 'function':
-                        print("Ensuring Functions tab is created for function canvas")
+                    print("Found matching canvas for blocksWindow open")
+                    if canvas_info['ref'] == 'canvas' and len(Utils.canvas_instances) > 1:
+                        print("Ensuring Functions tab is created for main canvas")
                         self.create_functions_tab()
                         break
             self.show()
             self.raise_()
             self.activateWindow()
+        else:
+            print("blocksWindow already open, raising to front")
+            self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
+            self.raise_()           # Brings the widget to the top of the stack
+            self.activateWindow()    # Gives the window keyboard focus   
+            self.flash_window()
         return self
     
     def reject(self):
@@ -560,7 +603,7 @@ class ElementsWindow(QDialog):
 
     def closeEvent(self, event):
         """Handle close event"""
-        print("ElementsWindow closeEvent called")
+        print("blocksWindow closeEvent called")
         self.is_hidden = True
-        self.state_manager.app_state.on_elements_dialog_close()
+        self.state_manager.app_state.on_blocks_dialog_close()
         event.accept()

@@ -81,7 +81,7 @@ class AppStates(Enum):
     MAIN_WINDOW = auto()
     SETTINGS_DIALOG = auto()
     HELP_DIALOG = auto()
-    ELEMENTS_DIALOG = auto()
+    BLOCKS_DIALOG = auto()
     COMPILING = auto()
 
 class AppStateMachine(QObject):
@@ -100,7 +100,7 @@ class AppStateMachine(QObject):
     def can_open_window(self, window_name: str):
         #print(f"can_open_window: {window_name}, open_windows: {self.open_windows}, canvas_state: {self.canvas_state_machine.current_state()}")
         #print(f"can_open_window check: {window_name not in self.open_windows and self.canvas_state_machine.current_state() == 'IDLE'}")
-        return window_name not in self.open_windows and self.canvas_state_machine.current_state() == 'IDLE'
+        return self.canvas_state_machine.current_state() == 'IDLE'
     
     def can_close_window(self, window_name: str):
         return window_name in self.open_windows
@@ -109,7 +109,7 @@ class AppStateMachine(QObject):
         return self.state != AppStates.COMPILING
     
     def can_change_tab(self):
-        return self.state != AppStates.ELEMENTS_DIALOG and self.canvas_state_machine.current_state() == 'IDLE'
+        return self.state != AppStates.BLOCKS_DIALOG and self.canvas_state_machine.current_state() == 'IDLE'
 
     def can_create_canvas_tab(self):
         return self.state == AppStates.MAIN_WINDOW and self.canvas_state_machine.current_state() == 'IDLE'
@@ -152,21 +152,21 @@ class AppStateMachine(QObject):
             return True
         return False
 
-    def on_elements_dialog_open(self):
-        print(f"Attempting to open Elements dialog from tab: {self.current_tab_reference}")
-        if self.can_open_window('Elements') and self.current_tab_reference in ('canvas', 'function'):
-            print(f"Opening Elements dialog from tab: {self.current_tab_reference}")
-            self.open_windows.add('Elements')
-            self.window_opened.emit('Elements')
-            self.change_state(AppStates.ELEMENTS_DIALOG)
+    def on_blocks_dialog_open(self):
+        print(f"Attempting to open Blocks dialog from tab: {self.current_tab_reference}")
+        if self.can_open_window('Blocks') and self.current_tab_reference in ('canvas', 'function'):
+            print(f"Opening Blocks dialog from tab: {self.current_tab_reference}")
+            self.open_windows.add('Blocks')
+            self.window_opened.emit('Blocks')
+            self.change_state(AppStates.BLOCKS_DIALOG)
             return True
-        print("Cannot open Elements dialog: either already open or invalid tab.")
+        print("Cannot open Blocks dialog: either already open or invalid tab.")
         return False
     
-    def on_elements_dialog_close(self):
-        if self.can_close_window('Elements'):
-            self.open_windows.discard('Elements')
-            self.window_closed.emit('Elements')
+    def on_blocks_dialog_close(self):
+        if self.can_close_window('Blocks'):
+            self.open_windows.discard('Blocks')
+            self.window_closed.emit('Blocks')
             self.change_state(AppStates.MAIN_WINDOW)
             return True
         return False
@@ -212,7 +212,7 @@ class AppStateMachine(QObject):
         return False
 
     def on_tab_changed(self):
-        print(f"Check {self.state != AppStates.ELEMENTS_DIALOG and self.canvas_state_machine.current_state() == 'IDLE'} to go to MAIN_WINDOW")
+        print(f"Check {self.state != AppStates.BLOCKS_DIALOG and self.canvas_state_machine.current_state() == 'IDLE'} to go to MAIN_WINDOW")
         print(f"Current state: {self.state}, Canvas state: {self.canvas_state_machine.current_state()}")
         if self.can_change_tab():
             self.change_state(AppStates.MAIN_WINDOW)

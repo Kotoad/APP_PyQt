@@ -139,7 +139,7 @@ class BlockGraphicsItem(QGraphicsObject):
                                 "Random_number", "Blink_LED", "PWM_LED"]:
             self.width = 150
             self.height = 50
-        elif self.block_type in [ "Start", "End", "While_true", "Toggle_LED", "Switch", "Turn_OFF_LED", "Turn_ON_LED"]:
+        elif self.block_type in [ "Start", "End", "While_true", "Toggle_LED", "Switch", "LED_ON", "LED_OFF"]:
             self.width = 100
             self.height = 50
         elif self.block_type == "Function":
@@ -213,7 +213,7 @@ class BlockGraphicsItem(QGraphicsObject):
             text_to_measure = f"{self.value_1_name} - {self.sleep_time} ms"
         elif self.block_type == "PWM_LED":
             text_to_measure = f"{self.value_1_name} - {self.PWM_value}"
-        elif self.block_type in ["Toggle_LED", "Turn_OFF_LED", "Turn_ON_LED"]:
+        elif self.block_type in ["Toggle_LED", "LED_ON", "LED_OFF"]:
             text_to_measure = f"{self.value_1_name}"
         elif self.block_type == "RGB_LED":
             for i in range(1, 4):
@@ -270,8 +270,8 @@ class BlockGraphicsItem(QGraphicsObject):
             "Toggle_LED": QColor("#57A139"),     # Green
             "PWM_LED": QColor("#57A139"),        # Green
             "RGB_LED": QColor("#57A139"),        # Green
-            "Turn_OFF_LED": QColor("#57A139"),   # Green
-            "Turn_ON_LED": QColor("#57A139"),    # Green
+            "LED_ON": QColor("#57A139"),   # Green
+            "LED_OFF": QColor("#57A139"),    # Green
             "Networks": QColor("#00CED1"),       # Dark turquoise
 
         }
@@ -502,10 +502,10 @@ class BlockGraphicsItem(QGraphicsObject):
         #print(f"   block_graphics: {block_graphics}")
         if block_graphics and hasattr(block_graphics, 'signals'):
             #print(f"   block_graphics.signals: {block_graphics.signals}")
-            #print(f"   canvas: {self.canvas if hasattr(self.canvas, 'elements_events') else 'No canvas events'}")
-            if hasattr(self.canvas, 'elements_events'):
-                #print(f"   canvas.elements_events: {self.canvas.elements_events}")
-                events = self.canvas.elements_events
+            #print(f"   canvas: {self.canvas if hasattr(self.canvas, 'blocks_events') else 'No canvas events'}")
+            if hasattr(self.canvas, 'blocks_events'):
+                #print(f"   canvas.blocks_events: {self.canvas.blocks_events}")
+                events = self.canvas.blocks_events
                 try:
                     block_graphics.signals.input_clicked.connect(events.on_input_clicked)
                     block_graphics.signals.output_clicked.connect(events.on_output_clicked)
@@ -793,14 +793,14 @@ class BlockGraphicsItem(QGraphicsObject):
         
         return None
     
-#MARK: - spawning_elements
-class spawning_elements:
-    """Handles spawning and placing elements on the canvas"""
-    def __init__(self, parent, elements_window=None):
+#MARK: - spawning_blocks
+class spawning_blocks:
+    """Handles spawning and placing blocks on the canvas"""
+    def __init__(self, parent, blocks_window=None):
         self.placing_active = False
         self.perm_stop = False
         self.parent = parent
-        self.elements_window = elements_window
+        self.blocks_window = blocks_window
         self.element_spawner = Element_spawn()
         self.path_manager = parent.path_manager if hasattr(parent, 'path_manager') else None
         self.state_manager = Utils.state_manager
@@ -823,9 +823,9 @@ class spawning_elements:
         self.placing_active = True
         #print("Start placement")
         #print(f"parent: {parent}, element_type: {element_type}")
-        if self.elements_window and self.elements_window.isVisible():
-            self.elements_window.is_hidden = True
-            self.elements_window.hide()
+        if self.blocks_window and self.blocks_window.isVisible():
+            self.blocks_window.is_hidden = True
+            self.blocks_window.hide()
 
         global_pos = QCursor.pos()
 
@@ -905,22 +905,22 @@ class spawning_elements:
         #print(f"Current mousePressEvent: {parent.mousePressEvent}, Restoring old mousePressEvent: {self.old_mousePressEvent}")
         parent.mousePressEvent = self.old_mousePressEvent
         #print(f"mousePressEvent restored: {parent.mousePressEvent}")
-        if self.elements_window:
-            #print("Re-opening ElementsWindow")
-            self.elements_window.is_hidden = True
-            self.elements_window.open()
+        if self.blocks_window:
+            #print("Re-opening blocksWindow")
+            self.blocks_window.is_hidden = True
+            self.blocks_window.open()
 
-#MARK: - Elements_events
-class Elements_events(QObject):
+#MARK: - blocks_events
+class blocks_events(QObject):
     """Centralized event handler for block interactions"""
     def __init__(self, canvas):
         super().__init__()
         self.canvas = canvas
         self.path_manager = canvas.path_manager if hasattr(canvas, 'path_manager') else None
         self.state_manager = Utils.state_manager
-        #print(f"Instantiating ElementsEvents for canvas: {canvas}")
+        #print(f"Instantiating blocksEvents for canvas: {canvas}")
         #print(f" → inspector_panel: {self.inspector_frame_visible}")
-        #print("✓ ElementsEvents initialized")
+        #print("✓ blocksEvents initialized")
         #print(f" → path_manager: {self.path_manager}")
 
     def on_input_clicked(self, block, circle_center, circle_type):
@@ -1135,7 +1135,7 @@ class Elements_events(QObject):
 
 #MARK: - Element_spawn
 class Element_spawn:
-    """Spawns visual elements"""
+    """Spawns visual blocks"""
     height = 36
 
     def custom_shape_spawn(self, parent, element_type, event, name=None):

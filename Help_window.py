@@ -1,5 +1,6 @@
 from Imports import (QDialog, Qt, QVBoxLayout, QLabel, QTabWidget, QWidget, QFont, QTextEdit,
-                     QScrollArea, QPushButton,Path, os, get_utils, QScroller, QTextBrowser)
+                     QScrollArea, QPushButton,Path, os, get_utils, QScroller, QTextBrowser, QIcon,
+                     QPropertyAnimation, QEasingCurve, QTimer, QRect)
 
 Utils = get_utils()
 
@@ -8,7 +9,7 @@ class HelpWindow(QDialog):
     _instance = None
 
     def __init__(self, parent=None, which=0):
-        super().__init__(parent)
+        super().__init__()
         self.parent_canvas = parent
         self.which = which
         self.is_hidden = True
@@ -19,26 +20,25 @@ class HelpWindow(QDialog):
         self.setup_ui()
     
     @classmethod
-    def get_instance(cls, parent, which):
+    def get_instance(cls, parent=None, which=0):
         if cls._instance is None:
             try:
                 _ = cls._instance.isVisible()  # Check if the instance is still valid
                 if cls._instance.is_hidden:
-                    if cls._instance.parent_canvas != parent:
-                        cls._instance.parent_canvas = parent
                     return cls._instance
             except RuntimeError:
                 cls._instance = None  # Reset instance if it was deleted
             except Exception as e:
                 cls._instance = None  # Reset instance on any unexpected error
         if cls._instance is None:
-            cls._instance = cls(parent, which)
+            cls._instance = cls(parent=parent, which=which)
 
         return cls._instance
     
     def setup_ui(self):
         """Setup the UI"""
         self.setWindowTitle(self.t("help_window.window_title"))
+        self.setWindowIcon(QIcon('resources/images/APPicon.ico'))
         self.resize(600, 400)
         
         self.setWindowFlags(Qt.WindowType.Window)
@@ -55,7 +55,7 @@ class HelpWindow(QDialog):
                 alignment: left;
             }
             QTabBar::tab {
-                background-color: #1F1F1F;
+                background-color: #2B2B2B;
                 color: #FFFFFF;
                 padding: 8px 20px;
                 border: 1px solid #3A3A3A;
@@ -83,6 +83,11 @@ class HelpWindow(QDialog):
             }
             QPushButton:pressed {
                 background-color: #1F538D;
+            }
+            QTextBrowser {
+                background-color: #2B2B2B;
+                border: none;
+                color: #CCCCCC;
             }
         """)
         
@@ -236,7 +241,7 @@ class HelpWindow(QDialog):
         detail_layout.setSpacing(10)
         
         # Back button
-        back_btn = QPushButton(self.t("help_window.tutorials_tab.back_to_tutorial_button"))
+        back_btn = QPushButton(self.t("help_window.tutorials_tab.back_to_tutorials_button"))
         back_btn.setMaximumWidth(150)
         back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         back_btn.clicked.connect(self.show_tutorial_list)
@@ -462,15 +467,70 @@ class HelpWindow(QDialog):
         </style>
         """
     
+    def pulse_window(self):
+        if hasattr(self, "_pulse_animation") and self._pulse_animation.state() == QPropertyAnimation.State.Running:
+            return
+
+        self._pulse_animation = QPropertyAnimation(self, b"geometry")
+        self._pulse_animation.setDuration(100)
+        self._pulse_animation.setEasingCurve(QEasingCurve.Type.OutQuad)
+
+        # Get current geometry
+        orig = self.geometry()
+        
+        # Calculate a larger geometry (expanding from the center)
+        offset = 5  # Pixels to expand
+        expanded = QRect(
+            orig.x() - offset, 
+            orig.y() - offset, 
+            orig.width() + (offset * 2), 
+            orig.height() + (offset * 2)
+        )
+
+        # Define keyframes: Start -> Expanded -> Original
+        self._pulse_animation.setStartValue(orig)
+        self._pulse_animation.setKeyValueAt(0.5, expanded)
+        self._pulse_animation.setEndValue(orig)
+
+        self._pulse_animation.start()
+
+    def flash_window(self):
+        original_style = self.styleSheet()
+        highlight_style = original_style + "QDialog { background-color: #696969; }"
+        
+        def toggle_style(step):
+            if step >= 8:  # 4 flashes = 8 toggles (on/off)
+                self.setStyleSheet(original_style)
+                return
+            
+            # If step is even, show highlight; if odd, show original
+            if step % 2 == 0:
+                self.setStyleSheet(highlight_style)
+                self.pulse_window()  # Add pulse effect on highlight
+            else:
+                self.setStyleSheet(original_style)
+            
+            # Schedule the next toggle in 150ms
+            QTimer.singleShot(100, lambda: toggle_style(step + 1))
+
+        # Start the sequence
+        toggle_style(0)
+
     def open(self):
-        """Show the window non-blocking"""
+        print("Opening HelpWindow")
         if self.is_hidden:
+            print("Initially hidden, showing window")
             self.is_hidden = False
             self.show()
             self.raise_()
             self.activateWindow()
+        else:
+            print("HelpWindow already open, raising to front")
+            self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
+            self.raise_()           # Brings the widget to the top of the stack
+            self.activateWindow()    # Gives the window keyboard focus   
+            self.flash_window()
         return self
-
     def reject(self):
         self.close()
 

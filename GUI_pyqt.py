@@ -16,21 +16,21 @@ from Imports import (
     QScroller, QTest, QInputDevice, QEventPoint, QTouchEvent, QObject, warnings, QToolBar, QSlider
 )
 from Imports import (
-    get_code_compiler, get_spawn_elements, get_device_settings_window,
-    get_file_manager, get_path_manager, get_Elements_Window, get_utils,
+    get_code_compiler, get_spawn_blocks, get_device_settings_window,
+    get_file_manager, get_path_manager, get_blocks_Window, get_utils,
     get_Help_Window, get_State_Manager, get_CodeViewer_Window,
     get_Translation_Manager, get_Data_Control, get_Code_Editor_Window
 )
 Utils = get_utils()
 Code_Compiler = get_code_compiler()
-BlockGraphicsItem = get_spawn_elements()[0]
-spawningelements = get_spawn_elements()[1]
-elementevents = get_spawn_elements()[2]
+BlockGraphicsItem = get_spawn_blocks()[0]
+spawningblocks = get_spawn_blocks()[1]
+elementevents = get_spawn_blocks()[2]
 DeviceSettingsWindow = get_device_settings_window()
 FileManager = get_file_manager()
 PathManager = get_path_manager()[0]
 PathGraphicsItem = get_path_manager()[1]
-ElementsWindow = get_Elements_Window()
+blocksWindow = get_blocks_Window()
 HelpWindow = get_Help_Window()
 StateManager = get_State_Manager()
 CodeViewerWindow = get_CodeViewer_Window()
@@ -52,7 +52,6 @@ class LoaderThread(QThread):
         self.status.emit("Loading App Settings...")
         Utils.compiler = Code_Compiler() # <--- Pre-initialize objects here if they don't use QWidgets
         Utils.state_manager = StateManager()
-        Utils.translation_manager = TranslationManager()
         Utils.file_manager = FileManager()
         Utils.data_control = DataControl()
         time.sleep(0.5) # Simulated delay (remove this in production)
@@ -66,6 +65,7 @@ class LoaderThread(QThread):
         # PHASE 3: Initialize Compiler
         self.status.emit("Initializing Compiler...")
         Utils.file_manager.load_app_settings()
+        Utils.translation_manager = TranslationManager()
         time.sleep(0.5)
         self.progress.emit(60)
         
@@ -1237,11 +1237,12 @@ class GridCanvas(QGraphicsView):
         super().__init__(parent)
         #print(f"Self in GridCanvas init: {self}")
         self.grid_size = grid_size
-        elements_window = ElementsWindow.get_instance(self)
-        self.spawner = spawningelements(self, elements_window)
+        blocks_window = blocksWindow.get_instance(parent=self)
+        self.spawner = spawningblocks(self, blocks_window)
+        print(f"spawner {self.spawner}")
         self.state_manager = Utils.state_manager
         self.path_manager = PathManager(self)
-        self.elements_events = elementevents(self)
+        self.blocks_events = elementevents(self)
         
         # Create graphics scene
         self.scene = GridScene(grid_size=grid_size)
@@ -1984,11 +1985,11 @@ class MainWindow(QMainWindow):
         exit_action = file_menu.addAction(self.t("main_GUI.menu.exit"))
         exit_action.triggered.connect(self.close)
         
-        # Elements menu
-        elements_menu = self.menubar.addMenu(self.t("main_GUI.menu.blocks"))
+        # blocks menu
+        blocks_menu = self.menubar.addMenu(self.t("main_GUI.menu.blocks"))
         
-        add_element = elements_menu.addAction(self.t("main_GUI.menu.add_block"))
-        add_element.triggered.connect(self.open_elements_window)
+        add_element = blocks_menu.addAction(self.t("main_GUI.menu.add_block"))
+        add_element.triggered.connect(self.open_blocks_window)
         
         settings_menu = self.menubar.addMenu(self.t("main_GUI.menu.settings"))
         settings_menu_action = settings_menu.addAction(self.t("main_GUI.menu.settings"))
@@ -2021,45 +2022,45 @@ class MainWindow(QMainWindow):
 
         icon_path = "resources/images/Tool_bar/"
 
-        toolbar = QToolBar(self.t("main_GUI.toolbar.toolbar"))
+        toolbar = QToolBar(self.t("main_GUI.top_toolbar.toolbar"))
         toolbar.setMovable(False)
         toolbar.setIconSize(QSize(16, 16))
 
-        save_icon = QAction(QIcon(icon_path+"Save.png"), self.t("main_GUI.toolbar.save"), self)
+        save_icon = QAction(QIcon(icon_path+"Save.png"), self.t("main_GUI.top_toolbar.save"), self)
         save_icon.triggered.connect(self.on_save_file)
         toolbar.addAction(save_icon)
 
-        open_icon = QAction(QIcon(icon_path+"Open_file.png"), self.t("main_GUI.toolbar.open"), self)
+        open_icon = QAction(QIcon(icon_path+"Open_file.png"), self.t("main_GUI.top_toolbar.open"), self)
         open_icon.triggered.connect(self.on_open_file)
         toolbar.addAction(open_icon)
 
-        new_icon = QAction(QIcon(icon_path+"New_file.png"), self.t("main_GUI.toolbar.new"), self)
+        new_icon = QAction(QIcon(icon_path+"New_file.png"), self.t("main_GUI.top_toolbar.new"), self)
         new_icon.triggered.connect(self.on_new_file)
         toolbar.addAction(new_icon)
 
         toolbar.addSeparator()
 
-        add_block_icon = QAction(QIcon(icon_path+"Add_block.png"), self.t("main_GUI.toolbar.add_block"), self)
-        add_block_icon.triggered.connect(self.open_elements_window)
+        add_block_icon = QAction(QIcon(icon_path+"Add_block.png"), self.t("main_GUI.top_toolbar.add_block"), self)
+        add_block_icon.triggered.connect(self.open_blocks_window)
         toolbar.addAction(add_block_icon)
 
         toolbar.addSeparator()
 
-        settings_icon = QAction(QIcon(icon_path+"Settings.png"), self.t("main_GUI.toolbar.settings"), self)
+        settings_icon = QAction(QIcon(icon_path+"Settings.png"), self.t("main_GUI.top_toolbar.settings"), self)
         settings_icon.triggered.connect(self.open_settings_window)
         toolbar.addAction(settings_icon)
 
         toolbar.addSeparator()
 
-        run_and_compile_icon = QAction(QIcon(icon_path+"Run_and_compile.png"), self.t("main_GUI.toolbar.compile_upload"), self)
+        run_and_compile_icon = QAction(QIcon(icon_path+"Run_and_compile.png"), self.t("main_GUI.top_toolbar.compile_upload"), self)
         run_and_compile_icon.triggered.connect(self.compile_and_upload)
         toolbar.addAction(run_and_compile_icon)
 
-        run_icon = QAction(QIcon(icon_path+"Run.png"), self.t("main_GUI.toolbar.run"), self)
+        run_icon = QAction(QIcon(icon_path+"Run.png"), self.t("main_GUI.top_toolbar.run"), self)
         run_icon.triggered.connect(self.execute_on_rpi_ssh_background)
         toolbar.addAction(run_icon)
 
-        stop_execution_icon = QAction(QIcon(icon_path+"Stop_execution.png"), self.t("main_GUI.toolbar.stop"), self)
+        stop_execution_icon = QAction(QIcon(icon_path+"Stop_execution.png"), self.t("main_GUI.top_toolbar.stop"), self)
         stop_execution_icon.triggered.connect(self.stop_execution)
         toolbar.addAction(stop_execution_icon)
 
@@ -2067,11 +2068,12 @@ class MainWindow(QMainWindow):
         #test_icon.triggered.connect(self.simulate_pinch)
         #toolbar.addAction(test_icon)
 
-        self.top_toolbar = self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
+        self.top_toolbar = toolbar
 
     def create_bottom_toolbar(self):
 
-        toolbar = QToolBar(self.t("main_GUI.toolbar.bottom_toolbar"))
+        toolbar = QToolBar(self.t("main_GUI.bottom_toolbar.toolbar"))
         toolbar.setMovable(False)
         toolbar.setIconSize(QSize(16, 16))
 
@@ -2082,7 +2084,7 @@ class MainWindow(QMainWindow):
 
         spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
-        self.pan_button = QAction(QIcon("resources/images/Tool_bar/Pan.png"), self.t("main_GUI.toolbar.pan"), self)
+        self.pan_button = QAction(QIcon("resources/images/Tool_bar/Pan.png"), self.t("main_GUI.bottom_toolbar.pan"), self)
         self.pan_button.setCheckable(True)
         self.pan_button.toggled.connect(lambda checked: self.toggle_pan_mode(checked))
 
@@ -2112,11 +2114,13 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(plus_label)
 
 
-        self.bottom_toolbar = self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, toolbar)
+        self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, toolbar)
+        self.bottom_toolbar = toolbar
 
     def toggle_pan_mode(self, checked):
         print(f"Pan mode toggled: {'ON' if checked else 'OFF'}")
         self.setCursor(Qt.CursorShape.OpenHandCursor if checked else Qt.CursorShape.ArrowCursor)
+        self.canvas.setCursor(Qt.CursorShape.OpenHandCursor if checked else Qt.CursorShape.ArrowCursor)
         self.current_canvas.pan_mode = checked
 
     def stop_execution(self):
@@ -2765,8 +2769,8 @@ class MainWindow(QMainWindow):
         self.open_project()
 
         for window in self.opend_windows:
-            if window == 'Elements':
-                self.open_elements_window()
+            if window == 'blocks':
+                self.open_blocks_window()
             elif window == 'Settings':
                 self.open_settings_window()
             elif window == 'Help':
@@ -4446,23 +4450,23 @@ class MainWindow(QMainWindow):
         if window_name in self.opend_windows:
             self.opend_windows.remove(window_name)
 
-    def open_elements_window(self):
-        """Open the elements window"""
-        #print("Opening elements window")
-        elements_window = ElementsWindow.get_instance(self.current_canvas)
-        print("Elements window instance:", elements_window)
+    def open_blocks_window(self):
+        """Open the blocks window"""
+        #print("Opening blocks window")
+        blocks_window = blocksWindow.get_instance(parent=self.current_canvas)
+        print("blocks window instance:", blocks_window)
         try:
-            print("Checking if elements dialog can be opened...")
-            if self.state_manager.app_state.on_elements_dialog_open():
-                print("Opening elements dialog...")
-                self.opend_windows.append('Elements')
-                elements_window.open()
+            print("Checking if blocks dialog can be opened...")
+            if self.state_manager.app_state.on_blocks_dialog_open():
+                print("Opening blocks dialog...")
+                self.opend_windows.append('blocks')
+                blocks_window.open()
         except Exception as e:
-            print(f"Error opening elements window: {e}")
+            print(f"Error opening blocks window: {e}")
     
     def open_settings_window(self):
         """Open the device settings window"""
-        settings_window = DeviceSettingsWindow.get_instance(self.current_canvas)
+        settings_window = DeviceSettingsWindow.get_instance(parent=self)
         settings_window.reload_requested.connect(self.on_reload_reqested)
         if self.state_manager.app_state.on_settings_dialog_open():
             settings_window.open()
@@ -4470,21 +4474,21 @@ class MainWindow(QMainWindow):
 
     def open_help(self, which):
         """Open the help window"""
-        help_window = HelpWindow.get_instance(self.current_canvas, which)
+        help_window = HelpWindow.get_instance(parent=self, which=which)
         if self.state_manager.app_state.on_help_dialog_open():
             help_window.open()
             self.opend_windows.append('Help')
     
     def open_view_code_window(self):
         """View the generated code"""
-        code_viewer = CodeViewerWindow.get_instance(self.current_canvas)
+        code_viewer = CodeViewerWindow.get_instance(parent=self)
         if self.state_manager.app_state.on_code_viewer_dialog_open():
             code_viewer.open()
             self.opend_windows.append('CodeViewer')
 
     def open_edit_code_window(self):
         """Edit the generated code"""
-        code_editor = CodeEditorWindow.get_instance()
+        code_editor = CodeEditorWindow.get_instance(parent=self)
         if self.state_manager.app_state.on_code_editor_dialog_open():
             code_editor.open()
             self.opend_windows.append('EditCode')
@@ -4562,7 +4566,8 @@ class MainWindow(QMainWindow):
 
     def on_save_file_as(self):
         """Save current project with new name"""
-        
+        self.raise_()  # Bring main window to front
+
         text, ok = QInputDialog.getText(self, self.t("main_GUI.dialogs.file_dialogs.save_project_as"), 
             self.t("main_GUI.dialogs.file_dialogs.enter_project_name"), QLineEdit.EchoMode.Normal, 
             Utils.project_data.metadata.get('name', ''))
@@ -4640,7 +4645,7 @@ class MainWindow(QMainWindow):
         
         Utils.file_manager.new_project()
 
-        ElementsWindow._instance = None
+        blocksWindow._instance = None
 
         Utils.variables = {
             'main_canvas': {},
@@ -4889,16 +4894,16 @@ class MainWindow(QMainWindow):
         
     def close_child_windows(self):
         
-        # Close Elements window if it exists
+        # Close blocks window if it exists
         try:
-            if ElementsWindow._instance is not None:
-                if ElementsWindow._instance.is_hidden == False:
-                    print("Closing elements window")
-                    ElementsWindow._instance.close()
-                ElementsWindow._instance = None
+            if blocksWindow._instance is not None:
+                if blocksWindow._instance.is_hidden == False:
+                    print("Closing blocks window")
+                    blocksWindow._instance.close()
+                blocksWindow._instance = None
         except:
             # If instance already deleted, just reset
-            ElementsWindow._instance = None
+            blocksWindow._instance = None
         
         # Close Device Settings window if it exists
         try:

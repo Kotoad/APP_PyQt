@@ -53,7 +53,7 @@ def get_dpi_for_monitor(window_id):
     
     Why Use This?
     - Different monitors have different DPI (dots per inch)
-    - Modern high-resolution displays need scaling to render UI elements at correct size
+    - Modern high-resolution displays need scaling to render UI blocks at correct size
     - Example: A 27" 1440p monitor has ~110 DPI, needs 1.15x scaling for readability
     - Example: A 15" laptop with 4K has ~294 DPI, needs ~3x scaling
     

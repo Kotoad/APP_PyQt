@@ -1,0 +1,50 @@
+<h1>Nastavení linuxového Raspberry Pi</h1>
+<p>V tomto tutoriálu vás provedeme nastavením linuxového Raspberry Pi pro použití s OmniBoard Studio.</p>
+<h2>Modely RPI:</h2>
+<ul>
+    <li>Raspberry Pi 5</li>
+    <li>Raspberry Pi 4 Model B</li>
+    <li>Raspberry Pi 3 Model B+</li>
+    <li>Raspberry Pi 3 Model B</li>
+    <li>Raspberry Pi 3 Model A+</li>
+    <li>Raspberry Pi 2 Model B</li>
+    <li>Raspberry Pi 1 Model B+</li>
+    <li>Raspberry Pi 1 Model B</li>
+    <li>Raspberry Pi 1 Model A+</li>
+    <li>Raspberry Pi 1 Model A</li>
+    <li>Raspberry Pi Zero 2 W*</li>
+    <li>Raspberry Pi Zero 2 WH*</li>
+    <li>Raspberry Pi Zero W*</li>
+    <li>Raspberry Pi Zero</li>
+</ul>
+<h2>Budete potřebovat:</h2>
+<ul>
+    <li>Kompatibilní desku Raspberry Pi (viz seznam výše)</li>
+    <li>MicroSD kartu, minimálně 8 GB, ale doporučuje se 32 GB+ Class 10</li>
+    <li>Napájecí zdroj pro vaše Raspberry Pi (postačí jakýkoliv běžný 5V USB napájecí zdroj)</li>
+    <li>HDMI kabel a monitor (volitelné, pro počáteční nastavení). <strong>U některých modelů budete potřebovat redukci na micro HDMI.</strong></li>
+</ul>
+<h2>Kroky k nastavení vašeho Raspberry Pi:</h2>
+<ol>
+    <li>Stáhněte si nejnovější verzi aplikace Raspberry Pi Imager pro snazší nastavení. Odkaz: <a href="https://www.raspberrypi.com/software/">https://www.raspberrypi.com/software/</a>.</li>
+    <li>Vložte MicroSD kartu do počítače a spusťte Raspberry Pi Imager.</li>
+    <li>Vyberte váš model RPI a požadovaný OS (doporučeno: Raspberry Pi OS 64-bit. Můžete vybrat verzi lite, ale přijdete o možnost používat grafické uživatelské rozhraní (GUI) vašeho RPI, což není pro začátečníky příliš přátelské).</li>
+    <li>Vyberte vaši MicroSD kartu jako cílové úložiště.</li>
+    <li>Klikněte na "Další" a zadejte požadovaný Hostname (Název vašeho RPI), Username (přihlašovací uživatelské jméno) a Password (přihlašovací heslo). <strong>Nezapomeňte si své uživatelské jméno a heslo zapamatovat!</strong></li>
+    <li>Zadejte název a heslo vaší WiFi sítě. Nové sítě můžete přidat později v nastavení RPI přes GUI nebo SSH.</li>
+    <li>Vyberte časové pásmo a rozložení klávesnice.</li>
+    <li><strong>Povolte SSH a VNC, pokud chcete využívat funkce vzdáleného přístupu.</strong></li>
+    <li>Klikněte na "Zapsat" (Write) pro zahájení zápisu obrazu na MicroSD kartu. <strong>POZNÁMKA: Tímto vymažete všechna data na MicroSD kartě!</strong></li>
+    <li>Po dokončení zápisu bezpečně odeberte MicroSD kartu z počítače a vložte ji do vašeho Raspberry Pi.</li>
+    <li>Zapněte své Raspberry Pi a připojte klávesnici a myš (pokud používáte GUI).</li>
+    <li>Prvotní konfigurace a připojení<ul>
+        <li>Pokud používáte GUI, zadejte své uživatelské jméno a heslo pro přihlášení. Poté otevřete Terminál (Aplikace > Příslušenství > Terminál).</li>
+        <li>Pokud používáte SSH, najděte IP adresu vašeho RPI v administrátorském panelu vašeho routeru nebo pomocí nástroje jako nmap, a poté se připojte pomocí SSH klienta (např. PuTTY ve Windows, Terminál v macOS/Linuxu). Příkaz: `ssh username@ip_address`. Poté napište yes a zadejte své heslo. Nyní se nacházíte v příkazovém řádku RPI.</li>
+        <li>Spusťte příkazy pro aktualizaci vašeho systému: `sudo apt update && sudo apt full-upgrade -y`</li>
+        <li>Pokud používáte GUI, můžete použít RealVNC Viewer k připojení k desktopovému prostředí vašeho RPI. POZNÁMKA: V nastavení RPI musíte povolit VNC (Předvolby > Konfigurace Raspberry Pi > VNC).</li>
+        <li>Restartujte své Raspberry Pi, abyste aplikovali všechny změny, pomocí `sudo reboot`.</li>
+    </ul></li>
+</ol>
+<p>Červená LED dioda indikuje napájení a zelená LED dioda indikuje čtení/zápis na MicroSD kartu.</p>
+<footer>*W znamená, že tento model RPI má zabudovanou WiFi. Všechna RPI od modelu 3 výše mají zabudovanou WiFi.</footer>
+<footer>*WH znamená, že tento model RPI má zabudovanou WiFi a předpájené piny (headery).</footer>
