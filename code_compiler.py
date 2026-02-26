@@ -1,75 +1,5 @@
-from Imports import get_utils, os, sys, subprocess
+from Imports import get_utils
 Utils = get_utils()
-#MARK: Pico Auto Transfer
-class PicoWAutoTransfer:
-    """Automatic transfer with dependency checking"""
-    
-    @staticmethod
-    def ensure_dependencies():
-        """Install required packages if missing"""
-        required = {
-            'pyserial': 'serial',  # For pyboard fallback
-            'mpremote': 'mpremote',  # Preferred transfer tool
-        }
-        missing = []
-        
-        for package, module_name in required.items():
-            try:
-                __import__(module_name)
-            except ImportError:
-                missing.append(package)
-        
-        if missing:
-            print(f"\n⚠ Installing missing dependencies: {', '.join(missing)}")
-            for package in missing:
-                try:
-                    subprocess.check_call(
-                        [sys.executable, "-m", "pip", "install", package],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL
-                    )
-                    print(f"✓ Installed {package}")
-                except Exception as e:
-                    print(f"✗ Failed to install {package}: {e}")
-    
-    @staticmethod
-    def transfer_file(source="File.py", target="main.py"):
-        """Transfer with mpremote (preferred method)"""
-        PicoWAutoTransfer.ensure_dependencies()
-        
-        try:
-            # Try mpremote first (more reliable)
-            cmd = [sys.executable, "-m", "mpremote", "cp", source, f":{target}"]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-            
-            if result.returncode == 0:
-                print(f"✓ Transfer successful: {source} → {target}")
-                return True
-            else:
-                # If mpremote fails, try pyboard
-                if "No module named 'serial'" in result.stderr:
-                    print("Installing pyserial...")
-                    subprocess.check_call([sys.executable, "-m", "pip", "install", "pyserial"])
-                    # Retry
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                    if result.returncode == 0:
-                        print(f"✓ Transfer successful (retry): {source} → {target}")
-                        return True
-                
-                print(f"✗ Transfer failed: {result.stderr}")
-                return False
-                
-        except subprocess.TimeoutExpired:
-            print("✗ Transfer timeout - Is Pico W connected and in bootloader mode?")
-            return False
-        except FileNotFoundError:
-            print("✗ mpremote not found - installing...")
-            subprocess.check_call([sys.executable, "-m", "pip", "install", "mpremote"])
-            # Retry recursively
-            return PicoWAutoTransfer.transfer_file(source, target)
-        except Exception as e:
-            print(f"✗ Unexpected error: {e}")
-            return False
 
 #MARK: Code Compiler
 class CodeCompiler:
@@ -90,6 +20,26 @@ class CodeCompiler:
         self.btn_in_code = False
         self.led_in_code = False
         self.current_lines = self.header_lines  # Pointer to current lines being written
+        self.process_map = {
+            'If': self.handle_if_block,
+            'While': self.handle_while_block,
+            'While_true': self.handle_while_block,
+            'Timer': self.handle_timer_block,
+            'End': self.handle_end_block,
+            'Switch': self.handle_switch_block,
+            'Button': self.handle_button_block,
+            'Blink_LED': self.handle_LED_block,
+            'Toggle_LED': self.handle_LED_block,
+            'PWM_LED': self.handle_LED_block,
+            'RGB_LED': self.handle_LED_block,
+            'LED_ON': self.handle_LED_block,
+            'LED_OFF': self.handle_LED_block,
+            "Basic_operations": self.handle_math_block,
+            "Exponential_operations": self.handle_math_block,
+            "Random_number": self.handle_rand_block,
+            "Function": self.handle_function_block,
+            "Networks": self.handle_networks_block
+        }
     
     def compile(self):
         """Main entry point"""
@@ -110,6 +60,8 @@ class CodeCompiler:
         elif Utils.app_settings.rpi_model_index in (1,2,3,4,5,6,7):
             #print(f"RPI Model selected: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
             self.GPIO_compile = True
+
+        self.create_hashmap()
 
         self.write_imports()
         self.write_setup()
@@ -152,12 +104,9 @@ class CodeCompiler:
         else:
             print("✗ Error opening File.py for writing")
         file.close()
-
-        if self.MC_compile:
-            #print("\n--- Transferring to Pico W ---")
-            #PicoWAutoTransfer.transfer_file("File.py", "main.py")
-            pass
+            
     
+
     def process_block(self, block_id):
         """Process single block - dispatch to handler"""
         if not block_id:
@@ -166,36 +115,14 @@ class CodeCompiler:
             block = Utils.main_canvas['blocks'][block_id]
         elif self.compiling_what == 'function':
             block = Utils.functions[self.compiling_function]['blocks'][block_id]
-        
+
         print(f"Processing block {block_id} of type {block['type']}")
-        if block['type'] == 'If':
-            print(f"Handling If block {block}")
-            self.handle_if_block(block)
-        elif block['type'] in ('While', 'While_true'):
-            self.handle_while_block(block)
-        elif block['type'] == 'Timer':
-            self.handle_timer_block(block)
-        elif block['type'] == 'End':
-            self.handle_end_block(block)
-        elif block['type'] == 'Switch':
-            self.handle_switch_block(block)
-        elif block['type'] == 'Button':
-            self.handle_button_block(block)
-        elif block['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED', 'RGB_LED', 'Turn_OFF_LED', 'Turn_ON_LED'):
-            self.handle_LED_block(block)
-        elif block['type'] == 'RGB_LED':
-            self.handle_RGB_LED_block(block)
-        elif block['type'] in ("Basic_operations", "Exponential_operations"):
-            self.handle_math_block(block)
-        elif block['type'] == 'Random_number':
-            self.handle_random_block(block)
-        elif block['type'] == 'Function':
-            self.handle_function_block(block)
-        elif block['type'] == 'Networks':
-            self.handle_networks_block(block)
+        
+        handler = self.process_map.get(block['type'])
+        if handler:
+            handler(block)
         else:
-            print(f"Unknown block type: {block['type']}")
-            pass
+            print(f"⚠ No handler for block type: {block['type']} (Block ID: {block_id})")
     #MARK: Code Setup
     def write_imports(self):
         #print("Writing import statements...")
@@ -635,7 +562,7 @@ class CodeCompiler:
         while self.indent_level > 1:
             self.indent_level -= 1
         #Turn ON method
-        self.writeline("def Turn_ON_LED(self, pin):")
+        self.writeline("def LED_OFF(self, pin):")
         self.indent_level += 1
         if self.GPIO_compile:
             self.writeline("if pin in self.pin_state and self.pin_state[pin] == GPIO.LOW:")
@@ -665,7 +592,7 @@ class CodeCompiler:
         while self.indent_level > 1:
             self.indent_level -= 1
         #Turn OFF method
-        self.writeline("def Turn_OFF_LED(self, pin):")
+        self.writeline("def LED_ON(self, pin):")
         self.indent_level += 1
         if self.GPIO_compile:
             self.writeline("if pin in self.pin_state and self.pin_state[pin] == GPIO.HIGH:")
@@ -877,6 +804,17 @@ class CodeCompiler:
 
 
     #MARK: Helper Methods
+
+    def create_hashmap(self):
+        self.hashmap = {}
+        for block_id, block_info in Utils.main_canvas['blocks'].items():
+            for conn_id in block_info.get('out_connections', {}).keys():
+                self.hashmap[conn_id] = conn_id.split('-')[1]  # Map connection ID to block ID
+        for func_name, func_info in Utils.functions.items():
+            for block_id, block_info in func_info.get('blocks', {}).items():
+                for conn_id in block_info.get('out_connections', {}).keys():
+                    self.hashmap[conn_id] = conn_id.split('-')[1]  # Map connection ID to block ID
+
     def find_block_by_type(self, block_type):
         """Find first block of given type"""
         if self.compiling_what == 'canvas':
@@ -889,33 +827,25 @@ class CodeCompiler:
         return None
     
     def get_next_block(self, current_block_id):
+        print(f"Hashmap for connections: {self.hashmap}")
         """Get the block connected to output of current block"""
-        #print(f"Getting next block from {current_block_id}")
+        print(f"Getting next block from {current_block_id}")
         if self.compiling_what == 'canvas':
-            #rint(f"Searching in main canvas blocks")
+            print(f"Searching in main canvas blocks")
             current_info = Utils.main_canvas['blocks'][current_block_id]
         elif self.compiling_what == 'function':
-            #print(f"Searching in function canvas blocks for function {self.compiling_function}")
+            print(f"Searching in function canvas blocks for function {self.compiling_function}")
             current_info = Utils.functions[self.compiling_function]['blocks'][current_block_id]
         
         # Get first out_connection
         if current_info['out_connections']:
-            #print(f"Current block out_connections: {current_info['out_connections']}")
+            print(f"Current block out_connections: {current_info['out_connections']}")
             for conn_id in current_info['out_connections'].keys():
-                #print(f"Checking connection ID: {conn_id}")
-                first_connection_id = conn_id
-            
-            # Find which block this connection goes to
-            if self.compiling_what == 'canvas':
-                #print(f"Searching in main canvas blocks")
-                search_infos = Utils.main_canvas['blocks']
-            elif self.compiling_what == 'function':
-                #print(f"Searching in function canvas blocks for function {self.compiling_function}")
-                search_infos = Utils.functions[self.compiling_function]['blocks']
-            for block_id, info in search_infos.items():
-                if first_connection_id in info['in_connections']:
-                    #print(f"Next block is {block_id}")
-                    return block_id
+                print(f"Checking connection ID: {conn_id}")
+                if conn_id in self.hashmap:
+                    next_block_id = self.hashmap[conn_id]
+                    print(f"Next block ID: {next_block_id}")
+                    return next_block_id
         return None 
     
     def get_next_block_from_output(self, current_block_id, output_circle):
@@ -1283,10 +1213,10 @@ class CodeCompiler:
                 Pins.append(DEV_i)
                 PWM_values.append(PWM_value)
             self.writeline(f"led.RGB_LED({Pins[0]}, {Pins[1]}, {Pins[2]}, {PWM_values[0]}, {PWM_values[1]}, {PWM_values[2]})")
-        elif block['type'] == 'Turn_OFF_LED':
-            self.writeline(f"led.Turn_OFF_LED({DEV_1})")
-        elif block['type'] == 'Turn_ON_LED':
-            self.writeline(f"led.Turn_ON_LED({DEV_1})")
+        elif block['type'] == 'LED_ON':
+            self.writeline(f"led.LED_ON({DEV_1})")
+        elif block['type'] == 'LED_OFF':
+            self.writeline(f"led.LED_OFF({DEV_1})")
         
         next_id = self.get_next_block(block['id'])
         if next_id:

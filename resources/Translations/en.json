@@ -229,6 +229,8 @@
     "math_blocks_tab": {
       "tab_title": "Math blocks",
       "basic_operations": "Basic operations",
+      "plus_one": "Plus 1",
+      "minus_one": "Minus 1",
       "exponential_operations": "Exponential operations",
       "random_number": "Random Number"
     },
@@ -254,6 +256,8 @@
       "LED_OFF": "Turns an LED off.",
       "RGB_LED": "Controls an RGB LED.",
       "Basic_operations": "Performs basic arithmetic operations like addition, subtraction, multiplication, and division.",
+      "Plus_one": "Adds 1 to the specified variable.",
+      "Minus_one": "Subtracts 1 from the specified variable.",
       "Exponential_operations": "Performs exponential calculations such as power and square root.",
       "Random_number": "Generates a random number within a specified range.",
       "no_description": "No description available."

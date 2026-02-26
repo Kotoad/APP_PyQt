@@ -342,6 +342,8 @@ class blocksWindow(QDialog):
         # Buttons - MAPPED TO SPAWNING blocks
         math_blocks = [
             (self.t("blocks_window.math_blocks_tab.basic_operations"), "Basic_operations"),
+            (self.t("blocks_window.math_blocks_tab.plus_one"), "Plus_one"),
+            (self.t("blocks_window.math_blocks_tab.minus_one"), "Minus_one"),
             (self.t("blocks_window.math_blocks_tab.exponential_operations"), "Exponential_operations"), 
             (self.t("blocks_window.math_blocks_tab.random_number"), "Random_number")
         ]
@@ -574,23 +576,23 @@ class blocksWindow(QDialog):
         toggle_style(0)
 
     def open(self):
-        print("Opening blocksWindow")
+        #print("Opening blocksWindow")
         if self.is_hidden:
-            print("Initially hidden, showing window")
+            #print("Initially hidden, showing window")
             self.is_hidden = False
             for canvas_info in Utils.canvas_instances.values():
-                print(f"Checking canvas {id(canvas_info['canvas'])} with ref {canvas_info['ref']} against parent_canvas {self.parent_canvas}")
+                #print(f"Checking canvas {id(canvas_info['canvas'])} with ref {canvas_info['ref']} against parent_canvas {self.parent_canvas}")
                 if canvas_info['canvas'] == self.parent_canvas:
-                    print("Found matching canvas for blocksWindow open")
+                    #print("Found matching canvas for blocksWindow open")
                     if canvas_info['ref'] == 'canvas' and len(Utils.canvas_instances) > 1:
-                        print("Ensuring Functions tab is created for main canvas")
+                        #print("Ensuring Functions tab is created for main canvas")
                         self.create_functions_tab()
                         break
             self.show()
             self.raise_()
             self.activateWindow()
         else:
-            print("blocksWindow already open, raising to front")
+            #print("blocksWindow already open, raising to front")
             self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
             self.raise_()           # Brings the widget to the top of the stack
             self.activateWindow()    # Gives the window keyboard focus   

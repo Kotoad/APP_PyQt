@@ -139,7 +139,7 @@ class BlockGraphicsItem(QGraphicsObject):
                                 "Random_number", "Blink_LED", "PWM_LED"]:
             self.width = 150
             self.height = 50
-        elif self.block_type in [ "Start", "End", "While_true", "Toggle_LED", "Switch", "LED_ON", "LED_OFF"]:
+        elif self.block_type in [ "Start", "End", "While_true", "Toggle_LED", "Switch", "LED_ON", "LED_OFF", "Plus_one", "Minus_one"]:
             self.width = 100
             self.height = 50
         elif self.block_type == "Function":
@@ -215,6 +215,10 @@ class BlockGraphicsItem(QGraphicsObject):
             text_to_measure = f"{self.value_1_name} - {self.PWM_value}"
         elif self.block_type in ["Toggle_LED", "LED_ON", "LED_OFF"]:
             text_to_measure = f"{self.value_1_name}"
+        elif self.block_type == "Plus_one":
+            text_to_measure = f"{self.value_1_name} + 1"
+        elif self.block_type == "Minus_one":
+            text_to_measure = f"{self.value_1_name} - 1"
         elif self.block_type == "RGB_LED":
             for i in range(1, 4):
                 val_name = getattr(self, f"value_{i}_1_name", "N")
@@ -263,9 +267,11 @@ class BlockGraphicsItem(QGraphicsObject):
             "Button": QColor("#D3D3D3"),    # Light gray
             "While_true": QColor("#87CEEB"),     # Sky blue
             "Function": QColor("#FFA500"),  # Orange
-            "Basic_operations": QColor("#9900FF"),  # Light orange
+            "Basic_operations": QColor("#9900FF"),  # Purple
             "Exponential_operations": QColor("#9900FF"),      # Purple
             "Random_number": QColor("#9900FF"),  # Purple
+            "Plus_one": QColor("#9900FF"),  # Purple
+            "Minus_one": QColor("#9900FF"),  # Purple
             "Blink_LED": QColor("#57A139"),      # Green
             "Toggle_LED": QColor("#57A139"),     # Green
             "PWM_LED": QColor("#57A139"),        # Green
@@ -397,7 +403,14 @@ class BlockGraphicsItem(QGraphicsObject):
             math_text = f"{self.result_var_name} = {self.value_1_name} {self.operator} {self.value_2_name}"
             math_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(math_rect, Qt.AlignmentFlag.AlignCenter, math_text)
-        elif self.block_type in ["Toggle_LED", "Turn_OFF_LED", "Turn_ON_LED"]:
+        elif self.block_type in ["Plus_one", "Minus_one"]:
+            if self.block_type == "Plus_one":
+                math_text = f"{self.value_1_name} + 1"
+            else:
+                math_text = f"{self.value_1_name} - 1"
+            math_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(math_rect, Qt.AlignmentFlag.AlignCenter, math_text)
+        elif self.block_type in ["Toggle_LED", "LED_ON", "LED_OFF"]:
             device_text = f"{self.value_1_name}"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)

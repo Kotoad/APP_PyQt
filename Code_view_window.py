@@ -190,16 +190,16 @@ class CodeViewerWindow(QDialog):
         toggle_style(0)
 
     def open(self):
-        print("Opening CodeViewerWindow")
+        #print("Opening CodeViewerWindow")
         if self.is_hidden:
-            print("Initially hidden, showing window")
+            #print("Initially hidden, showing window")
             self.is_hidden = False
             self.refresh_content() 
             self.show()
             self.raise_()
             self.activateWindow()
         else:
-            print("CodeViewerWindow already open, raising to front")
+            #print("CodeViewerWindow already open, raising to front")
             self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
             self.raise_()           # Brings the widget to the top of the stack
             self.activateWindow()    # Gives the window keyboard focus   

@@ -229,3 +229,71 @@ class MaxWidthComboBox(QComboBox):
             self.showPopup()
         else:
             super().mousePressEvent(event)
+
+class CustomTickSlider(QSlider):
+    def __init__(self, orientation, parent=None):
+        super().__init__(orientation, parent)
+        # Store a list of specific numbers where we want ticks
+        self.specific_ticks = []
+
+    def setSpecificTicks(self, ticks_list):
+        self.specific_ticks = ticks_list
+        self.update()  # Tell the widget to redraw itself
+
+    # 2. Override the paintEvent to draw our own marks
+    def paintEvent(self, event):
+        # First, let the slider draw itself normally (the groove and handle)
+        super().paintEvent(event)
+
+        # Now, grab a "painter" to draw on top of the slider
+        painter = QPainter(self)
+        pen = QPen(QColor("red"))  # Make the custom ticks red so they stand out
+
+        font = painter.font()
+        font.setPointSize(8)
+        font.setBold(True)
+
+        painter.setFont(font)
+
+        # Calculate where to draw the lines based on the min/max range
+        minimum = self.minimum()
+        maximum = self.maximum()
+        range_span = maximum - minimum
+
+        if range_span == 0:
+            return
+
+        # Get the width of the slider to know how to space the marks
+        # (We pad it slightly so it aligns better with the center of the handle)
+        padding = 8 
+        available_width = self.width() - (padding * 2)
+
+        for tick_val in self.specific_ticks:
+            # Ensure the tick is within the valid range
+            if minimum <= tick_val <= maximum:
+                # Find the X center point for this tick
+                ratio = (tick_val - minimum) / range_span
+                x_pos = padding + int(ratio * available_width)
+
+                # 3. Draw the vertical tick line
+                y_top = self.height() // 2 + 2
+                y_bottom = self.height() - 15  # Leave 15 pixels at the bottom for text
+                painter.drawLine(x_pos, y_top, x_pos, y_bottom)
+
+                # 4. Draw the number
+                tick_val = tick_val / 100
+                tick_val = tick_val if tick_val % 1 else int(tick_val)  # Show as int if whole number
+                text = str(tick_val)
+                text_width = 30
+                text_height = 15
+                
+                # Create an invisible box centered exactly on the tick line to hold the text
+                text_box = QRect(
+                    x_pos - (text_width // 2),  # Shift left by half width to center it
+                    self.height() - text_height, # Position it at the very bottom
+                    text_width, 
+                    text_height
+                )
+                
+                # Draw the text perfectly centered inside that invisible box
+                painter.drawText(text_box, Qt.AlignmentFlag.AlignCenter, text)

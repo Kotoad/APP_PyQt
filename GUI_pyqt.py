@@ -244,7 +244,7 @@ class UniversalErrorHandler(QObject):
         # Force the detailed text to be visible/copyable nicely
         msg_box.setStyleSheet("QMessageBox { min-width: 600px; }")
         
-        ret = msg_box.exec()
+        msg_box.exec()
         
         if msg_box.clickedButton() == copy_btn:
             clipboard = QApplication.clipboard()
@@ -285,7 +285,7 @@ class RPiExecutionThread(QThread):
         Signal thread to stop gracefully.
         This is called from the main GUI thread.
         """
-        print("[RPiExecutionThread] ⚠️  Stop signal received")
+        print("[RPiExecutionThread]  Stop signal received")
         
         with self.stop_lock:
             self.should_stop = True
@@ -293,7 +293,7 @@ class RPiExecutionThread(QThread):
         # CRITICAL: Close SSH connection immediately to interrupt blocking operations
         if self.ssh is not None:
             try:
-                print("[RPiExecutionThread] 🔌 Closing SSH connection...")
+                print("[RPiExecutionThread] Closing SSH connection...")
                 self.ssh.close()
             except Exception as e:
                 print(f"[RPiExecutionThread] Error closing SSH: {e}")
@@ -301,7 +301,7 @@ class RPiExecutionThread(QThread):
         # Close channel if it exists
         if self.channel is not None:
             try:
-                print("[RPiExecutionThread] 🔌 Closing SSH channel...")
+                print("[RPiExecutionThread] Closing SSH channel...")
                 self.channel.close()
             except Exception as e:
                 print(f"[RPiExecutionThread] Error closing channel: {e}")
@@ -321,11 +321,11 @@ class RPiExecutionThread(QThread):
         try:
             # ===== STEP 1: Check if stop was called before execution =====
             if not self.should_continue():
-                self.status.emit("⏹️  Execution cancelled before start")
+                self.status.emit("Execution cancelled before start")
                 return
             
             # ===== STEP 2: Connect to RPi =====
-            self.status.emit("🔌 Connecting to RPi...")
+            self.status.emit("Connecting to RPi...")
             
             try:
                 ssh = paramiko.SSHClient()
@@ -349,14 +349,14 @@ class RPiExecutionThread(QThread):
             # ===== STEP 3: Check if stop was called during connection =====
             if not self.should_continue():
                 ssh.close()
-                self.status.emit("⏹️  Execution cancelled during connection")
+                self.status.emit("Execution cancelled during connection")
                 return
 
-            self.status.emit("✓ Connected to RPi")
+            self.status.emit("Connected to RPi")
             
             # ===== STEP 4: Upload file via SFTP =====
             try:
-                self.status.emit("📤 Uploading File.py...")
+                self.status.emit("Uploading File.py...")
                 sftp = ssh.open_sftp()
                 
                 # Get home directory
@@ -371,14 +371,14 @@ class RPiExecutionThread(QThread):
                 if not self.should_continue():
                     sftp.close()
                     ssh.close()
-                    self.status.emit("⏹️  Execution cancelled before upload")
+                    self.status.emit("Execution cancelled before upload")
                     return
                 
                 # Upload file
                 sftp.put(self.ssh_config['filepath'], remote_path)
                 sftp.close()
                 
-                self.status.emit(f"✓ Uploaded to {remote_path}")
+                self.status.emit(f"Uploaded to {remote_path}")
             
             except Exception as e:
                 self.error.emit(f"Failed to upload file: {str(e)}")
@@ -389,17 +389,17 @@ class RPiExecutionThread(QThread):
             # ===== STEP 6: Check if stop was called before execution =====
             if not self.should_continue():
                 ssh.close()
-                self.status.emit("⏹️  Execution cancelled before code execution")
+                self.status.emit("Execution cancelled before code execution")
                 return
             
             # ===== STEP 7: Execute code on RPi =====
-            self.status.emit("🔪 Killing old processes...")
+            self.status.emit("Killing old processes...")
 
             self.kill_process()
             # Check if stop was called while killing
             if not self.should_continue():
                 ssh.close()
-                self.status.emit("⏹️  Execution stopped by user")
+                self.status.emit("Execution stopped by user")
                 self.execution_completed.emit(False)
                 return
 
@@ -408,7 +408,7 @@ class RPiExecutionThread(QThread):
             # Give the old process time to die
             time.sleep(2.0)
 
-            self.status.emit("🚀 Executing code...")
+            self.status.emit("Executing code...")
             
             
             try:
@@ -462,7 +462,7 @@ class RPiExecutionThread(QThread):
                 # ===== STEP 8: Check if stop was called during execution =====
                 if not self.should_continue():
                     ssh.close()
-                    self.status.emit("⏹️  Execution cancelled after completion")
+                    self.status.emit("Execution cancelled after completion")
                     return
                 
                 # Read output with timeout
@@ -487,13 +487,13 @@ class RPiExecutionThread(QThread):
                 
                 # ===== STEP 9: Handle results =====
                 if exit_code == 0:
-                    self.status.emit("✓ Execution successful!")
+                    self.status.emit("Execution successful!")
                     if output:
                         self.output.emit(f"Output:\n{output}")
                     self.execution_completed.emit(True)
                     self.finished.emit()
                 else:
-                    self.status.emit(f"✗ Execution failed (exit code: {exit_code})")
+                    self.status.emit(f" Execution failed (exit code: {exit_code})")
                     self.error.emit(f"Execution failed:\n{error_output}")
                     self.execution_completed.emit(False)
             
@@ -552,11 +552,11 @@ class RPiExecutionThread(QThread):
                     self.ssh.exec_command(kill_cmd, timeout=2)
                 
                 time.sleep(1.0)
-                print("⚠️  GPIO cleanup may not have completed. Pin state may be dirty.")
+                print(" GPIO cleanup may not have completed. Pin state may be dirty.")
             
             # Final check to ensure port/file descriptors are released
             time.sleep(0.5)
-            print("✓ Process termination logic complete")
+            print("Process termination logic complete")
         except Exception as e:
             print(f"Process termination error: {e}")
 
@@ -631,29 +631,6 @@ class RPiExecutionThread(QThread):
             print(f"Error detecting pins: {e}")
         
         return pins
-    
-    def reset_gpio_hardware(self):
-        """
-        Reset GPIO pins at the Linux kernel level.
-        This bypasses RPi.GPIO library and directly manipulates kernel GPIO interface.
-        """
-        try:
-            print("🔧 Resetting GPIO hardware state...")
-            
-            # Get list of pins to reset (from your devices)
-            pins_to_reset = [17]  # Add all pins your application uses
-            
-            for pin in pins_to_reset:
-                # Unexport pin if it exists (releases kernel control)
-                unexport_cmd = f"echo {pin} | sudo tee /sys/class/gpio/unexport 2>/dev/null || true"
-                self.ssh.exec_command(unexport_cmd, timeout=2)
-            
-            time.sleep(0.5)
-            print("✓ GPIO hardware reset complete")
-            
-        except Exception as e:
-            print(f"⚠️  GPIO hardware reset warning: {e}")
-
 
 class PicoListenerThread(QThread):
     """
@@ -671,7 +648,7 @@ class PicoListenerThread(QThread):
 
     def run(self):
 
-        self.status.emit("⏳ Waiting for Pico to reboot...")
+        self.status.emit("Waiting for Pico to reboot...")
         time.sleep(2.0)  # Short initial wait
         
         # 2. Dynamic Port Hunting Loop
@@ -695,7 +672,7 @@ class PicoListenerThread(QThread):
             
         # 3. Handle specific failure (Timout or Success)
         if not new_port:
-            self.status.emit("❌ Pico not found after reboot.")
+            self.status.emit(" Pico not found after reboot.")
             self.finished.emit()
             return
             
@@ -704,12 +681,12 @@ class PicoListenerThread(QThread):
             try:
                 self.port = new_port # Update port in case it changed (e.g. COM3 -> COM4)
                 self.ser = serial.Serial(self.port, 115200, timeout=1)
-                self.status.emit(f"✓ Reconnected to {self.port}")
+                self.status.emit(f"Reconnected to {self.port}")
                 break
             except Exception as e:
                 time.sleep(0.5)
                 if attempt == 4:
-                     self.status.emit(f"⚠️ Connection failed: {str(e)}")
+                     self.status.emit(f"Connection failed: {str(e)}")
                      self.finished.emit()
                      return
 
@@ -771,74 +748,6 @@ class GridScene(QGraphicsScene):
         
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 #MARK: - Custom widgets
-class CustomTickSlider(QSlider):
-    def __init__(self, orientation, parent=None):
-        super().__init__(orientation, parent)
-        # Store a list of specific numbers where we want ticks
-        self.specific_ticks = []
-
-    def setSpecificTicks(self, ticks_list):
-        self.specific_ticks = ticks_list
-        self.update()  # Tell the widget to redraw itself
-
-    # 2. Override the paintEvent to draw our own marks
-    def paintEvent(self, event):
-        # First, let the slider draw itself normally (the groove and handle)
-        super().paintEvent(event)
-
-        # Now, grab a "painter" to draw on top of the slider
-        painter = QPainter(self)
-        pen = QPen(QColor("red"))  # Make the custom ticks red so they stand out
-
-        font = painter.font()
-        font.setPointSize(8)
-        font.setBold(True)
-
-        painter.setFont(font)
-
-        # Calculate where to draw the lines based on the min/max range
-        minimum = self.minimum()
-        maximum = self.maximum()
-        range_span = maximum - minimum
-
-        if range_span == 0:
-            return
-
-        # Get the width of the slider to know how to space the marks
-        # (We pad it slightly so it aligns better with the center of the handle)
-        padding = 8 
-        available_width = self.width() - (padding * 2)
-
-        for tick_val in self.specific_ticks:
-            # Ensure the tick is within the valid range
-            if minimum <= tick_val <= maximum:
-                # Find the X center point for this tick
-                ratio = (tick_val - minimum) / range_span
-                x_pos = padding + int(ratio * available_width)
-
-                # 3. Draw the vertical tick line
-                y_top = self.height() // 2 + 2
-                y_bottom = self.height() - 15  # Leave 15 pixels at the bottom for text
-                painter.drawLine(x_pos, y_top, x_pos, y_bottom)
-
-                # 4. Draw the number
-                tick_val = tick_val / 100
-                tick_val = tick_val if tick_val % 1 else int(tick_val)  # Show as int if whole number
-                text = str(tick_val)
-                text_width = 30
-                text_height = 15
-                
-                # Create an invisible box centered exactly on the tick line to hold the text
-                text_box = QRect(
-                    x_pos - (text_width // 2),  # Shift left by half width to center it
-                    self.height() - text_height, # Position it at the very bottom
-                    text_width, 
-                    text_height
-                )
-                
-                # Draw the text perfectly centered inside that invisible box
-                painter.drawText(text_box, Qt.AlignmentFlag.AlignCenter, text)
-
 class CustomSwitch(QWidget):
     """
     YOUR CustomSwitch - Has FULL control over circle size!
@@ -906,10 +815,6 @@ class CustomSwitch(QWidget):
             self._is_animating = True
         else:  # Stopped
             self._is_animating = False
-
-    
-    def on_switch_changed(self):
-        return self._is_checked
     
     def set_checked(self, state, emit_signal=True):
         if self._is_checked != state:
@@ -921,14 +826,6 @@ class CustomSwitch(QWidget):
     
     def toggle(self):
         self.set_checked(not self._is_checked)
-    
-    def set_enabled_custom(self, enabled):
-        self._is_enabled = enabled
-        self.setCursor(
-            Qt.CursorShape.PointingHandCursor if enabled 
-            else Qt.CursorShape.ForbiddenCursor
-        )
-        self.update()
     
     def _update_circle_position(self, animate=True):
         if self._is_checked:
@@ -1242,7 +1139,6 @@ class GridCanvas(QGraphicsView):
         print(f"spawner {self.spawner}")
         self.state_manager = Utils.state_manager
         self.path_manager = PathManager(self)
-        self.blocks_events = elementevents(self)
         
         # Create graphics scene
         self.scene = GridScene(grid_size=grid_size)
@@ -1253,7 +1149,6 @@ class GridCanvas(QGraphicsView):
         self.zoom_level = 1.0
         self.min_zoom = 0.5
         self.max_zoom = 2.0
-        self.zoom_speed = 0.1
         
         # Rendering
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -1273,9 +1168,6 @@ class GridCanvas(QGraphicsView):
         
         # Tracking
         self.main_window = None
-        self.dragged_widget = None
-        self.offset_x = 0
-        self.offset_y = 0
         
         # Style
         self.setStyleSheet("""
@@ -1771,23 +1663,23 @@ class MainWindow(QMainWindow):
             for canvas, info in Utils.canvas_instances.items():
                 #print(f"Canvas in Utils.canvas_instances: {canvas}, info: {info}")
                 if info['index'] == index:
-                    #print(f"✓ Found current canvas in Utils.canvas_instances: {canvas}")
+                    #print(f"Found current canvas in Utils.canvas_instances: {canvas}")
                     widget = info['canvas']
             #print(f"Current sidebar tab index: {index}, widget: {widget}")
             
             # Check if it's a GridCanvas instance
             if isinstance(widget, GridCanvas):
-                #print("✓ Current canvas found.")
+                #print("Current canvas found.")
                 return widget
         except Exception as e:
-            print(f"⚠️ Error getting current canvas: {e}")
+            print(f"Error getting current canvas: {e}")
         
         # Fallback to main canvas if property fails
         if hasattr(self, 'canvas') and self.canvas is not None:
-            #print("✓ Using main canvas as fallback.")
+            #print("Using main canvas as fallback.")
             return self.canvas
         
-        print("❌ No canvas available.")
+        print(" No canvas available.")
         return None
         
     def __init__(self):
@@ -1904,13 +1796,6 @@ class MainWindow(QMainWindow):
             }
         """)
         self.opend_project = None
-        self.help_window_instance = None
-        self.variable_frame = None
-        self.variable_frame_visible = False
-        self.variable_row_count = 1
-        self.Devices_frame = None
-        self.devices_frame_visible = False
-        self.devices_row_count = 1
         self.last_canvas = None
         self.blockIDs = {}
         self.execution_thread = None
@@ -1921,12 +1806,6 @@ class MainWindow(QMainWindow):
         self.count_w_separator = 0
         self.canvas_count = 0
         self.tab_buttons = []  # Track tab buttons
-        self.last_m_dev = None
-        self.last_m_var = None
-        self.last_f_dev = None
-        self.last_f_var = None
-        self.last_type_var = None
-        self.last_type_dev = None
         self.opend_windows = []
 
         self.reset_file()
@@ -1938,7 +1817,7 @@ class MainWindow(QMainWindow):
     
     def mousePressEvent(self, event):
         """Debug: Track if main window gets mouse press"""
-        print("⚠ MainWindow.mousePressEvent fired!")
+        print("MainWindow.mousePressEvent fired!")
         super().mousePressEvent(event)
     
     def keyPressEvent(self, event):
@@ -2252,7 +2131,6 @@ class MainWindow(QMainWindow):
             
     def create_variables_panel(self, canvas_reference=None):
         """Create Variables panel"""
-        canvas_reference.variable_row_count = 0
         canvas_reference.widget = QWidget()
         canvas_reference.layout = QVBoxLayout(canvas_reference.widget)
         canvas_reference.layout.setContentsMargins(10, 10, 10, 10)
@@ -2293,7 +2171,6 @@ class MainWindow(QMainWindow):
 
     def create_devices_panel(self, canvas_reference=None):
         """Create Devices panel"""
-        canvas_reference.devices_row_count = 0
         canvas_reference.widget = QWidget()
         canvas_reference.layout = QVBoxLayout(canvas_reference.widget)
         canvas_reference.layout.setContentsMargins(10, 10, 10, 10)
@@ -2335,9 +2212,7 @@ class MainWindow(QMainWindow):
     
     def create_internal_vars_panel(self, canvas_reference=None):
         """Create Internal Variables panel"""
-        canvas_reference.internal_vars_rows_count = 0
         canvas_reference.internal_devs_rows_count = 0
-        canvas_reference.internal_rows_count = 0
         canvas_reference.widget = QWidget()
         canvas_reference.layout = QVBoxLayout(canvas_reference.widget)
         canvas_reference.layout.setContentsMargins(10, 10, 10, 10)
@@ -2688,10 +2563,6 @@ class MainWindow(QMainWindow):
         """Get currently active tab index"""
         return self.content_area.currentIndex()
     
-    def get_tab_widget(self, tab_name):
-        """Get the widget for a specific tab"""
-        return self.pages.get(tab_name)
-    
     def _on_tab_clicked(self, tab_index, reference=None):
         """Internal handler for tab clicks"""
         if self.state_manager.app_state.on_tab_changed():
@@ -2910,7 +2781,7 @@ class MainWindow(QMainWindow):
                 current_canvas.inspector_content_layout.takeAt(i)
         
         # Add new content
-        title = QLabel(f"{self.t('main_GUI.inspector.title')} - {block.block_type}")
+        title = QLabel(f"{self.t('main_GUI.inspector.title')} - {block.block_type.replace('_', ' ')}")
         title.setStyleSheet("font-weight: bold; font-size: 16px; padding: 5px;")
         current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), title)
         
@@ -2976,6 +2847,7 @@ class MainWindow(QMainWindow):
                 current_canvas.inspector_content_layout.count(), 
                 interval_input
             )
+        #Loops and If blocks inputs
         if block_data['type'] in ('While', 'For Loop'):
             name_label = QLabel(f"{self.t('main_GUI.inspector.value_1_name')}:")
             
@@ -3090,6 +2962,9 @@ class MainWindow(QMainWindow):
             self.insert_items(block, self.name_1_input)
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+       
+        #LEDS
+
         if block_data['type'] == 'Blink_LED':
             name_label = QLabel(self.t("main_GUI.inspector.led_device_name"))
             
@@ -3115,7 +2990,7 @@ class MainWindow(QMainWindow):
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), time_label)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.blink_time_input)
-        if block_data['type'] in ["Toggle_LED", "Turn_OFF_LED", "Turn_ON_LED"]:
+        if block_data['type'] in ["Toggle_LED", "LED_ON", "LED_OFF"]:
             name_label = QLabel(self.t("main_GUI.inspector.led_device_name"))
             
             self.name_1_input = SearchableLineEdit()
@@ -3180,6 +3055,8 @@ class MainWindow(QMainWindow):
 
                 current_canvas.inspector_content_layout.addWidget(line_widget)
 
+        #Math blocks
+
         if block_data['type'] in ("Basic_operations", "Exponential_operations", "Random_number"):
             name_label = QLabel(self.t("main_GUI.inspector.first_variable"))
             
@@ -3229,6 +3106,33 @@ class MainWindow(QMainWindow):
                 current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), operator_box) 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label_2)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.value_2_name_input)
+
+        if block_data['type'] in ("Plus_one", "Minus_one"):
+
+            line_widget = QWidget()
+            line_layout = QHBoxLayout(line_widget)
+            line_layout.setContentsMargins(0, 0, 0, 0)
+
+            name_label = QLabel(self.t("main_GUI.inspector.variable"))
+            
+            self.value_1_name_input = SearchableLineEdit()
+            self.value_1_name_input.setText(block_data.get('value_1_name', ''))
+            self.value_1_name_input.setPlaceholderText(self.t("main_GUI.inspector.variable_placeholder"))
+            self.value_1_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+
+            if block_data['type'] == "Plus_one":
+                operator_label = QLabel("+ 1")
+            else:
+                operator_label = QLabel("- 1")
+
+            self.insert_items(block, self.value_1_name_input)
+            line_layout.addWidget(name_label)
+            line_layout.addWidget(self.value_1_name_input)
+            line_layout.addWidget(operator_label)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), line_widget)
+
+        #Function block inputs
+        
         if block_data['type'] == 'Function':
             
             var_label = QLabel(self.t("main_GUI.inspector.input_variables"))
@@ -3745,9 +3649,6 @@ class MainWindow(QMainWindow):
                 Utils.variables['function_canvases'][function_id][var_id]['type_input'] = self.type_input
         panel_layout = canvas_reference.internal_layout
         panel_layout.insertWidget(panel_layout.count() - 2 - canvas_reference.internal_devs_rows_count, canvas_reference.row_widget)
-        
-        canvas_reference.internal_vars_rows_count += 1
-        canvas_reference.internal_rows_count += 1
 
         #print(f"Added variable: {self.var_id}")
     def add_internal_device_row(self, dev_id=None, dev_data=None, canvas_reference=None):
@@ -3841,7 +3742,6 @@ class MainWindow(QMainWindow):
         panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
         
         canvas_reference.internal_devs_rows_count += 1
-        canvas_reference.internal_rows_count += 1
     #MARK: - Variable Panel Methods
     def add_variable_row(self, var_id=None, var_data=None, canvas_reference=None):
         """Add a new variable row"""
@@ -3929,7 +3829,6 @@ class MainWindow(QMainWindow):
         panel_layout = canvas_reference.var_layout
         panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
         
-        canvas_reference.variable_row_count += 1
         
         #print(f"Added variable: {self.var_id}")
     
@@ -4055,7 +3954,6 @@ class MainWindow(QMainWindow):
         panel_layout = canvas_reference.dev_layout
         panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
         
-        canvas_reference.devices_row_count += 1
         Utils.devices['main_canvas'][device_id]['widget'] = canvas_reference.row_widget
         Utils.devices['main_canvas'][device_id]['name_imput'] = name_imput
         Utils.devices['main_canvas'][device_id]['type_input'] = self.type_input
@@ -4129,7 +4027,6 @@ class MainWindow(QMainWindow):
             row_widget.setParent(None)
             row_widget.deleteLater()
             
-            canvas_reference.variable_row_count -= 1
         elif type == "Device":
                 
             for canvas, info in Utils.canvas_instances.items():
@@ -4162,8 +4059,6 @@ class MainWindow(QMainWindow):
             
             row_widget.setParent(None)
             row_widget.deleteLater()
-            
-            canvas_reference.devices_row_count -= 1
         #print(f"Deleted variable: {var_id}")
     
     def remove_internal_row(self, row_widget, var_id, type, canvas_reference=None):
@@ -4529,7 +4424,7 @@ class MainWindow(QMainWindow):
         # 5 minutes = 300,000 milliseconds
         self.auto_save_timer.start(300000)  # 300000 ms = 5 minutes
         
-        #print("✓ Auto-save timer started (every 5 minutes)")
+        #print("Auto-save timer started (every 5 minutes)")
     
     def get_current_time(self):
         """Get current time for logging"""
@@ -4543,12 +4438,12 @@ class MainWindow(QMainWindow):
         self.opend_project = name
         try:
             if Utils.file_manager.save_project(name, is_autosave=True):
-                print(f"✓ Auto-saved '{name}' at {self.get_current_time()}")
+                print(f"Auto-saved '{name}' at {self.get_current_time()}")
                 pass
             else:
-                print(f"✗ Auto-save failed for '{name}'")
+                print(f" Auto-save failed for '{name}'")
         except Exception as e:
-            print(f"✗ Auto-save error: {e}")
+            print(f" Auto-save error: {e}")
 
     def on_save_file(self):
         """Save current project"""
@@ -4561,7 +4456,7 @@ class MainWindow(QMainWindow):
         #print(f"Metadata: {Utils.project_data.metadata}")
         #print(f"Saving project as '{name}'")
         if Utils.file_manager.save_project(name):
-            print(f"✓ Project '{name}' saved")
+            print(f"Project '{name}' saved")
             self.opend_project = name
 
     def on_save_file_as(self):
@@ -4575,7 +4470,7 @@ class MainWindow(QMainWindow):
         if ok and text:
             Utils.project_data.metadata['name'] = text
             if Utils.file_manager.save_project(text):
-                print(f"✓ Project saved as '{text}'")
+                print(f"Project saved as '{text}'")
         
     def on_open_file(self):
         """Open saved project"""
@@ -4595,7 +4490,7 @@ class MainWindow(QMainWindow):
             if Utils.file_manager.load_project(item):
                 self.opend_project = item
                 self.rebuild_from_data()
-                #print(f"✓ Project '{item}' loaded")
+                #print(f"Project '{item}' loaded")
 
     def on_reload_reqested(self, reqested):
         if reqested:
@@ -4655,12 +4550,6 @@ class MainWindow(QMainWindow):
             'main_canvas': {},
             'function_canvases': {}
         }
-        self.variable_frame = None
-        self.variable_frame_visible = False
-        self.variable_row_count = 1
-        self.Devices_frame = None
-        self.devices_frame_visible = False
-        self.devices_row_count = 1
         self.last_canvas = None
         self.blockIDs = {}
         self.execution_thread = None
@@ -4786,19 +4675,18 @@ class MainWindow(QMainWindow):
             # Compare with saved version
             comparison = Utils.file_manager.compare_projects(name)
             print(f"Comparison result for '{name}': {comparison}")
-            print(f"Has changes: {comparison.has_changes}")
-            if comparison.has_changes:
+            print(f"Has changes: {comparison}")
+            if comparison == True:
                 print("Unsaved changes detected, prompting user")
-                change_summary = self.build_change_summary(comparison)
+                
                 reply = QMessageBox.question(
                     self, self.t("main_GUI.dialogs.file_dialogs.save_project"),
-                    f"{self.t('main_GUI.dialogs.file_dialogs.unsaved_changes').format(name=name)}\n\n{change_summary}",
+                    f"{self.t('main_GUI.dialogs.file_dialogs.unsaved_changes').format(name=name)}",
                     QMessageBox.StandardButton.Save |
                     QMessageBox.StandardButton.Discard |
                     QMessageBox.StandardButton.Cancel,
                     QMessageBox.StandardButton.Save
-                )
-                
+                ) 
                 if reply == QMessageBox.StandardButton.Save:
                     Utils.file_manager.save_project(name)
                 elif reply != QMessageBox.StandardButton.Discard:
@@ -4811,86 +4699,6 @@ class MainWindow(QMainWindow):
         import gc
         gc.collect()
         event.accept()
-    
-    def build_change_summary(self, comparison) -> str:
-        """Build detailed human-readable summary from ProjectComparison"""
-        summary = []
-        print(f"Building change summary from comparison: {comparison}")
-        # Main Canvas Changes
-        if comparison.main_canvas_changed:
-            print("Main canvas changes detected")
-            main_details = []
-            if comparison.main_blocks_added:
-                main_details.append(f"  ✓ {len(comparison.main_blocks_added)} {self.t('main_GUI.dialogs.changes_dialogs.blocks_added')}")
-            if comparison.main_blocks_removed:
-                main_details.append(f"  ✓ {len(comparison.main_blocks_removed)} {self.t('main_GUI.dialogs.changes_dialogs.blocks_removed')}")
-            if comparison.main_blocks_modified:
-                main_details.append(f"  ✓ {len(comparison.main_blocks_modified)} {self.t('main_GUI.dialogs.changes_dialogs.blocks_modified')}")
-            if comparison.main_connections_added:
-                main_details.append(f"  ✓ {len(comparison.main_connections_added)} {self.t('main_GUI.dialogs.changes_dialogs.connections_added')}")
-            if comparison.main_connections_removed:
-                main_details.append(f"  ✓ {len(comparison.main_connections_removed)} {self.t('main_GUI.dialogs.changes_dialogs.connections_removed')}")
-            
-            if main_details:
-                summary.append(self.t("main_GUI.dialogs.changes_dialogs.main_canvas_changes"))
-                summary.extend(main_details)
-        
-        # Function Canvas Changes
-        if comparison.function_canvases_changed:
-            print("Function canvas changes detected")
-            func_details = []
-            if comparison.function_canvases_added:
-                func_details.append(f"  ✓ {len(comparison.function_canvases_added)} {self.t('main_GUI.dialogs.changes_dialogs.function_added')}")
-            if comparison.function_canvases_removed:
-                func_details.append(f"  ✓ {len(comparison.function_canvases_removed)} {self.t('main_GUI.dialogs.changes_dialogs.function_removed')}")
-            if comparison.function_blocks_modified:
-                func_details.append(f"  ✓ {len(comparison.function_blocks_modified)} {self.t('main_GUI.dialogs.changes_dialogs.function_blocks_modified')}")
-            if comparison.function_connections_modified:
-                func_details.append(f"  ✓ {len(comparison.function_connections_modified)} {self.t('main_GUI.dialogs.changes_dialogs.function_connections_modified')}")
-            
-            if func_details:
-                summary.append(self.t("main_GUI.dialogs.changes_dialogs.function_canvas_changes"))
-                summary.extend(func_details)
-        
-        # Variables Changes
-        if comparison.variables_changed:
-            print("Variable changes detected")
-            var_details = []
-            if comparison.variables_added:
-                var_details.append(f"  ✓ {len(comparison.variables_added)} {self.t('main_GUI.dialogs.changes_dialogs.variables_added')}")
-            if comparison.variables_removed:
-                var_details.append(f"  ✓ {len(comparison.variables_removed)} {self.t('main_GUI.dialogs.changes_dialogs.variables_removed')}")
-            if comparison.variables_modified:
-                var_details.append(f"  ✓ {len(comparison.variables_modified)} {self.t('main_GUI.dialogs.changes_dialogs.variables_modified')}")
-            
-            if var_details:
-                summary.append(self.t("main_GUI.dialogs.changes_dialogs.variables_changes"))
-                summary.extend(var_details)
-        
-        # Devices Changes
-        if comparison.devices_changed:
-            print("Device changes detected")
-            dev_details = []
-            if comparison.devices_added:
-                dev_details.append(f"  ✓ {len(comparison.devices_added)} {self.t('main_GUI.dialogs.changes_dialogs.devices_added')}")
-            if comparison.devices_removed:
-                dev_details.append(f"  ✓ {len(comparison.devices_removed)} {self.t('main_GUI.dialogs.changes_dialogs.devices_removed')}")
-            if comparison.devices_modified:
-                dev_details.append(f"  ✓ {len(comparison.devices_modified)} {self.t('main_GUI.dialogs.changes_dialogs.devices_modified')}")
-            
-            if dev_details:
-                summary.append(self.t("main_GUI.dialogs.changes_dialogs.devices_changes"))
-                summary.extend(dev_details)
-        
-        # Settings Changes
-        if comparison.settings_changed:
-            summary.append(f"{self.t('main_GUI.dialogs.changes_dialogs.settings_changed', len_settings_changes=len(comparison.settings_modified))}")
-        
-        if not summary:
-            print("No changes detected")
-            return self.t("main_GUI.dialogs.changes_dialogs.no_changes_detected")
-        
-        return f"{self.t('main_GUI.dialogs.changes_dialogs.unsaved_changes_detected')}\n\n" + "\n".join(summary)
         
     def close_child_windows(self):
         
@@ -4963,29 +4771,29 @@ class MainWindow(QMainWindow):
             )
             
             # ===== STEP 1: Compile code =====
-            #print("📝 Step 1: Compiling code...")
+            #print("Step 1: Compiling code...")
             self.code_compiler.compile()  # This creates File.py
-            #print("✓ Code compiled successfully to File.py")
+            #print("Code compiled successfully to File.py")
             
             # ===== STEP 2: Show compiled output =====
             try:
                 with open('File.py', 'r') as f:
                     compiled_code = f.read()
-                print("--- Generated Code ---")
-                print(compiled_code)
-                print("--- End of Code ---")
+                #print("--- Generated Code ---")
+                #print(compiled_code)
+                #print("--- End of Code ---")
             except FileNotFoundError:
-                print("⚠️  Warning: Could not read compiled File.py")
+                print("Warning: Could not read compiled File.py")
             
             # ===== STEP 3: Execute based on device type =====
-            #print("🚀 Step 3: Executing on device...")
+            #print("Step 3: Executing on device...")
             
             rpi_model = Utils.app_settings.rpi_model_index
             
             if rpi_model == 0:  # Pico W
-                #print("🎯 Target: Pico W (MicroPython)")
+                #print("Target: Pico W (MicroPython)")
                 if self.execute_on_pico_w():
-                    #print("✓ Code executed successfully!")
+                    #print("Code executed successfully!")
                     QMessageBox.information(
                         self,
                         self.t("main_GUI.dialogs.progress_dialogs.success"),
@@ -4993,7 +4801,7 @@ class MainWindow(QMainWindow):
                         QMessageBox.StandardButton.Ok
                     )
                 else:
-                    #print("⚠️  Execution warning - Check device connection")
+                    #print("Execution warning - Check device connection")
                     QMessageBox.warning(
                         self,
                         self.t("main_GUI.dialogs.progress_dialogs.execution_issue"),
@@ -5002,11 +4810,11 @@ class MainWindow(QMainWindow):
                     )
             
             elif rpi_model in [1, 2, 3, 4, 5, 6, 7]:  # Raspberry Pi
-                #print(f"🎯 Target: Raspberry Pi (GPIO) - Model {rpi_model}")
+                #print(f"Target: Raspberry Pi (GPIO) - Model {rpi_model}")
                 #Execute on RPi in background thread
                 self.execute_on_rpi_ssh_background()
                 
-                #print("✓ Execution started on Raspberry Pi")
+                #print("Execution started on Raspberry Pi")
                 # Show info (don't show success here - let thread signals handle it)
                 QMessageBox.information(
                     self,
@@ -5016,7 +4824,7 @@ class MainWindow(QMainWindow):
                 )
             
             else:
-                print("❌ Unknown device model")
+                print("Unknown device model")
                 QMessageBox.critical(
                     self,
                     self.t("main_GUI.dialogs.progress_dialogs.error"),
@@ -5025,7 +4833,7 @@ class MainWindow(QMainWindow):
                 )
         
         except Exception as e:
-            print(f"❌ Error: {str(e)}")
+            print(f"Error: {str(e)}")
             QMessageBox.critical(
                 self,
                 self.t("main_GUI.dialogs.progress_dialogs.compilation_error"),
@@ -5102,7 +4910,7 @@ class MainWindow(QMainWindow):
         Execute on Pico W using native pyboard library (No subprocess/Admin rights needed)
         """
         self.stop_pico_execution()  # Ensure any existing execution is stopped before starting new one
-        print("🔍 Searching for Pico W...")
+        print("Searching for Pico W...")
         target_port = None
         
         # 1. Auto-detect COM port
@@ -5119,7 +4927,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Connection Error", "Could not find Raspberry Pi Pico.\nEnsure it is connected and not in Bootloader mode.")
             return False
 
-        print(f"✓ Found Pico on {target_port}")
+        print(f"Found Pico on {target_port}")
 
         try:
             # 2. Connect directly using Pyboard class
@@ -5129,12 +4937,12 @@ class MainWindow(QMainWindow):
             pyb.enter_raw_repl()
             
             # 3. Upload File.py as main.py
-            print("📤 Uploading main.py...")
+            print("Uploading main.py...")
             with open("File.py", "rb") as f:
                 pyb.fs_put("File.py", "main.py")     
-            print("✓ Upload complete")
+            print("Upload complete")
 
-            print("🔄 Resetting board to start code...")
+            print("Resetting board to start code...")
             try:
                 pyb.exec_("import machine; machine.reset()")  
             except Exception as e:
@@ -5159,7 +4967,7 @@ class MainWindow(QMainWindow):
             return True
 
         except Exception as e:
-            print(f"❌ Execution Error: {e}")
+            print(f"Execution Error: {e}")
             QMessageBox.critical(self, "Execution Error", f"Failed to upload code:\n{str(e)}")
             return False
     
@@ -5181,7 +4989,7 @@ class MainWindow(QMainWindow):
             pyb.enter_raw_repl()
             pyb.close()
 
-            print("✓ Pico W stopped and reset.")
+            print("Pico W stopped and reset.")
             
             QMessageBox.information(
                 self,
@@ -5201,17 +5009,17 @@ class MainWindow(QMainWindow):
         try:
             # ===== STEP 1: Stop old execution if running =====
             if self.execution_thread is not None and self.execution_thread.isRunning():
-                #print("[MainWindow] ⏹️  Stopping previous execution...")
+                #print("[MainWindow] Stopping previous execution...")
                 self.execution_thread.stop()  # Signal it to stop
                 
                 # Wait for thread to finish (max 5 seconds)
                 if not self.execution_thread.wait(5000):
-                    print("[MainWindow] ⚠️  Warning: Thread didn't stop gracefully")
+                    print("[MainWindow] Warning: Thread didn't stop gracefully")
                     # Optional: Force terminate (not recommended, but available)
                     # self.execution_thread.terminate()
                     pass
                 
-                #print("[MainWindow] ✓ Previous execution stopped")
+                #print("[MainWindow] Previous execution stopped")
             
             # ===== STEP 2: Get RPi settings =====
             rpi_host = Utils.app_settings.rpi_host
@@ -5244,10 +5052,10 @@ class MainWindow(QMainWindow):
             
             # ===== STEP 4: Start execution =====
             self.execution_thread.start()
-            print("[MainWindow] ✓ New execution started")
+            print("[MainWindow] New execution started")
         
         except Exception as e:
-            print(f"[MainWindow] ❌ Error: {str(e)}")
+            print(f"[MainWindow]Error: {str(e)}")
             QMessageBox.critical(
                 self,
                 self.t("main_GUI.dialogs.progress_dialogs.execution_error"),
@@ -5286,7 +5094,7 @@ class MainWindow(QMainWindow):
         self._rebuild_connections()
         
         
-        #print("✓ Project rebuild complete")
+        #print("Project rebuild complete")
 
     def rebuild_canvas_instances(self):
         """Rebuild canvas instances from project data"""
@@ -5365,9 +5173,9 @@ class MainWindow(QMainWindow):
                                     canvas=canvas,
                                     name=block['name'] if 'name' in block else None,
                                 )
-            #print("✓ Blocks rebuilt on canvas")
+            #print("Blocks rebuilt on canvas")
         except Exception as e:
-            print(f"❌ Error rebuilding blocks: {e}")
+            print(f"Error rebuilding blocks: {e}")
         
 
     def add_block_from_data(self, block_type, x, y, block_id, canvas=None, name=None):
@@ -5395,72 +5203,33 @@ class MainWindow(QMainWindow):
         for canvas_key, canvas_info in Utils.canvas_instances.items():
             if canvas_info['canvas'] == canvas:
                 break
-        if canvas_info['ref'] == 'canvas':
-            if block_type in ('While', 'Button'):
-                block.value_1_name = data.get('value_1_name', "N")
-                block.value_2_name = data.get('value_2_name', "N")
-                block.operator = data.get('operator', "==")
-            elif block_type == 'If':
-                for i in range(data.get('conditions', 1)):
-                    str_1 = f"value_{i+1}_1_name"
-                    str_2 = f"value_{i+1}_2_name"
-                    str_op = f"operator_{i+1}"
-                    setattr(block, str_1, data['first_vars'].get(str_1, f"N"))
-                    setattr(block, str_2, data['second_vars'].get(str_2, f"N"))
-                    setattr(block, str_op, data['operators'].get(str_op, "=="))
-            elif block_type == 'RGB_LED':
-                for i in range(1, 4):
-                    str_1 = f"value_{i}_1_name"
-                    str_2 = f"value_{i}_2_PWM"
-                    setattr(block, str_1, data['first_vars'].get(str_1, f"N"))
-                    setattr(block, str_2, data['second_vars'].get(str_2, f"N"))
-            elif block_type == 'Switch':
-                block.value_1_name = data.get('value_1_name', "N")
-                block.switch_state = data.get('switch_state', False)
-            elif block_type == 'Timer':
-                block.sleep_time = data.get('sleep_time', "1000")
-            elif block_type in ('Basic_operations', 'Exponential_operations', 'Random_number'):
-                block.value_1_name = data.get('value_1_name', "N")
-                block.value_2_name = data.get('value_2_name', "N")
-                block.operator = data.get('operator', None)
-                block.result_var_name = data.get('result_var_name', "result")
-            elif block_type == 'Blink_LED':
-                block.value_1_name = data.get('value_1_name', "N")
-                block.sleep_time = data.get('sleep_time', "1000")
-            elif block_type in ('Toggle_LED', 'Turn_OFF_LED', 'Turn_ON_LED'):
-                block.value_1_name = data.get('value_1_name', "N")
-            elif block_type == 'PWM_LED':
-                block.value_1_name = data.get('value_1_name', "N")
-                block.PWM_value = data.get('PWM_value', "50")
-        if canvas_info['ref'] == 'function':
-            #print("Setting function canvas block properties")
-            for function_id, function_info in Utils.functions.items():
-                #print(f" Checking function: {function_id}")
-                if function_info['canvas'] == canvas:
-                    #print(f" Found matching canvas for function: {function_id}")
-                    if block_type in ('If', 'While', 'Button'):
-                        block.value_1_name = data.get('value_1_name', "N")
-                        block.value_2_name = data.get('value_2_name', "N")
-                        block.operator = data.get('operator', "==")
-                    elif block_type == 'Switch':
-                        block.value_1_name = data.get('value_1_name', "N")
-                        block.switch_state = data.get('switch_state', False)
-                    elif block_type == 'Timer':
-                        block.sleep_time = data.get('sleep_time', "1000")
-                    elif block_type in ('Basic_operations', 'Exponential_operations', 'Random_number'):
-                        block.value_1_name = data.get('value_1_name', "N")
-                        block.value_2_name = data.get('value_2_name', "N")
-                        block.operator = data.get('operator', None)
-                        block.result_var_name = data.get('result_var_name', "result")
-                    elif block_type == 'Blink_LED':
-                        block.value_1_name = data.get('value_1_name', "N")
-                        block.sleep_time = data.get('sleep_time', "1000")
-                    elif block_type in ('Toggle_LED', 'Turn_OFF_LED', 'Turn_ON_LED'):
-                        block.value_1_name = data.get('value_1_name', "N")
-                    elif block_type == 'PWM_LED':
-                        block.value_1_name = data.get('value_1_name', "N")
-                        block.PWM_value = data.get('PWM_value', "50")
-                    break
+        if block_type in ('While', 'Button', 'Switch', 'Basic_operations', 'Exponential_operations', 'Random_number',
+                          'Blink_LED', 'Toggle_LED', 'LED_ON', 'LED_OFF', 'PWM_LED', 'Plus_one', 'Minus_one'):
+            block.value_1_name = data.get('value_1_name', "N")
+        if block_type in ('While', 'Basic_operations', 'Exponential_operations', 'Random_number'):
+            block.value_2_name = data.get('value_2_name', 'N')
+        if block_type in ('While', 'Basic_operations', 'Exponential_operations', 'Random_number'):
+            block.operator = data.get('operator', "==")
+        if block_type in ('Basic_operations', 'Exponential_operations', 'Random_number'):
+            block.result_var_name = data.get('result_var_name', "result")
+        if block_type in ('Timer', 'Blink_LED'):
+            block.sleep_time = data.get('sleep_time', "1000")
+        if block_type in ('PWM_LED'):
+            block.PWM_value = data.get('PWM_value', "50")
+        if block_type == 'If':
+            for i in range(data.get('conditions', 1)):
+                str_1 = f"value_{i+1}_1_name"
+                str_2 = f"value_{i+1}_2_name"
+                str_op = f"operator_{i+1}"
+                setattr(block, str_1, data['first_vars'].get(str_1, f"N"))
+                setattr(block, str_2, data['second_vars'].get(str_2, f"N"))
+                setattr(block, str_op, data['operators'].get(str_op, "=="))
+        if block_type == 'RGB_LED':
+            for i in range(1, 4):
+                str_1 = f"value_{i}_1_name"
+                str_2 = f"value_{i}_2_PWM"
+                setattr(block, str_1, data['first_vars'].get(str_1, f"N"))
+                setattr(block, str_2, data['second_vars'].get(str_2, f"N"))
                 
         canvas.scene.addItem(block)
         
@@ -5494,7 +5263,7 @@ class MainWindow(QMainWindow):
                         #print(f"Is {to_block_id} in top_infos? {to_block_id in Utils.main_canvas['blocks']}")
                         
                         if from_block_id not in Utils.main_canvas['blocks'] or to_block_id not in Utils.main_canvas['blocks']:
-                            print(f"❌ Connection {conn_id}: Missing block reference!")
+                            print(f"Connection {conn_id}: Missing block reference!")
                             #print(f"  from_block_id ({from_block_id}) exists: {from_block_id in Utils.main_canvas['blocks']}")
                             #print(f"  to_block_id ({to_block_id}) exists: {to_block_id in Utils.main_canvas['blocks']}")
                             continue
@@ -5535,10 +5304,10 @@ class MainWindow(QMainWindow):
                         if conn_id not in to_block["in_connections"].keys():
                             to_block["in_connections"][conn_id] = conn_data.get("to_circle_type", "in")
                         
-                        #print(f"✓ Connection {conn_id} recreated")
+                        #print(f"Connection {conn_id} recreated")
                         
                     except Exception as e:
-                        print(f"❌ Error recreating connection {conn_id}: {e}")
+                        print(f"Error recreating connection {conn_id}: {e}")
                         import traceback
                         traceback.print_exc()
             elif canvas_info['ref'] == 'function':
@@ -5564,7 +5333,7 @@ class MainWindow(QMainWindow):
                                 #print(f"Is {to_block_id} in top_infos? {to_block_id in Utils.functions[function_id]['blocks']}")
                                 
                                 if from_block_id not in Utils.functions[function_id]['blocks'] or to_block_id not in Utils.functions[function_id]['blocks']:
-                                    print(f"❌ Connection {conn_id}: Missing block reference!")
+                                    print(f"Connection {conn_id}: Missing block reference!")
                                     #print(f"  from_block_id ({from_block_id}) exists: {from_block_id in Utils.functions[function_id]['blocks']}")
                                     #print(f"  to_block_id ({to_block_id}) exists: {to_block_id in Utils.functions[function_id]['blocks']}")
                                     continue
@@ -5605,10 +5374,10 @@ class MainWindow(QMainWindow):
                                 if conn_id not in to_block["in_connections"].keys():
                                     to_block['in_connections'][conn_id] = conn_data.get("to_circle_type", "in")
                                 
-                                #print(f"✓ Connection {conn_id} recreated")
+                                #print(f"Connection {conn_id} recreated")
                                 
                             except Exception as e:
-                                print(f"❌ Error recreating connection {conn_id}: {e}")
+                                print(f"Error recreating connection {conn_id}: {e}")
                                 import traceback
                                 traceback.print_exc()
                                 

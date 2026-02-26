@@ -229,6 +229,8 @@
     "math_blocks_tab": {
       "tab_title": "Matematické bloky",
       "basic_operations": "Základní operace",
+      "plus_one": "Přidat 1",
+      "minus_one": "Odečíst 1",
       "exponential_operations": "Exponenciální operace",
       "random_number": "Náhodné číslo"
     },
@@ -254,6 +256,8 @@
       "LED_OFF": "Vypíná LED.",
       "RGB_LED": "Ovládá RGB LED.",
       "Basic_operations": "Provádí základní aritmetické operace jako sčítání, odčítání, násobení a dělení.",
+      "Plus_one": "Přidá 1 k zadané proměnné.",
+      "Minus_one": "Odečte 1 od zadané proměnné.",
       "Exponential_operations": "Provádí exponenciální výpočty, jako je mocnina a odmocnina.",
       "Random_number": "Generuje náhodné číslo v zadaném rozsahu.",
       "no_description": "Žádný popis není k dispozici."

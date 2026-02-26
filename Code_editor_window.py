@@ -1,6 +1,6 @@
 from Imports import (QDialog, pyqtSignal, QObject, QsciLexerPython, QFont,
                       QsciScintilla, QsciAPIs, Qt, QColor, QVBoxLayout,
-                      QPropertyAnimation, QEasingCurve, QTimer, QRect) 
+                      QPropertyAnimation, QEasingCurve, QTimer, QRect, QIcon) 
 import keyword, builtins
 
 from Imports import get_utils
@@ -37,8 +37,10 @@ class CodeEditorWindow(QDialog):
     
     def setup_ui(self):
         self.setWindowTitle(self.t("code_editor_window.window_title"))
+        self.setWindowIcon(QIcon('resources/images/APPicon.ico'))
         self.setMinimumSize(600, 400)
         self.setWindowFlags(Qt.WindowType.Window)
+
         
         self.editor = QsciScintilla(self)
         
@@ -49,7 +51,7 @@ class CodeEditorWindow(QDialog):
 
         self.editor.setLexer(self.lexer)
 
-        self.editor.setBraceMatching(QsciScintilla.BraceMatch.SloppyBraceMatch)
+        self.editor.setBraceMatching(QsciScintilla.BraceMatch.StrictBraceMatch)
 
         self.editor.setIndentationGuides(True)
         self.editor.setIndentationsUseTabs(False)
@@ -87,7 +89,7 @@ class CodeEditorWindow(QDialog):
         lexer.setFont(material_font)
 
         # --- 2. Base Editor Colors ---
-        bg_color = QColor("#212121")          # Material Darker Background
+        bg_color = QColor("#3A3A3A")          # Material Darker Background
         fg_color = QColor("#EEFFFF")          # Material Default Text
         selection_bg = QColor("#2C3941")      # Highlighted text background
         caret_color = QColor("#FFCC00")       # Yellow cursor
@@ -114,10 +116,14 @@ class CodeEditorWindow(QDialog):
         # Highlight the line the cursor is currently on
         editor.setCaretLineVisible(True)
         editor.setCaretLineBackgroundColor(current_line_bg)
-
         # Line Numbers (Margins)
         editor.setMarginsBackgroundColor(bg_color)
         editor.setMarginsForegroundColor(margin_fg)
+
+        editor.setMatchedBraceBackgroundColor(QColor("#1F1F1F"))  # Yellow for matched braces
+
+        editor.setUnmatchedBraceBackgroundColor(bg_color)  # Red for unmatched braces
+        editor.setUnmatchedBraceForegroundColor(QColor("#FF0000"))
 
         # --- 3. Material Darker Syntax Highlighting ---
         
@@ -210,9 +216,9 @@ class CodeEditorWindow(QDialog):
         toggle_style(0)
 
     def open(self):
-        print("Opening DeviceSettingsWindow")
+        #print("Opening DeviceSettingsWindow")
         if self.is_hidden:
-            print("Initially hidden, showing window")
+            #print("Initially hidden, showing window")
             self.is_hidden = False
             with open("File.py", "r", encoding="utf-8") as f:
                 sample_code = f.read()
@@ -223,7 +229,7 @@ class CodeEditorWindow(QDialog):
             self.raise_()
             self.activateWindow()
         else:
-            print("DeviceSettingsWindow already open, raising to front")
+            #print("DeviceSettingsWindow already open, raising to front")
             self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
             self.raise_()           # Brings the widget to the top of the stack
             self.activateWindow()    # Gives the window keyboard focus   

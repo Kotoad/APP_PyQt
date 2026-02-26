@@ -10,7 +10,7 @@ class DataControl:
         """Load data from a block into the application state."""
         # Placeholder for loading data logic
         print(f"Loading data from block: {block_id} of type {block_type}")
-        if block_type in ('While', 'Button'):
+        if block_type in ('While'):
             info = {
                 'type': block_type.split('_')[0],
                 'id': block_id,
@@ -25,6 +25,22 @@ class DataControl:
                 'value_2_name': 'N',
                 'value_2_type': None,
                 'operator': "==",
+                'in_connections': {},
+                'out_connections': {},
+                'canvas': self
+            }
+        elif block_type == 'Button':
+            info = {
+                'type': block_type.split('_')[0],
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'outputs': 1,
+                'value_1_name': 'N',
+                'value_1_type': None,
                 'in_connections': {},
                 'out_connections': {},
                 'canvas': self
@@ -151,6 +167,22 @@ class DataControl:
                 'out_connections': {},
                 'canvas': self
             }
+        elif block_type in ("Plus_one", "Minus_one"):
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'outputs': 1,
+                'value_1_name': 'N',
+                'value_1_type': None,
+                'in_connections': {},
+                'out_connections': {},
+                'canvas': self
+            }
         elif block_type == "Blink_LED":
             info = {
                 'type': block_type,
@@ -168,7 +200,7 @@ class DataControl:
                 'out_connections': {},
                 'canvas': self
             }
-        elif block_type in ("Toggle_LED", "Turn_OFF_LED", "Turn_ON_LED"):
+        elif block_type in ("Toggle_LED", "LED_ON", "LED_OFF"):
             info = {
                 'type': block_type,
                 'id': block_id,
@@ -248,7 +280,7 @@ class DataControl:
         if data is None:
             print(f"Error: Block ID {block_id} not found in any function for the given canvas.")
             return None
-        if block_type in ('While', 'Button'):
+        if block_type in ('While'):
             info = {
                 'type': block_type,
                 'id': block_id,
@@ -263,6 +295,22 @@ class DataControl:
                 'value_2_name': data.get('value_2_name', "N"),
                 'value_2_type': data.get('value_2_type', "N/A"),
                 'operator': data.get('operator', "=="),
+                'in_connections': data.get('in_connections', {}),
+                'out_connections': data.get('out_connections', {}),
+                'canvas': canvas
+            }
+        elif block_type == 'Button':
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'outputs': data.get('outputs', 1),
+                'value_1_name': data.get('value_1_name', "N"),
+                'value_1_type': data.get('value_1_type', "N/A"),
                 'in_connections': data.get('in_connections', {}),
                 'out_connections': data.get('out_connections', {}),
                 'canvas': canvas
@@ -366,6 +414,22 @@ class DataControl:
                 'out_connections': data.get('out_connections', {}),
                 'canvas': canvas
             }
+        elif block_type in ("Plus_one", "Minus_one"):
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'outputs': data.get('outputs', 1),
+                'value_1_name': data.get('value_1_name', "N"),
+                'value_1_type': data.get('value_1_type', "N/A"),
+                'in_connections': data.get('in_connections', {}),
+                'out_connections': data.get('out_connections', {}),
+                'canvas': canvas
+            }
         elif block_type == 'Blink_LED':
             info = {
                 'type': block_type,
@@ -383,7 +447,7 @@ class DataControl:
                 'out_connections': data.get('out_connections', {}),
                 'canvas': canvas
             }
-        elif block_type in ('Toggle_LED', 'Turn_OFF_LED', 'Turn_ON_LED'):
+        elif block_type in ('Toggle_LED', 'LED_ON', 'LED_OFF'):
             info = {
                 'type': block_type,
                 'id': block_id,
@@ -473,7 +537,7 @@ class DataControl:
         return info
     #MARK: Save_data
     def save_data(self, block_id, block_info):
-        if block_info['type'] in ('While', 'Button'):
+        if block_info['type'] in ('While'):
             info = {
                 'type': block_info['type'].split('_')[0],
                 'id': block_id,
@@ -487,6 +551,20 @@ class DataControl:
                 'value_2_name': block_info.get('value_2_name', ''),
                 'value_2_type': block_info.get('value_2_type', ''),
                 'operator': block_info.get('operator', ''),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
+            }
+        elif block_info['type'] == 'Button':
+            info = {
+                'type': block_info['type'].split('_')[0],
+                'id': block_id,
+                'width': block_info['widget'].boundingRect().width(),
+                'height': block_info['widget'].boundingRect().height(),
+                'x': block_info['x'],
+                'y': block_info['y'],
+                'outputs': block_info.get('outputs', 1),
+                'value_1_name': block_info.get('value_1_name', ''),
+                'value_1_type': block_info.get('value_1_type', ''),
                 'in_connections': block_info.get('in_connections', {}),
                 'out_connections': block_info.get('out_connections', {}),
             }
@@ -577,6 +655,20 @@ class DataControl:
                 'in_connections': block_info.get('in_connections', {}),
                 'out_connections': block_info.get('out_connections', {}),
             }
+        elif block_info['type'] in ("Plus_one", "Minus_one"):
+            info = {
+                'type': block_info['type'],
+                'id': block_id,
+                'width': block_info['widget'].boundingRect().width(),
+                'height': block_info['widget'].boundingRect().height(),
+                'x': block_info['x'],
+                'y': block_info['y'],
+                'outputs': block_info.get('outputs', 1),
+                'value_1_name': block_info.get('value_1_name', "N"),
+                'value_1_type': block_info.get('value_1_type', "N/A"),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
+            }
         elif block_info['type'] == 'Blink_LED':
             info = {
                 'type': block_info['type'],
@@ -592,7 +684,7 @@ class DataControl:
                 'in_connections': block_info.get('in_connections', {}),
                 'out_connections': block_info.get('out_connections', {}),
             }
-        elif block_info['type'] in ('Toggle_LED', 'Turn_OFF_LED', 'Turn_ON_LED'):
+        elif block_info['type'] in ('Toggle_LED', 'LED_ON', 'LED_OFF'):
             info = {
                 'type': block_info['type'],
                 'id': block_id,
