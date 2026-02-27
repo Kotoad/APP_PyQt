@@ -7,6 +7,7 @@ PrivilegesRequired=lowest
 OutputDir=.
 OutputBaseFilename=OmniBoard_Online_Installer
 SolidCompression=yes
+DisableDirPage=no
 
 [Code]
 var DownloadPage: TDownloadWizardPage;

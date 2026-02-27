@@ -1,15 +1,16 @@
 #!/bin/bash
-APP_DIR="$HOME/.local/share/OmniBoardStudio"
-# Generic "latest" download URL for your repository
+DEFAULT_DIR="$HOME/.local/share/OmniBoardStudio"
+read -p "Enter installation directory [$DEFAULT_DIR]: " USER_DIR
+APP_DIR=${USER_DIR:-$DEFAULT_DIR}
+
 REPO="Kotoad/APP_PyQt"
 URL="https://github.com/$REPO/releases/latest/download/OmniBoard_Studio_Linux.tar.gz"
 
 echo "Downloading OmniBoard Studio..."
 wget -q --show-progress "$URL" -O /tmp/omniboard.tar.gz
 
-echo "Extracting..."
+echo "Extracting to $APP_DIR..."
 mkdir -p "$APP_DIR"
-# Fixed: Now correctly extracts the .tar.gz file
 tar -xzf /tmp/omniboard.tar.gz -C "$APP_DIR"
 
 echo "Creating Application menu shortcut..."
