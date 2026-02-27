@@ -1,43 +1,38 @@
 [Setup]
 AppName=OmniBoard Studio
-AppVersion=0.11
+AppVersion=0.12
 DefaultDirName={localappdata}\OmniBoard Studio
 DefaultGroupName=OmniBoard Studio
 PrivilegesRequired=lowest
-OutputDir=dist
+OutputDir=.
 OutputBaseFilename=OmniBoard_Online_Installer
 SolidCompression=yes
 
-[Icons]
-Name: "{group}\OmniBoard Studio"; Filename: "{app}\OmniBoard Studio.exe"
-Name: "{userdesktop}\OmniBoard Studio"; Filename: "{app}\OmniBoard Studio.exe"
-
 [Code]
-var
-  DownloadPage: TDownloadWizardPage;
+var DownloadPage: TDownloadWizardPage;
 
 procedure InitializeWizard;
 begin
-  DownloadPage := CreateDownloadPage('Downloading OmniBoard Studio', 'Please wait while setup downloads the application files...', nil);
+  DownloadPage := CreateDownloadPage('Downloading OmniBoard Studio', 'Please wait...', nil);
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
-var
-  ResultCode: Integer;
+var ResultCode: Integer;
 begin
   Result := True;
   if CurPageID = wpReady then begin
     DownloadPage.Clear;
-    DownloadPage.Add('https://github.com/Kotoad/APP_PyQt/releases/download/V0.11/OmniBoard.Studio.zip', 'OmniBoard.zip', '');
+    // Updated to latest release URL
+    DownloadPage.Add('https://github.com/Kotoad/APP_PyQt/releases/latest/download/OmniBoard_Studio_Windows.zip', 'OmniBoard.zip', '');
     DownloadPage.Show;
     try
       try
         DownloadPage.Download;
         ForceDirectories(ExpandConstant('{app}'));
-        { Extract using native Windows tar command }
+        // Use Windows native tar to unzip the .zip file
         Exec('tar.exe', '-xf "' + ExpandConstant('{tmp}\OmniBoard.zip') + '" -C "' + ExpandConstant('{app}') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
       except
-        MsgBox('Installation failed. Check your internet connection.', mbError, MB_OK);
+        MsgBox('Installation failed.', mbError, MB_OK);
         Result := False;
       end;
     finally
