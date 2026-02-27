@@ -3,10 +3,8 @@ from Imports import get_utils
 Utils = get_utils()
 from Imports import (QDialog, QVBoxLayout, QLabel, QTabWidget, QWidget, QMessageBox, QPushButton, QHBoxLayout,
 QComboBox, Qt, QEvent, QFont, QMouseEvent, json, QLineEdit, QApplication, QProgressDialog, QPoint, QRect,
-QObject, pyqtSignal, QTimer, sys, os, subprocess, time, QIcon, QPropertyAnimation, QEasingCurve)
+QObject, pyqtSignal, QTimer, sys, os, subprocess, time, QIcon, QPropertyAnimation, QEasingCurve,  QAction, QIcon)
 from rpi_autodiscovery import RPiAutoDiscovery, RPiConnectionWizard
-
-models = ["RPI pico/pico W", "RPI zero/zero W", "RPI 2 zero W", "RPI 1 model B/B+", "RPI 2 model B", "RPI 3 model B/B+", "RPI 4 model B", "RPI 5"]
 
 class DetectionWorker(QObject):
     """Emits signals for thread-safe UI updates"""
@@ -68,6 +66,18 @@ class DeviceSettingsWindow(QDialog):
         self.state_manager = Utils.state_manager
         self.translation_manager = Utils.translation_manager
         self.t = self.translation_manager.translate
+
+        self.models = {
+            "RPI pico/pico W": {"name": "RPI pico/pico W", "index": 0},
+            "RPI zero/zero W": {"name": "RPI zero/zero W", "index": 1},
+            "RPI 2 zero W": {"name": "RPI 2 zero W", "index": 2},
+            "RPI 1 Model B/B+": {"name": "RPI 1 Model B/B+", "index": 3},
+            "RPI 2 Model B": {"name": "RPI 2 Model B", "index": 4},
+            "RPI 3 Model B/B+": {"name": "RPI 3 Model B/B+", "index": 5},
+            "RPI 4 Model B": {"name": "RPI 4 Model B", "index": 6},
+            "RPI 5": {"name": "RPI 5", "index": 7}
+        }
+
         self.setup_ui()
     
     @classmethod
@@ -146,7 +156,6 @@ class DeviceSettingsWindow(QDialog):
         layout.addWidget(self.tab_widget)
         
         self.create_basic_tab()
-        self.create_device_tab()
         self.create_rpi_settings_section()
     
     def create_basic_tab(self):
@@ -180,62 +189,6 @@ class DeviceSettingsWindow(QDialog):
         tab_layout.addWidget(self.language_combo)
         tab_layout.addStretch()
         self.tab_widget.addTab(tab, self.t("setting_window.basic_settings_tab.title"))
-
-    def create_device_tab(self):
-        tab = QWidget()
-        tab_layout = QVBoxLayout(tab)
-        tab_layout.setSpacing(5)
-        
-        title = QLabel(self.t("setting_window.device_settings_tab.title"))
-        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        tab_layout.addWidget(title)
-        
-        tab_layout.addSpacing(10)
-        
-        label = QLabel(self.t("setting_window.device_settings_tab.select_rpi_model"))
-        tab_layout.addWidget(label)
-        
-        self.rpi_model_combo = MaxWidthComboBox(self, max_popup_width=358)
-        self.rpi_model_combo.addItems(models)
-        self.rpi_model_combo.setCurrentIndex(Utils.app_settings.rpi_model_index if hasattr(Utils.app_settings, 'rpi_model_index') else 0)
-        self.rpi_model_combo.currentIndexChanged.connect(self.on_model_changed)
-        
-        rpi_host_label = QLabel(self.t("setting_window.device_settings_tab.rpi_host"))
-        self.rpi_host_input = QLineEdit()
-        self.rpi_host_input.setText(Utils.app_settings.rpi_host)
-        self.rpi_host_input.setPlaceholderText(self.t("setting_window.device_settings_tab.rpi_host_placeholder"))
-
-        rpi_user_label = QLabel(self.t("setting_window.device_settings_tab.rpi_user"))
-        self.rpi_user_input = QLineEdit()
-        self.rpi_user_input.setText(Utils.app_settings.rpi_user)
-        self.rpi_user_input.setPlaceholderText("pi")
-
-        rpi_password_label = QLabel(self.t("setting_window.device_settings_tab.rpi_password"))
-        self.rpi_password_input = QLineEdit()
-        self.rpi_password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.rpi_password_input.setPlaceholderText(self.t("setting_window.device_settings_tab.rpi_password_placeholder"))
-
-        # Add to layout and connect save signals
-        self.rpi_host_input.textChanged.connect(lambda text: self.save_settings())
-        self.rpi_user_input.textChanged.connect(lambda text: self.save_settings())
-        self.rpi_password_input.textChanged.connect(lambda text: self.save_settings())
-        
-        tab_layout.addWidget(self.rpi_model_combo)
-        tab_layout.addWidget(rpi_host_label)
-        tab_layout.addWidget(self.rpi_host_input)
-        tab_layout.addWidget(rpi_user_label)
-        tab_layout.addWidget(self.rpi_user_input)
-        tab_layout.addWidget(rpi_password_label)
-        tab_layout.addWidget(self.rpi_password_input)
-        tab_layout.addStretch()
-        self.tab_widget.addTab(tab, self.t("setting_window.device_settings_tab.title"))
-    
-    def on_model_changed(self, index):
-        """Handle model change"""
-        Utils.app_settings.rpi_model = self.rpi_model_combo.itemText(index)
-        Utils.app_settings.rpi_model_index = index
-        #print(f"Model changed to: {Utils.app_settings.rpi_model}")
     
     def create_rpi_settings_section(self):
         """Create RPI connection settings group"""
@@ -245,23 +198,30 @@ class DeviceSettingsWindow(QDialog):
         rpi_title = QLabel(self.t("setting_window.rpi_settings_tab.title"))
         rpi_title.setStyleSheet("font-weight: bold; font-size: 12px;")
         self.main_layout.addWidget(rpi_title)
-        
-        # Auto-Detect Button
-        auto_detect_btn = QPushButton(self.t("setting_window.rpi_settings_tab.auto_detect"))
-        auto_detect_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #1F538D;
-                color: white;
-                padding: 8px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #2667B3;
-            }
-        """)
-        auto_detect_btn.clicked.connect(self.auto_detect_rpi)
-        self.main_layout.addWidget(auto_detect_btn)
+
+        self.rpi_model_combo = MaxWidthComboBox(self, max_popup_width=358)
+        self.rpi_model_combo.addItems([model["name"] for model in self.models.values()])
+        self.rpi_model_combo.setCurrentIndex(Utils.app_settings.rpi_model_index if hasattr(Utils.app_settings, 'rpi_model_index') else 0)
+        self.rpi_model_combo.currentIndexChanged.connect(self.on_model_changed)
+        self.main_layout.addWidget(self.rpi_model_combo)
+
+        if self.rpi_model_combo.currentIndex != 0:
+            # Auto-Detect Button
+            self.auto_detect_btn = QPushButton(self.t("setting_window.rpi_settings_tab.auto_detect"))
+            self.auto_detect_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #1F538D;
+                    color: white;
+                    padding: 8px;
+                    border-radius: 4px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #2667B3;
+                }
+            """)
+            self.auto_detect_btn.clicked.connect(self.auto_detect_rpi)
+            self.main_layout.addWidget(self.auto_detect_btn)
         
         # Status label
         self.rpi_status_label = QLabel(self.t("setting_window.rpi_settings_tab.status_not_connected"))
@@ -279,7 +239,6 @@ class DeviceSettingsWindow(QDialog):
         self.rpi_host_input = QLineEdit()
         self.rpi_host_input.setText(Utils.app_settings.rpi_host)
         self.rpi_host_input.setPlaceholderText(self.t("setting_window.rpi_settings_tab.rpi_host_placeholder"))
-        self.rpi_host_input.textChanged.connect(lambda: setattr(Utils.app_settings, 'rpi_host', self.rpi_host_input.text()))
         host_layout.addWidget(self.rpi_host_input)
         self.main_layout.addLayout(host_layout)
         
@@ -289,7 +248,6 @@ class DeviceSettingsWindow(QDialog):
         self.rpi_user_input = QLineEdit()
         self.rpi_user_input.setText(Utils.app_settings.rpi_user)
         self.rpi_user_input.setPlaceholderText(self.t("setting_window.rpi_settings_tab.rpi_user_placeholder"))
-        self.rpi_user_input.textChanged.connect(lambda: setattr(Utils.app_settings, 'rpi_user', self.rpi_user_input.text()))
         user_layout.addWidget(self.rpi_user_input)
         self.main_layout.addLayout(user_layout)
         
@@ -300,11 +258,49 @@ class DeviceSettingsWindow(QDialog):
         self.rpi_password_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.rpi_password_input.setText(Utils.app_settings.rpi_password)
         self.rpi_password_input.setPlaceholderText(self.t("setting_window.rpi_settings_tab.rpi_password_placeholder"))
-        self.rpi_password_input.textChanged.connect(lambda: setattr(Utils.app_settings, 'rpi_password', self.rpi_password_input.text()))
+        self.toggle_password_action = QAction(QIcon('resources/images/Settings/eye_closed_icon.png'), self.t("setting_window.rpi_settings_tab.toggle_password"), self)
+        
+        self.rpi_password_input.addAction(self.toggle_password_action, QLineEdit.ActionPosition.TrailingPosition)
+
         pwd_layout.addWidget(self.rpi_password_input)
+
+        self.rpi_host_input.textChanged.connect(lambda text: self.save_settings())
+        self.rpi_user_input.textChanged.connect(lambda text: self.save_settings())
+        self.rpi_password_input.textChanged.connect(lambda text: self.save_settings())
+        self.toggle_password_action.triggered.connect(self.toggle_password_visibility)
+
         self.main_layout.addLayout(pwd_layout)
         self.tab_widget.addTab(tab, self.t("setting_window.rpi_settings_tab.title"))
     
+    def on_model_changed(self, index):
+        """Handle model change"""
+        Utils.app_settings.rpi_model = self.rpi_model_combo.itemText(index)
+        Utils.app_settings.rpi_model_index = index
+
+        self.save_settings()
+    
+        if index == 0:
+            # Hide auto-detect if "Pico" is selected
+            if hasattr(self, 'auto_detect_btn'):
+                self.auto_detect_btn.hide()
+        else:
+            # Show auto-detect for other models
+            if hasattr(self, 'auto_detect_btn'):
+                self.auto_detect_btn.show()
+        #print(f"Model changed to: {Utils.app_settings.rpi_model}")
+
+    def toggle_password_visibility(self):
+        print("Toggling password visibility")
+        print(f"Current echo mode: {self.rpi_password_input.echoMode()}")
+        if self.rpi_password_input.echoMode() == QLineEdit.EchoMode.Password:
+            print("Showing password")
+            self.rpi_password_input.setEchoMode(QLineEdit.EchoMode.Normal)
+            self.toggle_password_action.setIcon(QIcon("resources/images/Settings/eye_open_icon.png"))
+        else:
+            print("Hiding password")
+            self.rpi_password_input.setEchoMode(QLineEdit.EchoMode.Password)
+            self.toggle_password_action.setIcon(QIcon("resources/images/Settings/eye_closed_icon.png"))
+
     def save_settings(self):
         
         filename = os.path.join(Utils.get_base_path(), 'app_settings.json')
@@ -318,13 +314,20 @@ class DeviceSettingsWindow(QDialog):
 
     def build_save_data(self):
         data = {
-            'rpi_model': Utils.app_settings.rpi_model,
-            'rpi_model_index': Utils.app_settings.rpi_model_index,
-            'rpi_host': Utils.app_settings.rpi_host,
-            'rpi_user': Utils.app_settings.rpi_user,
-            'rpi_password': Utils.app_settings.rpi_password,
-            'language': Utils.app_settings.language
+            'rpi_model': self.rpi_model_combo.currentText(),
+            'rpi_model_index': self.rpi_model_combo.currentIndex(),
+            'rpi_host': self.rpi_host_input.text(),
+            'rpi_user': self.rpi_user_input.text(),
+            'rpi_password': self.rpi_password_input.text(),
+            'language': self.language_combo.currentData()
         }
+
+        Utils.app_settings.rpi_model = data['rpi_model']
+        Utils.app_settings.rpi_model_index = data['rpi_model_index']
+        Utils.app_settings.rpi_host = data['rpi_host']
+        Utils.app_settings.rpi_user = data['rpi_user']
+        Utils.app_settings.rpi_password = data['rpi_password']
+        Utils.app_settings.language = data['language']
         return data
 
     def on_language_changed(self):
@@ -425,6 +428,21 @@ class DeviceSettingsWindow(QDialog):
             password = str(result.get('password', ''))
             model = str(result.get('model', self.t("setting_window.rpi_settings_tab.unknown_model")))
             
+
+            model.strip()  # Remove whitespace
+            print(f"Raw model from detection: '{model}'")
+            model = model.replace("Raspberry Pi", "RPI")  # Normalize name
+            print(f"Normalized model: '{model}'")
+            model = model.split("with")[0].strip()  # Remove "with Raspbian" suffix if present
+            print(f"Model after removing OS suffix: '{model}'")
+            model = model.split("Rev")[0].strip()  # Remove "Rev 1.2" suffix if present
+            print(f"Detected model: {model}")
+            if model in self.models.keys():
+                self.rpi_model_combo.setCurrentIndex(self.models[model]["index"])
+            else:
+                print(f"Unknown model detected: {model}")          
+
+
             #print(f"✓ Got valid result - IP: {ip}, User: {username}")
             
             # Block signals and update UI
@@ -467,7 +485,8 @@ class DeviceSettingsWindow(QDialog):
                 QMessageBox.StandardButton.Ok
             )
             self.raise_()
-            
+
+            self.save_settings()
             #print("✓✓✓ Auto-detection completed successfully ✓✓✓\n")
         
         except Exception as e:

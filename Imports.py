@@ -50,7 +50,8 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent, QKeySequence, QShortcut, QEventPoint,
     QRegularExpressionValidator, QFont, QPixmap, QImage, QStandardItem, QMovie, QTouchEvent,
-    QIntValidator, QPainterPath, QIcon, QStandardItemModel, QAction, QPixmap, QInputDevice, QCursor
+    QPainterPath, QIcon, QStandardItemModel, QAction, QPixmap, QInputDevice, QCursor,
+    QIntValidator, QDoubleValidator
 )
 from PyQt6.QtTest import QTest
 

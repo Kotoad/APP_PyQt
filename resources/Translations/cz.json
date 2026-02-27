@@ -298,6 +298,11 @@
           "description": "Prvotní nastavení a připojení k Raspberry Pi",
           "content": "resources/Translations/cs/Tutorials/Tutorial_0_linux_based_RPI_variant_cs.html"
         },
+        "tutorial_0_RPI_PICO": {
+          "title": "RPI Pico",
+          "description": "Nastavení a připojení k Raspberry Pi Pico",
+          "content": "resources/Translations/cs/Tutorials/Tutorial_0_RPI_PICO_variant_cs.html"
+        },
         "tutorial_1": {
           "title": "Blikající LED",
           "description": "Tento příklad ukazuje, jak blikat LED připojenou k vašemu Raspberry Pi.",
@@ -338,16 +343,7 @@
       "title": "Základní nastavení",
       "select_language": "Vyberte jazyk"
     },
-    "device_settings_tab": {
-      "title": "Nastavení zařízení",
-      "select_rpi_model": "Vyberte váš model RPI",
-      "rpi_host": "Hostitel Raspberry Pi",
-      "rpi_host_placeholder": "raspberrypi.local nebo 192.168.1.100",
-      "rpi_user": "Uživatelské jméno",
-      "rpi_password": "Heslo",
-      "rpi_password_placeholder": "(volitelné, pokud používáte SSH klíče)",
-      "auto_detect": "Automaticky detekovat Raspberry Pi"
-    },
+
     "rpi_settings_tab": {
       "title": "Nastavení Raspberry Pi",
       "connection_method": "Metoda připojení",
@@ -365,6 +361,7 @@
       "rpi_user_placeholder": "pi",
       "rpi_password": "Heslo",
       "rpi_password_placeholder": "(volitelné, pokud používáte SSH klíče)",
+      "toggle_password": "Zobrazit/skrýt heslo",
       "unknown_hostname": "Neznámý hostname",
       "unknown_model": "Neznámý model"
     },

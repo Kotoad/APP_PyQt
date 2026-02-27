@@ -183,6 +183,7 @@ class HelpWindow(QDialog):
         # Add tutorial
         tutorial = [
             (self.t("help_window.tutorials_tab.tutorials.tutorial_0_linux_based_RPI.title"), self.t("help_window.tutorials_tab.tutorials.tutorial_0_linux_based_RPI.description"), "0"),
+            (self.t("help_window.tutorials_tab.tutorials.tutorial_0_RPI_PICO.title"), self.t("help_window.tutorials_tab.tutorials.tutorial_0_RPI_PICO.description"), "0_RPI_PICO"),
             (self.t("help_window.tutorials_tab.tutorials.tutorial_1.title"), self.t("help_window.tutorials_tab.tutorials.tutorial_1.description"), "1"),
             (self.t("help_window.tutorials_tab.tutorials.tutorial_2.title"), self.t("help_window.tutorials_tab.tutorials.tutorial_2.description"), "2"),
             (self.t("help_window.tutorials_tab.tutorials.tutorial_3.title"), self.t("help_window.tutorials_tab.tutorials.tutorial_3.description"), "3"),
@@ -285,6 +286,24 @@ class HelpWindow(QDialog):
                     html_content = self.t("help_window.tutorials_tab.error_loading_file")
 
                 #print("Filling content for tutorial 0")
+                content.setHtml(html_content)
+            case "0_RPI_PICO":
+                html_file_path = self.t("help_window.tutorials_tab.tutorials.tutorial_0_RPI_PICO.content")
+
+                full_path = self.base_path / html_file_path
+
+                try:
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        html_template = f.read()
+
+                        html_content = html_template.format(css=css)
+                except FileNotFoundError:
+                    print(f"Help file not found: {full_path}")
+                    html_content = self.t("help_window.tutorials_tab.file_not_found")
+                except Exception as e:
+                    print(f"Error loading help content: {e}")
+                    html_content = self.t("help_window.tutorials_tab.error_loading_file")
+                
                 content.setHtml(html_content)
             case "1":
                 #print("Filling content for tutorial 1")

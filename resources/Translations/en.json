@@ -298,6 +298,11 @@
           "description": "Initial setup and connecting to your Raspberry Pi",
           "content": "resources/Translations/en/Tutorials/Tutorial_0_linux_based_RPI_variant_en.html"
         },
+        "tutorial_0_RPI_PICO": {
+          "title": "RPI Pico",
+          "description": "Setting up and connecting to Raspberry Pi Pico",
+          "content": "resources/Translations/en/Tutorials/Tutorial_0_RPI_PICO_variant_en.html"
+        },
         "tutorial_1": {
           "title": "Blinking LED",
           "description": "This tutorial demonstrates how to blink an LED connected to your Raspberry Pi.",
@@ -338,16 +343,6 @@
       "title": "Basic Settings",
       "select_language": "Select Language"
     },
-    "device_settings_tab": {
-      "title": "Device Settings",
-      "select_rpi_model": "Select your RPI model",
-      "rpi_host": "Raspberry Pi Host",
-      "rpi_host_placeholder": "raspberrypi.local or 192.168.1.100",
-      "rpi_user": "Username",
-      "rpi_password": "Password",
-      "rpi_password_placeholder": "(optional if using SSH keys)",
-      "auto_detect": "Auto-Detect Raspberry Pi"
-    },
     "rpi_settings_tab": {
       "title": "Raspberry Pi Settings",
       "connection_method": "Connection Method",
@@ -365,6 +360,7 @@
       "rpi_user_placeholder": "pi",
       "rpi_password": "Password",
       "rpi_password_placeholder": "(optional if using SSH keys)",
+      "toggle_password": "Show/Hide Password",
       "unknown_hostname": "Unknown hostname",
       "unknown_model": "Unknown model"
     },

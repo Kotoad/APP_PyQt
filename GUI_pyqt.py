@@ -1,6 +1,8 @@
 from random import random
 import traceback as tb
 from pyboard import Pyboard, PyboardError
+import urllib.request
+import tempfile
 import serial.tools.list_ports
 from Imports import (
     sys, QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, threading,
@@ -13,7 +15,8 @@ from Imports import (
     QAction, math, QGraphicsView, QGraphicsScene, QGraphicsRectItem, QGraphicsPathItem,
     QGraphicsItem, QPointF, QRectF, QPixmap, QImage, QGraphicsPixmapItem, QPainterPath, QEvent,
     QStackedWidget, QSplitter, QIcon, QKeySequence, QShortcut, json, QSplashScreen, QProgressBar,
-    QScroller, QTest, QInputDevice, QEventPoint, QTouchEvent, QObject, warnings, QToolBar, QSlider
+    QScroller, QTest, QInputDevice, QEventPoint, QTouchEvent, QObject, warnings, QToolBar, QSlider,
+    QIntValidator, QProgressDialog
 )
 from Imports import (
     get_code_compiler, get_spawn_blocks, get_device_settings_window,
@@ -37,6 +40,9 @@ CodeViewerWindow = get_CodeViewer_Window()
 TranslationManager = get_Translation_Manager()
 DataControl = get_Data_Control()
 CodeEditorWindow = get_Code_Editor_Window()
+
+CURRENT_VERSION = "V0.11"
+
 # --- WORKER THREAD (Background Data Loading) ---
 class LoaderThread(QThread):
     """
@@ -159,6 +165,55 @@ class NativeSplash(QSplashScreen):
     def update_status(self, text):
         self.loading_text = text
         self.repaint()
+#MARK: - Update Checker
+def check_for_updates():
+    try:
+        url = "https://api.github.com/repos/Kotoad/APP_PyQt/releases"
+        req = urllib.request.Request(url, headers={'User-Agent': 'OmniBoard-Updater'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            data = json.loads(response.read().decode())
+            #print(f"Data {data}, Type: {type(data)}")
+            if isinstance(data, list) and len(data) > 0:
+                latest_release = data[0]
+                latest_version = latest_release.get("tag_name", "")
+                assets = latest_release.get("assets", [])
+                if latest_version and latest_version != CURRENT_VERSION:
+                    return True, latest_version, assets
+    except Exception as e:
+        print(f"Update check failed: {e}")
+    return False, None, None
+
+class UpdateCheckerThread(QThread):
+    update_available = pyqtSignal(str, list)
+
+    def run(self):
+        has_update, version, assets = check_for_updates()
+        if has_update:
+            self.update_available.emit(version, assets)
+
+class DownloadUpdateThread(QThread):
+    progress = pyqtSignal(int)
+    finished = pyqtSignal(str)
+
+    def __init__(self, url):
+        super().__init__()
+        self.url = url
+
+    def run(self):
+        temp_dir = tempfile.gettempdir()
+        ext = ".exe" if sys.platform == "win32" else ".zip"
+        save_path = os.path.join(temp_dir, f"OmniBoard_Update{ext}")
+
+        def report(block_num, block_size, total_size):
+            if total_size > 0:
+                percent = int(block_num * block_size * 100 / total_size)
+                self.progress.emit(min(percent, 100))
+
+        try:
+            urllib.request.urlretrieve(self.url, save_path, reporthook=report)
+            self.finished.emit(save_path)
+        except Exception as e:
+            print(f"Download failed: {e}")
 
 class UniversalErrorHandler(QObject):
     """
@@ -1814,6 +1869,8 @@ class MainWindow(QMainWindow):
         self.create_top_toolbar()
         self.create_bottom_toolbar()
         self.create_canvas_frame()
+
+        self.start_update_check()
     
     def mousePressEvent(self, event):
         """Debug: Track if main window gets mouse press"""
@@ -3582,7 +3639,7 @@ class MainWindow(QMainWindow):
                                         'name': '',
                                         'type': 'Int',
                                         'widget': None,
-                                        'name_imput': None,
+                                        'name_input': None,
                                         'type_input': None,
                                     }
                                     id_var_generated = True
@@ -3603,7 +3660,7 @@ class MainWindow(QMainWindow):
                                 'name': '',
                                 'type': 'Int',
                                 'widget': None,
-                                'name_imput': None,
+                                'name_input': None,
                                 'type_input': None,
                             }
                 else:
@@ -3613,31 +3670,31 @@ class MainWindow(QMainWindow):
         canvas_reference.row_layout = QHBoxLayout(canvas_reference.row_widget)
         canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
 
-        name_imput = QLineEdit()
-        name_imput.setPlaceholderText(self.t("main_GUI.internal_tab.variable_name_placeholder"))
+        name_input = QLineEdit()
+        name_input.setPlaceholderText(self.t("main_GUI.internal_tab.variable_name_placeholder"))
         if var_data and 'name' in var_data:
-            name_imput.setText(var_data['name'])
+            name_input.setText(var_data['name'])
             for function_id, function_info in Utils.functions.items():
                 if function_info['canvas'] == canvas_reference:
                     Utils.variables['function_canvases'][function_id][var_id]['name'] = var_data['name']
         
-        name_imput.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.name_changed(text, v_id, t, r))
+        name_input.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.name_changed(text, v_id, t, r))
         
-        self.type_input = QComboBox()
-        self.type_input.addItems(["Int", "Float", "String", "Bool"])
+        type_input = QComboBox()
+        type_input.addItems(["Int", "Float", "String", "Bool"])
         if var_data and 'type' in var_data:
-            self.type_input.setCurrentText(var_data['type'])
+            type_input.setCurrentText(var_data['type'])
             for function_id, function_info in Utils.functions.items():
                 if function_info['canvas'] == canvas_reference:
                     Utils.variables['function_canvases'][function_id][var_id]['type'] = var_data['type']
         
-        self.type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable", r=canvas_reference: self.type_changed(text, v_id , t, r))
+        type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable", r=canvas_reference, w=type_input: self.type_changed(text, v_id , t, r, w))
         
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
         
-        canvas_reference.row_layout.addWidget(name_imput)
-        canvas_reference.row_layout.addWidget(self.type_input)
+        canvas_reference.row_layout.addWidget(name_input)
+        canvas_reference.row_layout.addWidget(type_input)
         canvas_reference.row_layout.addWidget(delete_btn)
         
         delete_btn.clicked.connect(lambda _, v_id=var_id, rw=canvas_reference.row_widget, t="Variable", r=canvas_reference: self.remove_internal_row(rw, v_id, t, r))
@@ -3645,8 +3702,8 @@ class MainWindow(QMainWindow):
         for function_id, function_info in Utils.functions.items():
             if function_info['canvas'] == canvas_reference:
                 Utils.variables['function_canvases'][function_id][var_id]['widget'] = canvas_reference.row_widget
-                Utils.variables['function_canvases'][function_id][var_id]['name_imput'] = name_imput
-                Utils.variables['function_canvases'][function_id][var_id]['type_input'] = self.type_input
+                Utils.variables['function_canvases'][function_id][var_id]['name_input'] = name_input
+                Utils.variables['function_canvases'][function_id][var_id]['type_input'] = type_input
         panel_layout = canvas_reference.internal_layout
         panel_layout.insertWidget(panel_layout.count() - 2 - canvas_reference.internal_devs_rows_count, canvas_reference.row_widget)
 
@@ -3671,7 +3728,7 @@ class MainWindow(QMainWindow):
                                         'type': self.t("main_GUI.internal_tab.output"),
                                         'type_index': 0,
                                         'widget': None,
-                                        'name_imput': None,
+                                        'name_input': None,
                                         'type_input': None,
                                     }
                                     id_dev_generated = True
@@ -3693,7 +3750,7 @@ class MainWindow(QMainWindow):
                                 'type': self.t("main_GUI.internal_tab.output"),
                                 'type_index': 0,
                                 'widget': None,
-                                'name_imput': None,
+                                'name_input': None,
                                 'type_input': None,
                             }
                 else:
@@ -3703,15 +3760,15 @@ class MainWindow(QMainWindow):
         canvas_reference.row_layout = QHBoxLayout(canvas_reference.row_widget)
         canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
 
-        name_imput = QLineEdit()
-        name_imput.setPlaceholderText(self.t("main_GUI.internal_tab.device_name_placeholder"))
+        name_input = QLineEdit()
+        name_input.setPlaceholderText(self.t("main_GUI.internal_tab.device_name_placeholder"))
         if dev_data and 'name' in dev_data:
-            name_imput.setText(dev_data['name'])
+            name_input.setText(dev_data['name'])
             for function_id, function_info in Utils.functions.items():
                 if function_info['canvas'] == canvas_reference:
                     Utils.devices['function_canvases'][function_id][dev_id]['name'] = dev_data['name']
         
-        name_imput.textChanged.connect(lambda text, v_id=dev_id, t="Device", r=canvas_reference: self.name_changed(text, v_id, t, r))
+        name_input.textChanged.connect(lambda text, v_id=dev_id, t="Device", r=canvas_reference: self.name_changed(text, v_id, t, r))
         
         type_input = QComboBox()
         type_input.addItems([self.t("main_GUI.internal_tab.output"), self.t("main_GUI.internal_tab.input"), self.t("main_GUI.internal_tab.button"), "PWM"])
@@ -3722,12 +3779,12 @@ class MainWindow(QMainWindow):
                     Utils.devices['function_canvases'][function_id][dev_id]['type'] = dev_data['type']
                     Utils.devices['function_canvases'][function_id][dev_id]['type_index'] = dev_data['type_index']
         
-        type_input.currentTextChanged.connect(lambda  text, v_id=dev_id, t="Device", r=canvas_reference: self.type_changed(text, v_id , t, r))
+        type_input.currentTextChanged.connect(lambda  text, v_id=dev_id, t="Device", r=canvas_reference, w=type_input: self.type_changed(text, v_id , t, r, w))
         
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
         
-        canvas_reference.row_layout.addWidget(name_imput)
+        canvas_reference.row_layout.addWidget(name_input)
         canvas_reference.row_layout.addWidget(type_input)
         canvas_reference.row_layout.addWidget(delete_btn)
         
@@ -3736,7 +3793,7 @@ class MainWindow(QMainWindow):
         for function_id, function_info in Utils.functions.items():
             if function_info['canvas'] == canvas_reference:
                 Utils.devices['function_canvases'][function_id][dev_id]['widget'] = canvas_reference.row_widget
-                Utils.devices['function_canvases'][function_id][dev_id]['name_imput'] = name_imput
+                Utils.devices['function_canvases'][function_id][dev_id]['name_input'] = name_input
                 Utils.devices['function_canvases'][function_id][dev_id]['type_input'] = type_input
         panel_layout = canvas_reference.internal_layout
         panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
@@ -3757,7 +3814,7 @@ class MainWindow(QMainWindow):
                         'type': 'Int',
                         'value': '',
                         'widget': None,
-                        'name_imput': None,
+                        'name_input': None,
                         'type_input': None,
                         'value_input': None,
                         'current_value_display': None
@@ -3772,7 +3829,7 @@ class MainWindow(QMainWindow):
                 'type': 'Int',
                 'value': '',
                 'widget': None,
-                'name_imput': None,
+                'name_input': None,
                 'type_input': None,
                 'value_input': None,
                 'current_value_display': None
@@ -3782,13 +3839,13 @@ class MainWindow(QMainWindow):
         canvas_reference.row_layout = QHBoxLayout(canvas_reference.row_widget)
         canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
 
-        name_imput = QLineEdit()
-        name_imput.setPlaceholderText(self.t("main_GUI.variables_tab.name_placeholder"))
+        name_input = QLineEdit()
+        name_input.setPlaceholderText(self.t("main_GUI.variables_tab.name_placeholder"))
         if var_data and 'name' in var_data:
-            name_imput.setText(var_data['name'])
+            name_input.setText(var_data['name'])
             Utils.variables['main_canvas'][var_id]['name'] = var_data['name']
         
-        name_imput.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.name_changed(text, v_id, t, r))
+        name_input.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.name_changed(text, v_id, t, r))
         
         type_input = QComboBox()
         type_input.addItems(["Int", "Float", "String", "Bool"])
@@ -3796,15 +3853,30 @@ class MainWindow(QMainWindow):
             type_input.setCurrentText(var_data['type'])
             Utils.variables['main_canvas'][var_id]['type'] = var_data['type']
         
-        type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable", r=canvas_reference: self.type_changed(text, v_id , t, r))
+        type_input.currentTextChanged.connect(lambda  text, v_id=var_id, t="Variable", r=canvas_reference, w=type_input: self.type_changed(text, v_id , t, r, w))
         
-        self.value_var_input = QLineEdit()
-        self.value_var_input.setPlaceholderText(self.t("main_GUI.variables_tab.initial_value_placeholder"))
+        value_var_input = QLineEdit()
+        if var_data and 'type' in var_data:
+            if var_data['type'] == 'Int':
+                value_var_input.setValidator(QIntValidator(-1073741824, 1073741823))
+            elif var_data['type'] == 'Float':
+                regex = QRegularExpression(r"^-?[0-9]*\.?[0-9]*$")
+                value_var_input.setValidator(QRegularExpressionValidator(regex, self))
+                value_var_input.setMaxLength(14) # Hard caps total characters
+            elif var_data['type'] == 'Bool':
+                regex = QRegularExpression(r"^[01]$")
+                value_var_input.setValidator(QRegularExpressionValidator(regex, self))
+                value_var_input.setMaxLength(1)
+            elif var_data['type'] == 'String':
+                value_var_input.setValidator(None)
+        else:
+            value_var_input.setValidator(QIntValidator(-1073741824, 1073741823))
+        value_var_input.setPlaceholderText(self.t("main_GUI.variables_tab.initial_value_placeholder"))
         if var_data and 'value' in var_data:
             print(f"Setting initial value for variable {var_id}: {var_data['value']}")
-            self.value_var_input.setText(var_data['value'])
+            value_var_input.setText(var_data['value'])
             Utils.variables['main_canvas'][var_id]['value'] = var_data['value']
-        self.value_var_input.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference: self.value_changed(text, v_id, t, r))
+        value_var_input.textChanged.connect(lambda text, v_id=var_id, t="Variable", r=canvas_reference, w=value_var_input: self.value_changed(text, v_id, t, r, w))
         
         current_value = QLineEdit()
         current_value.setReadOnly(True)
@@ -3813,18 +3885,18 @@ class MainWindow(QMainWindow):
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
         
-        canvas_reference.row_layout.addWidget(name_imput)
+        canvas_reference.row_layout.addWidget(name_input)
         canvas_reference.row_layout.addWidget(type_input)
-        canvas_reference.row_layout.addWidget(self.value_var_input)
+        canvas_reference.row_layout.addWidget(value_var_input)
         canvas_reference.row_layout.addWidget(current_value)
         canvas_reference.row_layout.addWidget(delete_btn)
         
         delete_btn.clicked.connect(lambda _, v_id=var_id, rw=canvas_reference.row_widget, t="Variable", r=canvas_reference: self.remove_row(rw, v_id, t, r))
 
         Utils.variables['main_canvas'][var_id]['widget'] = canvas_reference.row_widget
-        Utils.variables['main_canvas'][var_id]['name_imput'] = name_imput
+        Utils.variables['main_canvas'][var_id]['name_input'] = name_input
         Utils.variables['main_canvas'][var_id]['type_input'] = type_input
-        Utils.variables['main_canvas'][var_id]['value_input'] = self.value_var_input
+        Utils.variables['main_canvas'][var_id]['value_input'] = value_var_input
         Utils.variables['main_canvas'][var_id]['current_value_display'] = current_value
         panel_layout = canvas_reference.var_layout
         panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
@@ -3879,7 +3951,7 @@ class MainWindow(QMainWindow):
                         'type_index': 0,
                         'PIN': '',
                         'widget': None,
-                        'name_imput': None,
+                        'name_input': None,
                         'type_input': None,
                         'value_input': None,
                         'current_state_display': None
@@ -3895,7 +3967,7 @@ class MainWindow(QMainWindow):
                 'type_index': 0,
                 'PIN': '',
                 'widget': None,
-                'name_imput': None,
+                'name_input': None,
                 'type_input': None,
                 'value_input': None,
                 'current_state_display': None
@@ -3908,33 +3980,33 @@ class MainWindow(QMainWindow):
         canvas_reference.row_layout = QHBoxLayout(canvas_reference.row_widget)
         canvas_reference.row_layout.setContentsMargins(5, 5, 5, 5)
  
-        name_imput = QLineEdit()
-        name_imput.setPlaceholderText(self.t("main_GUI.devices_tab.name_placeholder"))
+        name_input = QLineEdit()
+        name_input.setPlaceholderText(self.t("main_GUI.devices_tab.name_placeholder"))
         if dev_data and 'name' in dev_data:
-            name_imput.setText(dev_data['name'])
+            name_input.setText(dev_data['name'])
             Utils.devices['main_canvas'][device_id]['name'] = dev_data['name']
         
-        name_imput.textChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference: self.name_changed(text, d_id, t, r))
+        name_input.textChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference: self.name_changed(text, d_id, t, r))
         
-        self.type_input = QComboBox()
-        self.type_input.addItems([self.t("main_GUI.devices_tab.output"), self.t("main_GUI.devices_tab.input"), self.t("main_GUI.devices_tab.button"), "PWM"])
+        type_input = QComboBox()
+        type_input.addItems([self.t("main_GUI.devices_tab.output"), self.t("main_GUI.devices_tab.input"), self.t("main_GUI.devices_tab.button"), "PWM"])
         if dev_data and 'type_index' in dev_data:
-            self.type_input.setCurrentIndex(dev_data['type_index'])
+            type_input.setCurrentIndex(dev_data['type_index'])
             Utils.devices['main_canvas'][device_id]['type_index'] = dev_data['type_index']
         
-        self.type_input.currentTextChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference: self.type_changed(text, d_id, t, r))
+        type_input.currentTextChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference, w=type_input: self.type_changed(text, d_id, t, r, w))
         
-        self.value_dev_input = QLineEdit()
-        self.value_dev_input.setPlaceholderText(self.t("main_GUI.devices_tab.pin"))
+        value_dev_input = QLineEdit()
+        value_dev_input.setPlaceholderText(self.t("main_GUI.devices_tab.pin"))
         if dev_data and 'PIN' in dev_data:
             print(f"Setting initial PIN value for device {device_id}: {dev_data['PIN']}")
-            self.value_dev_input.setText(str(dev_data['PIN']))
+            value_dev_input.setText(str(dev_data['PIN']))
             Utils.devices['main_canvas'][device_id]['PIN'] = dev_data['PIN']
 
         regex = QRegularExpression(r"^\d*$")
         validator = QRegularExpressionValidator(regex, self)
-        self.value_dev_input.setValidator(validator)
-        self.value_dev_input.textChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference: self.value_changed(text, d_id, t, r))
+        value_dev_input.setValidator(validator)
+        value_dev_input.textChanged.connect(lambda text, d_id=device_id, t="Device", r=canvas_reference, w=value_dev_input: self.value_changed(text, d_id, t, r, w))
         
         current_state = QLineEdit()
         current_state.setReadOnly(True)
@@ -3943,9 +4015,9 @@ class MainWindow(QMainWindow):
         delete_btn = QPushButton("×")
         delete_btn.setFixedWidth(30)
         
-        canvas_reference.row_layout.addWidget(name_imput)
-        canvas_reference.row_layout.addWidget(self.type_input)
-        canvas_reference.row_layout.addWidget(self.value_dev_input)
+        canvas_reference.row_layout.addWidget(name_input)
+        canvas_reference.row_layout.addWidget(type_input)
+        canvas_reference.row_layout.addWidget(value_dev_input)
         canvas_reference.row_layout.addWidget(current_state)
         canvas_reference.row_layout.addWidget(delete_btn)
         
@@ -3955,9 +4027,9 @@ class MainWindow(QMainWindow):
         panel_layout.insertWidget(panel_layout.count() - 1, canvas_reference.row_widget)
         
         Utils.devices['main_canvas'][device_id]['widget'] = canvas_reference.row_widget
-        Utils.devices['main_canvas'][device_id]['name_imput'] = name_imput
-        Utils.devices['main_canvas'][device_id]['type_input'] = self.type_input
-        Utils.devices['main_canvas'][device_id]['value_input'] = self.value_dev_input
+        Utils.devices['main_canvas'][device_id]['name_input'] = name_input
+        Utils.devices['main_canvas'][device_id]['type_input'] = type_input
+        Utils.devices['main_canvas'][device_id]['value_input'] = value_dev_input
         Utils.devices['main_canvas'][device_id]['current_state_display'] = current_state
 
     def Clear_All_Devices(self):
@@ -4000,26 +4072,26 @@ class MainWindow(QMainWindow):
                 if canvas_reference == canvas:
                     if info['ref'] == 'canvas':
                         del Utils.variables['main_canvas'][var_id]
-                        for imput, var_ids in Utils.vars_same.items():
+                        for input, var_ids in Utils.vars_same.items():
                             if var_id in var_ids:
                                 var_ids.remove(var_id)
                     elif info['ref'] == 'function':
                         for function_id, function_info in Utils.functions.items():
                             if function_info['canvas'] == canvas_reference:
                                 del Utils.variables['function_canvases'][function_id][var_id]
-                                for imput, var_ids in Utils.vars_same.items():
+                                for input, var_ids in Utils.vars_same.items():
                                     if var_id in var_ids:
                                         var_ids.remove(var_id)
                                 break
             
-            for imput2, var in Utils.vars_same.items():
+            for input2, var in Utils.vars_same.items():
                 #print(f"Var {var}, len var {len(var)}")
                 if len(var) <= 1:
                     for var_id in var:
                         if info['ref'] == 'canvas':
-                            Utils.variables['main_canvas'][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                            Utils.variables['main_canvas'][var_id]['name_input'].setStyleSheet("border-color: #3F3F3F;")
                         elif info['ref'] == 'function':
-                            Utils.variables['function_canvases'][function_id][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                            Utils.variables['function_canvases'][function_id][var_id]['name_input'].setStyleSheet("border-color: #3F3F3F;")
             
             panel_layout = canvas_reference.var_layout
             panel_layout.removeWidget(row_widget)
@@ -4033,26 +4105,26 @@ class MainWindow(QMainWindow):
                 if canvas_reference == canvas:
                     if info['ref'] == 'canvas':
                         del Utils.devices['main_canvas'][var_id]
-                        for imput, dev_ids in Utils.devs_same.items():
+                        for input, dev_ids in Utils.devs_same.items():
                             if var_id in dev_ids:
                                 dev_ids.remove(var_id)
                     elif info['ref'] == 'function':
                         for function_id, function_info in Utils.functions.items():
                             if function_info['canvas'] == canvas_reference:
                                 del Utils.devices['function_canvases'][function_id][var_id]
-                                for imput, dev_ids in Utils.devs_same.items():
+                                for input, dev_ids in Utils.devs_same.items():
                                     if var_id in dev_ids:
                                         dev_ids.remove(var_id)
                                 break
             
-            for imput2, dev in Utils.devs_same.items():
+            for input2, dev in Utils.devs_same.items():
                 #print(f"Dev {dev}, len dev {len(dev)}")
                 if len(dev) <= 1:
                     for dev_id in dev:
                         if info['ref'] == 'canvas':
-                            Utils.devices['main_canvas'][dev_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                            Utils.devices['main_canvas'][dev_id]['name_input'].setStyleSheet("border-color: #3F3F3F;")
                         elif info['ref'] == 'function':
-                            Utils.devices['function_canvases'][function_id][dev_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                            Utils.devices['function_canvases'][function_id][dev_id]['name_input'].setStyleSheet("border-color: #3F3F3F;")
             
             panel_layout = canvas_reference.dev_layout
             panel_layout.removeWidget(row_widget)
@@ -4072,19 +4144,19 @@ class MainWindow(QMainWindow):
                         for function_id, function_info in Utils.functions.items():
                             if function_info['canvas'] == canvas_reference:
                                 del Utils.variables['function_canvases'][function_id][var_id]
-                                for imput, var_ids in Utils.vars_same.items():
+                                for input, var_ids in Utils.vars_same.items():
                                     if var_id in var_ids:
                                         var_ids.remove(var_id)
                                 break
             
-            for imput2, var in Utils.vars_same.items():
+            for input2, var in Utils.vars_same.items():
                 #print(f"Var {var}, len var {len(var)}")
                 if len(var) <= 1:
                     for var_id in var:
                         if info['ref'] == 'canvas':
                             pass
                         elif info['ref'] == 'function':
-                            Utils.variables['function_canvases'][function_id][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                            Utils.variables['function_canvases'][function_id][var_id]['name_input'].setStyleSheet("border-color: #3F3F3F;")
             
             panel_layout = canvas_reference.internal_layout
             panel_layout.removeWidget(row_widget)
@@ -4102,19 +4174,19 @@ class MainWindow(QMainWindow):
                         for function_id, function_info in Utils.functions.items():
                             if function_info['canvas'] == canvas_reference:
                                 del Utils.devices['function_canvases'][function_id][var_id]
-                                for imput, dev_ids in Utils.devs_same.items():
+                                for input, dev_ids in Utils.devs_same.items():
                                     if var_id in dev_ids:
                                         dev_ids.remove(var_id)
                                 break
             
-            for imput2, dev in Utils.devs_same.items():
+            for input2, dev in Utils.devs_same.items():
                 #print(f"Dev {dev}, len dev {len(dev)}")
                 if len(dev) <= 1:
                     for dev_id in dev:
                         if info['ref'] == 'canvas':
                             pass
                         elif info['ref'] == 'function':
-                            Utils.devices['function_canvases'][function_id][dev_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                            Utils.devices['function_canvases'][function_id][dev_id]['name_input'].setStyleSheet("border-color: #3F3F3F;")
             
             panel_layout = canvas_reference.internal_layout
             panel_layout.removeWidget(row_widget)
@@ -4140,17 +4212,17 @@ class MainWindow(QMainWindow):
             # Step 1: Group all var_ids by their name value
             Utils.vars_same.clear() 
             if info['ref'] == 'canvas':
-                Utils.variables['main_canvas'][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                Utils.variables['main_canvas'][var_id]['name_input'].setStyleSheet("border-color: #3F3F3F;")
             elif info['ref'] == 'function':
-                Utils.variables['function_canvases'][function_id][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                Utils.variables['function_canvases'][function_id][var_id]['name_input'].setStyleSheet("border-color: #3F3F3F;")
             if info['ref'] == 'canvas':
                 for v_id, v_info in Utils.variables['main_canvas'].items():
-                    name = v_info['name_imput'].text().strip()
+                    name = v_info['name_input'].text().strip()
                     if name:
                         Utils.vars_same.setdefault(name, []).append(v_id)
             elif info['ref'] == 'function':
                 for v_id, v_info in Utils.variables['function_canvases'][function_id].items():
-                    name = v_info['name_imput'].text().strip()
+                    name = v_info['name_input'].text().strip()
                     if name:
                         Utils.vars_same.setdefault(name, []).append(v_id)
             
@@ -4160,10 +4232,10 @@ class MainWindow(QMainWindow):
                 border_col = "border-color: #ff0000;" if len(id_list) > 1 else "border-color: #3F3F3F;"
                 if info['ref'] == 'canvas':
                     for v_id in id_list:
-                        Utils.variables['main_canvas'][v_id]['name_imput'].setStyleSheet(border_col)
+                        Utils.variables['main_canvas'][v_id]['name_input'].setStyleSheet(border_col)
                 elif info['ref'] == 'function':                
                     for v_id in id_list:
-                        Utils.variables['function_canvases'][function_id][v_id]['name_imput'].setStyleSheet(border_col)
+                        Utils.variables['function_canvases'][function_id][v_id]['name_input'].setStyleSheet(border_col)
             #print("Utils.variables:", Utils.variables)
         
         elif type == "Device":
@@ -4181,17 +4253,17 @@ class MainWindow(QMainWindow):
             # Step 1: Group all var_ids by their name value
             Utils.devs_same.clear() 
             if info['ref'] == 'canvas':
-                Utils.devices['main_canvas'][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                Utils.devices['main_canvas'][var_id]['name_input'].setStyleSheet("border-color: #3F3F3F;")
             elif info['ref'] == 'function':
-                Utils.devices['function_canvases'][function_id][var_id]['name_imput'].setStyleSheet("border-color: #3F3F3F;")
+                Utils.devices['function_canvases'][function_id][var_id]['name_input'].setStyleSheet("border-color: #3F3F3F;")
             if info['ref'] == 'canvas':
                 for d_id, d_info in Utils.devices['main_canvas'].items():
-                    name = d_info['name_imput'].text().strip()
+                    name = d_info['name_input'].text().strip()
                     if name:
                         Utils.devs_same.setdefault(name, []).append(d_id)
             elif info['ref'] == 'function':
                 for d_id, d_info in Utils.devices['function_canvases'][function_id].items():
-                    name = d_info['name_imput'].text().strip()
+                    name = d_info['name_input'].text().strip()
                     if name:
                         Utils.devs_same.setdefault(name, []).append(d_id)
             
@@ -4201,86 +4273,88 @@ class MainWindow(QMainWindow):
                 border_col = "border-color: #ff0000;" if len(id_list) > 1 else "border-color: #3F3F3F;"
                 if info['ref'] == 'canvas':
                     for d_id in id_list:
-                        Utils.devices['main_canvas'][d_id]['name_imput'].setStyleSheet(border_col)
+                        Utils.devices['main_canvas'][d_id]['name_input'].setStyleSheet(border_col)
                 elif info['ref'] == 'function':                
                     for d_id in id_list:
-                        Utils.devices['function_canvases'][function_id][d_id]['name_imput'].setStyleSheet(border_col)
+                        Utils.devices['function_canvases'][function_id][d_id]['name_input'].setStyleSheet(border_col)
             #print("Utils.devices:", Utils.devices)
     
-    def type_changed(self, input, id, type, canvas_reference=None):
-        #print(f"Updating variable {imput}")
+    def type_changed(self, input, id, type, canvas_reference=None, widget=None):
+        #print(f"Updating variable {input}")
         if type == "Variable":
             for canvas, info in Utils.canvas_instances.items():
                 if canvas_reference == canvas:
                     if info['ref'] == 'canvas':
                         Utils.variables['main_canvas'][id]['type'] = input
-                        print(f"Index of type for variable {id} set to {self.type_input.currentIndex()}")
-                        Utils.variables['main_canvas'][id]['type_index'] = self.type_input.currentIndex()
+                        print(f"Index of type for variable {id} set to {widget.currentIndex()}")
+                        Utils.variables['main_canvas'][id]['type_index'] = widget.currentIndex()
+                        value_input = Utils.variables['main_canvas'][id]['value_input']
                         break
                     elif info['ref'] == 'function':
                         for function_id, function_info in Utils.functions.items():
                             if function_info['canvas'] == canvas_reference:
                                 Utils.variables['function_canvases'][function_id][id]['type'] = input
-                                Utils.variables['function_canvases'][function_id][id]['type_index'] = self.type_input.currentIndex()
+                                Utils.variables['function_canvases'][function_id][id]['type_index'] = widget.currentIndex()
+                                value_input = Utils.variables['function_canvases'][function_id][id]['value_input']
                                 break
+            if value_input:
+                if input == "Int":
+                    value_input.setValidator(QIntValidator(-1073741824, 1073741823))
+                elif input == "Float":
+                    #print("Setting float validator")
+                    regex = QRegularExpression(r"^-?[0-9]*\.?[0-9]*$")
+                    value_input.setValidator(QRegularExpressionValidator(regex, self))
+                    value_input.setMaxLength(14) # Hard caps total characters
+                elif input == "Bool":
+                    regex = QRegularExpression(r"^[01]$")
+                    value_input.setValidator(QRegularExpressionValidator(regex, self))
+                    value_input.setMaxLength(1)
+                elif input == "String":
+                    value_input.setValidator(None)
         elif type == "Device":
             for canvas, info in Utils.canvas_instances.items():
                 if canvas_reference == canvas:
                     if info['ref'] == 'canvas':
                         Utils.devices['main_canvas'][id]['type'] = input
-                        print(f"Index of type for device {id} set to {self.type_input.currentIndex()}")
-                        Utils.devices['main_canvas'][id]['type_index'] = self.type_input.currentIndex()
+                        print(f"Index of type for device {id} set to {widget.currentIndex()}")
+                        Utils.devices['main_canvas'][id]['type_index'] = widget.currentIndex()
                         break
                     elif info['ref'] == 'function':
                         for function_id, function_info in Utils.functions.items():
                             if function_info['canvas'] == canvas_reference:
                                 Utils.devices['function_canvases'][function_id][id]['type'] = input
-                                Utils.devices['function_canvases'][function_id][id]['type_index'] = self.type_input.currentIndex()
+                                Utils.devices['function_canvases'][function_id][id]['type_index'] = widget.currentIndex()
                                 break
     
-    def value_changed(self, imput, id, type, canvas_reference=None):
-        #print(f"Updating variable {imput}")
+    def value_changed(self, input, id, type, canvas_reference=None, widget=None):
+        #print(f"Updating variable {input}")
         
         if type == "Variable":
             try:
-                value = len(imput)
                 for v_id, v_info in Utils.variables['main_canvas'].items():
                     if v_id == id:
                         v_type = Utils.variables['main_canvas'][id]['type']
                         break
-                print(f"Variable {id} of type {v_type} changed to value: {imput}")
+                print(f"Variable {id} of type {v_type} changed to value: {input}")
                 
-                if v_type == "Int" and int(imput) > sys.maxsize:
-                    self.value_var_input.blockSignals(True)
-                    self.value_var_input.setText(str(sys.maxsize))
-                    imput = str(sys.maxsize)
-                    self.value_var_input.blockSignals(False)
-                if v_type == "Int" and int(imput) < -sys.maxsize-1:
-                    self.value_var_input.blockSignals(True)
-                    self.value_var_input.setText(str(-sys.maxsize-1))
-                    imput = str(-sys.maxsize-1)
-                    self.value_var_input.blockSignals(False)
-                if v_type == "Float" and float(imput) > sys.maxsize:
-                    self.value_var_input.blockSignals(True)
-                    self.value_var_input.setText(str(sys.maxsize))
-                    imput = str(sys.maxsize)
-                    self.value_var_input.blockSignals(False)
-                if v_type == "Float" and float(imput) < -sys.maxsize-1:
-                    self.value_var_input.blockSignals(True)
-                    self.value_var_input.setText(str(-sys.maxsize-1))
-                    imput = str(-sys.maxsize-1)
-                    self.value_var_input.blockSignals(False)
-                if v_type == "Bool" and int(imput) > 1:
-                    self.value_var_input.blockSignals(True)
-                    self.value_var_input.setText("1")
-                    imput = "1"
-                    self.value_var_input.blockSignals(False)
-                if v_type == "Bool" and int(imput) < 0:
-                    self.value_var_input.blockSignals(True)
-                    self.value_var_input.setText("0")
-                    imput = "0"
-                    self.value_var_input.blockSignals(False)
-
+                if input and widget:
+                    if v_type == "Int":
+                        clamped_val = max(-1073741824, min(1073741823, int(input)))  # Clamp to 64-bit signed int range
+                        next_input = str(clamped_val)
+                    elif v_type == "Float":
+                        clamped_val = max(-3.4e38, min(3.4e38, float(input)))  # Clamp to float range
+                        next_input = f"{clamped_val:2.g}" # Format to 2 significant digits
+                    elif v_type == "Bool":
+                        clamped_val = max(0, min(1, int(input)))  # Clamp to 0 or 1
+                        next_input = str(clamped_val)
+                    else:
+                        next_input = input  # For strings, just take the input
+                
+                    if widget.text() != next_input:
+                        widget.blockSignals(True)
+                        widget.setText(next_input)
+                        widget.blockSignals(False)
+                        input = next_input
 
             except ValueError:
                     # Text is empty or can't convert (shouldn't happen with regex)
@@ -4289,38 +4363,35 @@ class MainWindow(QMainWindow):
             for canvas, info in Utils.canvas_instances.items():
                 if canvas_reference == canvas:
                     if info['ref'] == 'canvas':
-                        Utils.variables['main_canvas'][id]['value'] = imput
+                        Utils.variables['main_canvas'][id]['value'] = input
                         break
                     elif info['ref'] == 'function':
                         for function_id, function_info in Utils.functions.items():
                             if function_info['canvas'] == canvas_reference:
-                                Utils.variables['function_canvases'][function_id][id]['value'] = imput
+                                Utils.variables['function_canvases'][function_id][id]['value'] = input
                                 break
         elif type == "Device":
             try:
-                if int(imput) > 40:
-                    self.value_dev_input.blockSignals(True)
-                    self.value_dev_input.setText("40")
-                    imput = "40"
-                    self.value_dev_input.blockSignals(False)
-                
-                if int(imput) < 0:
-                    self.value_dev_input.blockSignals(True)
-                    self.value_dev_input.setText("0")
-                    imput = "0"
-                    self.value_dev_input.blockSignals(False)
+                if input and widget:
+                    clamped_val = max(0, min(40, int(input)))  # Clamp to valid GPIO pin numbers (0-40 for Raspberry Pi)
+                    next_input = str(clamped_val)
+                    if widget.text() != next_input:
+                        widget.blockSignals(True)
+                        widget.setText(next_input)
+                        widget.blockSignals(False)
+                        input = next_input
             except ValueError:
                     # Text is empty or can't convert (shouldn't happen with regex)
                     pass
             for canvas, info in Utils.canvas_instances.items():
                 if canvas_reference == canvas:
                     if info['ref'] == 'canvas':
-                        Utils.devices['main_canvas'][id]['PIN'] = imput
+                        Utils.devices['main_canvas'][id]['PIN'] = input
                         break
                     elif info['ref'] == 'function':
                         for function_id, function_info in Utils.functions.items():
                             if function_info['canvas'] == canvas_reference:
-                                Utils.devices['function_canvases'][function_id][id]['PIN'] = imput
+                                Utils.devices['function_canvases'][function_id][id]['PIN'] = input
                                 break    
                                 
     def update_current_values(self):
@@ -5422,6 +5493,48 @@ class MainWindow(QMainWindow):
                     #print(f"  Recreating device {dev_id} on function canvas")
                     self.add_internal_device_row(dev_id, dev_info, canvas)
                 print(f"Devices after function canvas rebuild: {Utils.devices['function_canvases'][canvas_info['id']]}")
+
+    #MARK: - Update manager
+    def start_update_check(self):
+        self.update_thread = UpdateCheckerThread()
+        self.update_thread.update_available.connect(self.prompt_update)
+        self.update_thread.start()
+
+    def prompt_update(self, version, assets):
+        reply = QMessageBox.question(
+            self, 'Update Available',
+            f'Version {version} is available. Would you like to update and restart now?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            download_url = None
+            target_extension = ".exe" if sys.platform == "win32" else ".zip"
+            
+            for asset in assets:
+                if asset['name'].endswith(target_extension):
+                    download_url = asset['browser_download_url']
+                    break
+            
+            if download_url:
+                self.show_update_progress(download_url)
+
+    def show_update_progress(self, url):
+        self.progress_dialog = QProgressDialog("Downloading Update...", "Cancel", 0, 100, self)
+        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.progress_dialog.setAutoClose(True)
+        self.progress_dialog.show()
+
+        self.download_thread = DownloadUpdateThread(url)
+        self.download_thread.progress.connect(self.progress_dialog.setValue)
+        self.download_thread.finished.connect(self.apply_update)
+        self.progress_dialog.canceled.connect(self.download_thread.terminate)
+        self.download_thread.start()
+
+    def apply_update(self, save_path):
+        from updater import perform_update
+        perform_update(save_path)
+        QApplication.quit() # Safely shut down PyQt
 #MARK: Main  
 def main():
     app = QApplication(sys.argv)
