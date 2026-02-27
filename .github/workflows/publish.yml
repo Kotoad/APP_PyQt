@@ -77,7 +77,9 @@ jobs:
         name: OmniBoard Studio ${{ inputs.version }}
         draft: false
         prerelease: false
-        files: OmniBoard_Studio_Linux.tar.gz | install.sh
+        files: |
+          OmniBoard_Studio_Linux.tar.gz
+          install.sh
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -89,6 +91,8 @@ jobs:
         name: OmniBoard Studio ${{ inputs.version }}
         draft: false
         prerelease: false
-        files: OmniBoard_Studio_Windows.zip | OmniBoard_Studio_Installer.exe
+        files: |
+          OmniBoard_Studio_Windows.zip
+          OmniBoard_Online_Installer.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
