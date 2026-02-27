@@ -8,6 +8,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     strategy:
@@ -60,15 +63,26 @@ jobs:
       run: |
         Compress-Archive -Path * -DestinationPath "..\..\OmniBoard_Studio_Windows.zip"
 
-    - name: 🚀 Publish to GitHub Release
+    - name: 🚀 Publish to GitHub Release (Linux)
+      if: matrix.os == 'ubuntu-latest'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ inputs.version }}
         name: OmniBoard Studio ${{ inputs.version }}
         draft: false
         prerelease: false
-        files: |
-          OmniBoard_Studio_Linux.tar.gz
-          OmniBoard_Studio_Windows.zip
+        files: OmniBoard_Studio_Linux.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 🚀 Publish to GitHub Release (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ inputs.version }}
+        name: OmniBoard Studio ${{ inputs.version }}
+        draft: false
+        prerelease: false
+        files: OmniBoard_Studio_Windows.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
