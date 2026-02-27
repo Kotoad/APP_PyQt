@@ -56,8 +56,8 @@ jobs:
 
     - name: 📦 Package Windows Build (zip)
       if: matrix.os == 'windows-latest'
+      working-directory: dist/OmniBoard Studio
       run: |
-        cd "dist\OmniBoard Studio"
         Compress-Archive -Path * -DestinationPath "..\..\OmniBoard_Studio_Windows.zip"
 
     - name: 🚀 Publish to GitHub Release
