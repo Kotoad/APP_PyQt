@@ -1875,8 +1875,8 @@ class MainWindow(QMainWindow):
         self.create_top_toolbar()
         self.create_bottom_toolbar()
         self.create_canvas_frame()
-
-        self.start_update_check()
+        if getattr(sys, 'frozen', False):
+            self.start_update_check()
     
     def mousePressEvent(self, event):
         """Debug: Track if main window gets mouse press"""
