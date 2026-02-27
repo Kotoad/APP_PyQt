@@ -38,8 +38,34 @@ jobs:
       run: |
         python build_exe.py
 
-    - name: 📤 Upload Executable
+    - name: 🗜️ Strip Debug Symbols (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        find dist/ -name "*.so" -type f -exec strip --strip-unneeded {} +
+        find dist/ -name "OmniBoard Studio" -type f -executable -exec strip --strip-unneeded {} +
+
+    - name: 📦 Package Linux Build (tar.gz)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        cd "dist/OmniBoard Studio"
+        tar -czf ../../OmniBoard_Studio_Linux.tar.gz *
+
+    - name: 📦 Package Windows Build (zip)
+      if: matrix.os == 'windows-latest'
+      run: |
+        cd "dist\OmniBoard Studio"
+        Compress-Archive -Path * -DestinationPath "..\..\OmniBoard_Studio_Windows.zip"
+
+    - name: 📤 Upload Executable (Linux)
+      if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: OmniBoard-${{ runner.os }}
-        path: dist/
+        name: OmniBoard-Linux
+        path: OmniBoard_Studio_Linux.tar.gz
+
+    - name: 📤 Upload Executable (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: OmniBoard-Windows
+        path: OmniBoard_Studio_Windows.zip

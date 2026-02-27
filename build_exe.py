@@ -62,6 +62,8 @@ def build_exe():
         '--distpath=dist',         # Output folder
         '--noconfirm',             # Don't ask for confirmation
         '--icon=resources/images/APPicon.ico'  # Application icon
+        '--clean'                 # Clean build folders before building
+        '--strip'                 # Strip debug symbols to reduce size
     ]
     
     # Add hidden imports

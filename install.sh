@@ -7,7 +7,7 @@ wget -q --show-progress "$ZIP_URL" -O /tmp/omniboard.zip
 
 echo "Extracting..."
 mkdir -p "$APP_DIR"
-unzip -q /tmp/omniboard.zip -d "$APP_DIR"
+tar -xzf /tmp/omniboard.tar.gz -C "$APP_DIR"
 
 echo "Creating Application menu shortcut..."
 mkdir -p "$HOME/.local/share/applications"
