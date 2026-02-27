@@ -12,8 +12,8 @@ class AppSettings:
         self.rpi_model_index = 6           # Index in combo box
         
         self.rpi_host = "raspberrypi.local"
-        self.rpi_user = "kryst"
-        self.rpi_password = "9Vv5WmDn"
+        self.rpi_user = "pi"
+        self.rpi_password = "raspberry"
         self.rpi_model_name = ""
         self.rpi_os = ""
         self.use_ssh_key = True
