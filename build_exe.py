@@ -84,6 +84,10 @@ def build_exe():
     
     try:
         PyInstaller.__main__.run(args)
+
+        print("[*] Copying resources folder...")
+        shutil.copytree('resources', 'dist/OmniBoard Studio/resources', dirs_exist_ok=True)
+
         print("\n[✓] Build successful!")
         print("\n[*] Output:")
         print(f"    dist/OmniBoard Studio/OmniBoard Studio.exe - Your standalone executable")
