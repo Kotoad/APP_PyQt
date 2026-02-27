@@ -61,8 +61,8 @@ def build_exe():
         '--name=OmniBoard Studio',  # App name
         '--distpath=dist',         # Output folder
         '--noconfirm',             # Don't ask for confirmation
-        '--icon=resources/images/APPicon.ico'  # Application icon
-        '--clean'                 # Clean build folders before building
+        '--icon=resources/images/APPicon.ico',  # Application icon
+        '--clean',                 # Clean build folders before building
         '--strip'                 # Strip debug symbols to reduce size
     ]
     
@@ -131,5 +131,5 @@ if __name__ == '__main__':
         verify_build()
     else:
         sys.exit(1)
-        
+
     print("\n" + "="*60)
