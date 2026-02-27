@@ -1,8 +1,8 @@
 {
   "rpi_model": "RPI 4 Model B",
   "rpi_model_index": 6,
-  "rpi_host": "192.168.0.199",
-  "rpi_user": "pi",
-  "rpi_password": "raspberry",
+  "rpi_host": "",
+  "rpi_user": "",
+  "rpi_password": "",
   "language": "en"
 }

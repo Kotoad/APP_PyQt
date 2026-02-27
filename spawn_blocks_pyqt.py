@@ -303,7 +303,7 @@ class BlockGraphicsItem(QGraphicsObject):
         painter.setFont(font)
         
         # Determine text
-        text = self.block_type
+        text = self.block_type.replace("_", " ")
         # Draw text centered
         if self.block_type in ["While"]:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
@@ -491,33 +491,33 @@ class BlockGraphicsItem(QGraphicsObject):
     #MARK: - Event Handling
     def connect_graphics_signals(self):
         """Connect graphics item circle click signals to event handler"""
-        #print(f"        Self: {self}")
-        #print(f"        canvas: {self.canvas}")
+        print(f"        Self: {self}")
+        print(f"        canvas: {self.canvas}")
         if self.canvas.reference == 'canvas':
-            #print("   Connecting signals for main canvas block")
+            print("   Connecting signals for main canvas block")
             if self.block_id not in Utils.main_canvas['blocks']:
                 return
             else:
-                #print(f"   Found block in main canvas: {self.block_id}")
+                print(f"   Found block in main canvas: {self.block_id}")
                 block_info = Utils.main_canvas['blocks'][self.block_id]
         else:
-            #print("   Connecting signals for function canvas block")
+            print("   Connecting signals for function canvas block")
             for f_id, f_info in Utils.functions.items():
                 if self.canvas == f_info.get('canvas'):
                     if self.block_id not in f_info['blocks']:
                         return
                     else:
-                        #print(f"   Found block in function {f_id}: {self.block_id}")
+                        print(f"   Found block in function {f_id}: {self.block_id}")
                         block_info = f_info['blocks'][self.block_id]
                         break
-        #print(f"✓ Connecting signals for block: {self.block_id}")
+        print(f"✓ Connecting signals for block: {self.block_id}")
         block_graphics = block_info.get('widget')
-        #print(f"   block_graphics: {block_graphics}")
+        print(f"   block_graphics: {block_graphics}")
         if block_graphics and hasattr(block_graphics, 'signals'):
-            #print(f"   block_graphics.signals: {block_graphics.signals}")
-            #print(f"   canvas: {self.canvas if hasattr(self.canvas, 'blocks_events') else 'No canvas events'}")
+            print(f"   block_graphics.signals: {block_graphics.signals}")
+            print(f"   canvas: {self.canvas if hasattr(self.canvas, 'blocks_events') else 'No canvas events'}")
             if hasattr(self.canvas, 'blocks_events'):
-                #print(f"   canvas.blocks_events: {self.canvas.blocks_events}")
+                print(f"   canvas.blocks_events: {self.canvas.blocks_events}")
                 events = self.canvas.blocks_events
                 try:
                     block_graphics.signals.input_clicked.connect(events.on_input_clicked)
@@ -615,7 +615,7 @@ class BlockGraphicsItem(QGraphicsObject):
         local_pos = event.pos()
         clicked = self.where_clicked(local_pos)
         
-        #print(f"Mouse press at {local_pos}, detected circle: {clicked}")
+        print(f"Mouse press at {local_pos}, detected circle: {clicked}")
         
         if event.button() == Qt.MouseButton.LeftButton:
             if clicked and (clicked.startswith('out') or clicked.startswith('in')):
@@ -624,10 +624,10 @@ class BlockGraphicsItem(QGraphicsObject):
                     circle_center = QPointF(circle_center[0], circle_center[1])
                 
                 if clicked.startswith('in'):
-                    #print(f" → Input circle clicked: {clicked} at {circle_center}")
+                    print(f" → Input circle clicked: {clicked} at {circle_center}")
                     self.signals.input_clicked.emit(self, circle_center, clicked)
                 elif clicked.startswith('out'):
-                    #print(f" → Output circle clicked: {clicked} at {circle_center}")
+                    print(f" → Output circle clicked: {clicked} at {circle_center}")
                     self.signals.output_clicked.emit(self, circle_center, clicked)
                 self.ungrabMouse()
                 event.accept()
@@ -748,6 +748,7 @@ class BlockGraphicsItem(QGraphicsObject):
             local_y = self.grid_size * (number)
         
         # Convert to scene coordinates
+        print(f"Local coordinates for {circle_type} circle: ({local_x}, {local_y})")
         scene_pos = self.mapToScene(local_x, local_y)
         return (scene_pos.x(), scene_pos.y())
 
@@ -929,12 +930,14 @@ class blocks_events(QObject):
     def __init__(self, canvas):
         super().__init__()
         self.canvas = canvas
+        print(f"[BlocksEvents]Initializing blocksEvents for canvas: {canvas}")
         self.path_manager = canvas.path_manager if hasattr(canvas, 'path_manager') else None
+        print(f"[BlocksEvents]path_manager: {self.path_manager}, canvas path_manager: {getattr(canvas, 'path_manager', 'No path manager')}")
         self.state_manager = Utils.state_manager
         #print(f"Instantiating blocksEvents for canvas: {canvas}")
         #print(f" → inspector_panel: {self.inspector_frame_visible}")
         #print("✓ blocksEvents initialized")
-        #print(f" → path_manager: {self.path_manager}")
+        print(f"[BlocksEvents]path_manager: {self.path_manager}")
 
     def on_input_clicked(self, block, circle_center, circle_type):
         """Handle input circle clicks"""
@@ -946,11 +949,11 @@ class blocks_events(QObject):
 
     def on_output_clicked(self, block, circle_center, circle_type):
         """Handle output circle clicks"""
-        #print(f"✓ on_output_clicked: {block.block_id} ({circle_type})")
+        print(f"✓ on_output_clicked: {block.block_id} ({circle_type})")
         if self.path_manager:
-            #print("Current state before adding path:", self.state_manager.canvas_state.current_state())
+            print("Current state before adding path:", self.state_manager.canvas_state.current_state())
             if self.state_manager.canvas_state.on_adding_path():
-                #print("Adding path...")
+                print("Adding path...")
                 self.path_manager.start_connection(block, circle_center, circle_type)
         
     def on_add_condition(self, block):

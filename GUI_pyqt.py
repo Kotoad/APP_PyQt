@@ -1,5 +1,6 @@
 from random import random
 import traceback as tb
+import inspect
 from pyboard import Pyboard, PyboardError
 import urllib.request
 import tempfile
@@ -1190,11 +1191,11 @@ class GridCanvas(QGraphicsView):
         #print(f"Self in GridCanvas init: {self}")
         self.grid_size = grid_size
         blocks_window = blocksWindow.get_instance(parent=self)
-        self.spawner = spawningblocks(self, blocks_window)
-        print(f"spawner {self.spawner}")
+        self.spawner = spawningblocks(self, blocks_window)  
+        print(f"[GridCanvas] spawner {self.spawner}")
         self.state_manager = Utils.state_manager
         self.path_manager = PathManager(self)
-        
+        self.blocks_events = elementevents(self)
         # Create graphics scene
         self.scene = GridScene(grid_size=grid_size)
         self.scene.setSceneRect(-5000, -5000, 5000, 5000)
@@ -1648,10 +1649,9 @@ class GridCanvas(QGraphicsView):
         
         duplicate_action = QAction("Duplicate", self)
         duplicate_action.triggered.connect(lambda: self.duplicate_block(block, block_id))
-        menu.addAction(duplicate_action)
+        #menu.addAction(duplicate_action)
         
         inspector_action = QAction("Show Inspector", self)
-
         inspector_action.triggered.connect(lambda: self.main_window.toggle_inspector_frame(block))
         menu.addAction(inspector_action)
         
@@ -1713,7 +1713,12 @@ class MainWindow(QMainWindow):
     @property
     def current_canvas(self):
         """Get the currently active canvas from the sidebar"""
+
+
+        caller = inspect.currentframe().f_back
+        print(f"Getting current canvas. Called from: {caller.f_code.co_name} in {caller.f_code.co_filename}:{caller.f_lineno}")
         try:
+            #print(f"Getting current canvas from sidebar. Current tab index: {self.get_current_tab_index()}")
             index = self.get_current_tab_index()
             for canvas, info in Utils.canvas_instances.items():
                 #print(f"Canvas in Utils.canvas_instances: {canvas}, info: {info}")
@@ -1724,14 +1729,14 @@ class MainWindow(QMainWindow):
             
             # Check if it's a GridCanvas instance
             if isinstance(widget, GridCanvas):
-                #print("Current canvas found.")
+                print("Current canvas found.")
                 return widget
         except Exception as e:
             print(f"Error getting current canvas: {e}")
         
         # Fallback to main canvas if property fails
         if hasattr(self, 'canvas') and self.canvas is not None:
-            #print("Using main canvas as fallback.")
+            print("Using main canvas as fallback.")
             return self.canvas
         
         print(" No canvas available.")
@@ -1862,6 +1867,7 @@ class MainWindow(QMainWindow):
         self.canvas_count = 0
         self.tab_buttons = []  # Track tab buttons
         self.opend_windows = []
+        self.opend_inspectors = {}
 
         self.reset_file()
 
@@ -2791,8 +2797,10 @@ class MainWindow(QMainWindow):
             current_canvas.canvas_splitter.setSizes([700, 300])  # Adjust initial ratio
             
             if block:
-                self.update_inspector_content(block)
-            
+                self.update_inspector_content(block, canvas=current_canvas)
+            if current_canvas not in self.opend_inspectors or self.opend_inspectors[current_canvas]!= block:
+                self.opend_inspectors[current_canvas] = block
+
             current_canvas.inspector_frame.show()
             current_canvas.inspector_frame_visible = True
 
@@ -2804,6 +2812,8 @@ class MainWindow(QMainWindow):
             canvas_splitter = getattr(current_canvas, 'canvas_splitter', None)
                     
         if canvas_splitter and current_canvas.inspector_frame:
+            if current_canvas in self.opend_inspectors:
+                del self.opend_inspectors[current_canvas]
             current_canvas.inspector_frame.hide()
             
             # Get current canvas and its splitter
@@ -2812,9 +2822,11 @@ class MainWindow(QMainWindow):
             
             current_canvas.inspector_frame_visible = False
 
-    def update_inspector_content(self, block):
+    def update_inspector_content(self, block, canvas=None):
         """Update the content of the inspector panel based on the selected block"""
-        current_canvas = self.current_canvas
+        print(f"Getting inspector content for block: {block}")
+        current_canvas = self.current_canvas if canvas is None else canvas
+        print(f"Current canvas in update_inspector_content: {current_canvas}")
         if current_canvas is None:
             print("ERROR: No current canvas available")
             return
@@ -2848,7 +2860,7 @@ class MainWindow(QMainWindow):
         size_label = QLabel(f"{self.t('main_GUI.inspector.size')}: ({int(block.boundingRect().width())} x {int(block.boundingRect().height())})")
         current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), size_label)
         
-        self.add_inputs(block)
+        self.add_inputs(block, canvas=current_canvas)
         current_canvas.inspector_content_layout.addStretch()
 
     def update_pos(self, block):
@@ -2866,9 +2878,9 @@ class MainWindow(QMainWindow):
         if position_label:
             position_label.setText(f"{self.t('main_GUI.inspector.position')}: ({int(block.x())}, {int(block.y())})")
 
-    def add_inputs(self, block, dev_id=None, var_id=None):
+    def add_inputs(self, block, dev_id=None, var_id=None, canvas=None):
         """Add input fields for block properties"""
-        current_canvas = self.current_canvas
+        current_canvas = self.current_canvas if canvas is None else canvas
         if current_canvas is None:
             print("ERROR: No current canvas available")
             return
@@ -2910,14 +2922,14 @@ class MainWindow(QMainWindow):
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
             
-            self.name_1_input = SearchableLineEdit()
-            self.name_1_input.setText(block_data.get('value_1_name', ''))
-            self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.value_1_name_placeholder"))
-            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+            name_1_input = SearchableLineEdit()
+            name_1_input.setText(block_data.get('value_1_name', ''))
+            name_1_input.setPlaceholderText(self.t("main_GUI.inspector.value_1_name_placeholder"))
+            name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
-            self.insert_items(block, self.name_1_input)
+            self.insert_items(block, name_1_input, canvas=current_canvas)
             
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_1_input)
             
             type_label = QLabel(f"{self.t('main_GUI.inspector.operator')}:")
             
@@ -2939,7 +2951,7 @@ class MainWindow(QMainWindow):
             self.name_2_input.setPlaceholderText(self.t("main_GUI.inspector.value_2_name_placeholder"))
             self.name_2_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_2_name_changed(text, bd))
             
-            self.insert_items(block, self.name_2_input)
+            self.insert_items(block, self.name_2_input, canvas=current_canvas)
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_2_input)
         if block_data['type'] == 'If':
@@ -2955,7 +2967,7 @@ class MainWindow(QMainWindow):
                 value_1_input.setText(block_data.get('first_vars', {}).get(f'value_{i}_1_name', ''))
                 value_1_input.setPlaceholderText(self.t("main_GUI.inspector.value_1_name_placeholder"))
                 value_1_input.textChanged.connect(lambda text, bd=block_data, idx=i: self.Block_value_1_name_changed(text, bd, idx))
-                self.insert_items(block, value_1_input)
+                self.insert_items(block, value_1_input, canvas=current_canvas)
                 cond_layout.addWidget(value_1_input)
 
                 operator_label = QLabel(f"{self.t('main_GUI.inspector.operator')}:")
@@ -2972,7 +2984,7 @@ class MainWindow(QMainWindow):
                 value_2_input.setText(block_data.get('second_vars', {}).get(f'value_{i}_2_name', ''))
                 value_2_input.setPlaceholderText(self.t("main_GUI.inspector.value_2_name_placeholder"))
                 value_2_input.textChanged.connect(lambda text, bd=block_data, idx=i: self.Block_value_2_name_changed(text, bd, idx))
-                self.insert_items(block, value_2_input)
+                self.insert_items(block, value_2_input, canvas=current_canvas)
                 cond_layout.addWidget(value_2_input)
                 current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), cond_widget)
 
@@ -2981,108 +2993,107 @@ class MainWindow(QMainWindow):
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
             
-            self.name_1_input = SearchableLineEdit()
-            self.name_1_input.setText(block_data.get('value_1_name', ''))
-            self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.device/variable_name_placeholder"))
-            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+            name_1_input = SearchableLineEdit()
+            name_1_input.setText(block_data.get('value_1_name', ''))
+            name_1_input.setPlaceholderText(self.t("main_GUI.inspector.device/variable_name_placeholder"))
+            name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
-            self.insert_items(block, self.name_1_input)
+            self.insert_items(block, name_1_input, canvas=current_canvas)
             
-            self.Label_ON = QLabel("On")
-            self.Label_OFF = QLabel("Off")
+            Label_ON = QLabel("On")
+            Label_OFF = QLabel("Off")
             
-            self.switch = CustomSwitch()
-            self.switch.set_checked(block_data.get('switch_state', False))
-            self.switch.toggled.connect(lambda state, bd=block_data: self.Block_switch_changed(state, bd))
+            switch = CustomSwitch()
+            switch.set_checked(block_data.get('switch_state', False))
+            switch.toggled.connect(lambda state, bd=block_data: self.Block_switch_changed(state, bd))
             
             row_widget = QWidget()
             row_layout = QHBoxLayout(row_widget)
             row_layout.setContentsMargins(5, 5, 5, 5)
             
-            row_layout.addWidget(self.Label_OFF)
-            row_layout.addWidget(self.switch)
-            row_layout.addWidget(self.Label_ON)
+            row_layout.addWidget(Label_OFF)
+            row_layout.addWidget(switch)
+            row_layout.addWidget(Label_ON)
             
-            
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_1_input)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), row_widget, alignment=Qt.AlignmentFlag.AlignCenter)
         if block_data['type'] == 'Button':
             name_label = QLabel(self.t("main_GUI.inspector.device_name"))
             
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
             
-            self.name_1_input = SearchableLineEdit()
-            self.name_1_input.setText(block_data.get('value_1_name', ''))
-            self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.device_name_placeholder"))
-            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+            name_1_input = SearchableLineEdit()
+            name_1_input.setText(block_data.get('value_1_name', ''))
+            name_1_input.setPlaceholderText(self.t("main_GUI.inspector.device_name_placeholder"))
+            name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
-            self.insert_items(block, self.name_1_input)
+            self.insert_items(block, name_1_input, canvas=current_canvas)
             
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_1_input)
        
         #LEDS
 
         if block_data['type'] == 'Blink_LED':
             name_label = QLabel(self.t("main_GUI.inspector.led_device_name"))
             
-            self.name_1_input = SearchableLineEdit()
-            self.name_1_input.setText(block_data.get('value_1_name', ''))
-            self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.led_device_name_placeholder"))
-            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+            name_1_input = SearchableLineEdit()
+            name_1_input.setText(block_data.get('value_1_name', ''))
+            name_1_input.setPlaceholderText(self.t("main_GUI.inspector.led_device_name_placeholder"))
+            name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
-            self.insert_items(block, self.name_1_input)
+            self.insert_items(block, name_1_input, canvas=current_canvas)
             
             time_label = QLabel(self.t("main_GUI.inspector.blink_interval_ms"))
 
-            self.blink_time_input = QLineEdit()
+            blink_time_input = QLineEdit()
             regex = QRegularExpression(r"^\d*$")
             validator = QRegularExpressionValidator(regex, self)
-            self.blink_time_input.setValidator(validator)
-            self.blink_time_input.setText(block_data.get('sleep_time', '1000'))
-            self.blink_time_input.setPlaceholderText(self.t("main_GUI.inspector.blink_interval_ms_placeholder"))
-            self.blink_time_input.textChanged.connect(lambda text, bd=block_data: self.Block_sleep_interval_changed(text, bd))
+            blink_time_input.setValidator(validator)
+            blink_time_input.setText(block_data.get('sleep_time', '1000'))
+            blink_time_input.setPlaceholderText(self.t("main_GUI.inspector.blink_interval_ms_placeholder"))
+            blink_time_input.textChanged.connect(lambda text, bd=block_data: self.Block_sleep_interval_changed(text, bd))
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_1_input)
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), time_label)
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.blink_time_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), blink_time_input)
         if block_data['type'] in ["Toggle_LED", "LED_ON", "LED_OFF"]:
             name_label = QLabel(self.t("main_GUI.inspector.led_device_name"))
             
-            self.name_1_input = SearchableLineEdit()
-            self.name_1_input.setText(block_data.get('value_1_name', ''))
-            self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.led_device_name_placeholder"))
-            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+            name_1_input = SearchableLineEdit()
+            name_1_input.setText(block_data.get('value_1_name', ''))
+            name_1_input.setPlaceholderText(self.t("main_GUI.inspector.led_device_name_placeholder"))
+            name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
-            self.insert_items(block, self.name_1_input)
+            self.insert_items(block, name_1_input, canvas=current_canvas)
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_1_input)
         if block_data['type'] == 'PWM_LED':
             name_label = QLabel(self.t("main_GUI.inspector.led_device_name"))
             
-            self.name_1_input = SearchableLineEdit()
-            self.name_1_input.setText(block_data.get('value_1_name', ''))
-            self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.led_device_name_placeholder"))
-            self.name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+            name_1_input = SearchableLineEdit()
+            name_1_input.setText(block_data.get('value_1_name', ''))
+            name_1_input.setPlaceholderText(self.t("main_GUI.inspector.led_device_name_placeholder"))
+            name_1_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
             
-            self.insert_items(block, self.name_1_input)
+            self.insert_items(block, name_1_input, canvas=current_canvas)
 
             PWM_label = QLabel(self.t("main_GUI.inspector.pwm_value"))
 
-            self.PWM_value_input = SearchableLineEdit()
-            self.PWM_value_input.setText(block_data.get('PWM_value', ''))
-            self.PWM_value_input.setPlaceholderText(self.t("main_GUI.inspector.pwm_value_placeholder"))
-            self.PWM_value_input.textChanged.connect(lambda text, bd=block_data: self.Block_PWM_value_changed(text, bd))
+            PWM_value_input = SearchableLineEdit()
+            PWM_value_input.setText(block_data.get('PWM_value', ''))
+            PWM_value_input.setPlaceholderText(self.t("main_GUI.inspector.pwm_value_placeholder"))
+            PWM_value_input.textChanged.connect(lambda text, bd=block_data, w=PWM_value_input: self.Block_PWM_value_changed(text, bd, w=w))
 
-            self.insert_items(block, self.PWM_value_input)
+            self.insert_items(block, PWM_value_input, canvas=current_canvas)
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.name_1_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_1_input)
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), PWM_label)
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.PWM_value_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), PWM_value_input)
         if block_data['type'] == 'RGB_LED':
             for i in range(1, 4):
                 line_widget = QWidget()
@@ -3091,12 +3102,12 @@ class MainWindow(QMainWindow):
 
                 name_label = QLabel(self.t("main_GUI.inspector.led_device_name"))
                 
-                self.name_1_input = SearchableLineEdit()
-                self.name_1_input.setText(block_data['first_vars'].get(f'value_{i}_1_name', ''))
-                self.name_1_input.setPlaceholderText(self.t("main_GUI.inspector.led_device_name_placeholder"))
-                self.name_1_input.textChanged.connect(lambda text, bd=block_data, inx=i: self.Block_value_1_name_changed(text, bd, inx))
+                name_1_input = SearchableLineEdit()
+                name_1_input.setText(block_data['first_vars'].get(f'value_{i}_1_name', ''))
+                name_1_input.setPlaceholderText(self.t("main_GUI.inspector.led_device_name_placeholder"))
+                name_1_input.textChanged.connect(lambda text, bd=block_data, inx=i: self.Block_value_1_name_changed(text, bd, inx))
                 
-                self.insert_items(block, self.name_1_input)
+                self.insert_items(block, name_1_input, canvas=current_canvas)
 
                 PWM_label = QLabel(self.t("main_GUI.inspector.pwm_value"))
 
@@ -3106,7 +3117,7 @@ class MainWindow(QMainWindow):
                 PWM_value_input.textChanged.connect(lambda text, bd=block_data, inx=i, w=PWM_value_input: self.Block_PWM_value_changed(text, bd, inx, w))
 
                 line_layout.addWidget(name_label)
-                line_layout.addWidget(self.name_1_input)
+                line_layout.addWidget(name_1_input)
                 line_layout.addWidget(PWM_label)
                 line_layout.addWidget(PWM_value_input)
 
@@ -3117,10 +3128,10 @@ class MainWindow(QMainWindow):
         if block_data['type'] in ("Basic_operations", "Exponential_operations", "Random_number"):
             name_label = QLabel(self.t("main_GUI.inspector.first_variable"))
             
-            self.value_1_name_input = SearchableLineEdit()
-            self.value_1_name_input.setText(block_data.get('value_1_name', ''))
-            self.value_1_name_input.setPlaceholderText(self.t("main_GUI.inspector.first_variable_placeholder"))
-            self.value_1_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+            value_1_name_input = SearchableLineEdit()
+            value_1_name_input.setText(block_data.get('value_1_name', ''))
+            value_1_name_input.setPlaceholderText(self.t("main_GUI.inspector.first_variable_placeholder"))
+            value_1_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
 
             if block_data['type'] == "Basic_operations":
                 box_label = QLabel(self.t("main_GUI.inspector.operator"))
@@ -3140,29 +3151,29 @@ class MainWindow(QMainWindow):
                 operator_box = None
 
             name_label_2 = QLabel(self.t("main_GUI.inspector.second_variable"))
-            self.value_2_name_input = SearchableLineEdit()
-            self.value_2_name_input.setText(block_data.get('value_2_name', ''))
-            self.value_2_name_input.setPlaceholderText(self.t("main_GUI.inspector.second_variable_placeholder"))
-            self.value_2_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_2_name_changed(text, bd))
+            value_2_name_input = SearchableLineEdit()
+            value_2_name_input.setText(block_data.get('value_2_name', ''))
+            value_2_name_input.setPlaceholderText(self.t("main_GUI.inspector.second_variable_placeholder"))
+            value_2_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_2_name_changed(text, bd))
 
             name_label_3 = QLabel(self.t("main_GUI.inspector.result_variable"))
-            self.result_var_name_input = SearchableLineEdit()
-            self.result_var_name_input.setText(block_data.get('result_var_name', ''))
-            self.result_var_name_input.setPlaceholderText(self.t("main_GUI.inspector.result_variable_placeholder"))
-            self.result_var_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_result_var_name_changed(text, bd))
+            result_var_name_input = SearchableLineEdit()
+            result_var_name_input.setText(block_data.get('result_var_name', ''))
+            result_var_name_input.setPlaceholderText(self.t("main_GUI.inspector.result_variable_placeholder"))
+            result_var_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_result_var_name_changed(text, bd))
 
-            self.insert_items(block, self.value_1_name_input)
-            self.insert_items(block, self.value_2_name_input)
-            self.insert_items(block, self.result_var_name_input)
+            self.insert_items(block, value_1_name_input, canvas=current_canvas)
+            self.insert_items(block, value_2_name_input, canvas=current_canvas)
+            self.insert_items(block, result_var_name_input, canvas=current_canvas)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label_3)
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.result_var_name_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), result_var_name_input)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label)
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.value_1_name_input) 
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), value_1_name_input) 
             if operator_box:
                 current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), box_label)
                 current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), operator_box) 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), name_label_2)
-            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), self.value_2_name_input)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), value_2_name_input)
 
         if block_data['type'] in ("Plus_one", "Minus_one"):
 
@@ -3172,19 +3183,19 @@ class MainWindow(QMainWindow):
 
             name_label = QLabel(self.t("main_GUI.inspector.variable"))
             
-            self.value_1_name_input = SearchableLineEdit()
-            self.value_1_name_input.setText(block_data.get('value_1_name', ''))
-            self.value_1_name_input.setPlaceholderText(self.t("main_GUI.inspector.variable_placeholder"))
-            self.value_1_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+            value_1_name_input = SearchableLineEdit()
+            value_1_name_input.setText(block_data.get('value_1_name', ''))
+            value_1_name_input.setPlaceholderText(self.t("main_GUI.inspector.variable_placeholder"))
+            value_1_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
 
             if block_data['type'] == "Plus_one":
                 operator_label = QLabel("+ 1")
             else:
                 operator_label = QLabel("- 1")
 
-            self.insert_items(block, self.value_1_name_input)
+            self.insert_items(block, value_1_name_input, canvas=current_canvas)
             line_layout.addWidget(name_label)
-            line_layout.addWidget(self.value_1_name_input)
+            line_layout.addWidget(value_1_name_input)
             line_layout.addWidget(operator_label)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), line_widget)
 
@@ -3213,7 +3224,7 @@ class MainWindow(QMainWindow):
                 main_var_combo = SearchableLineEdit()
                 main_var_combo.setPlaceholderText(self.t("main_GUI.inspector.main_variables_placeholder"))
 
-                self.insert_items(block, main_var_combo, type='variable_m')
+                self.insert_items(block, main_var_combo, type='variable_m', canvas=current_canvas)
                 line_layout.addWidget(ref_var_label)
                 line_layout.addWidget(ref_var_name)
                 line_layout.addWidget(main_var_label)
@@ -3264,7 +3275,7 @@ class MainWindow(QMainWindow):
                 main_dev_combo = SearchableLineEdit()
                 main_dev_combo.setPlaceholderText(self.t("main_GUI.inspector.main_devices_placeholder"))
 
-                self.insert_items(block, main_dev_combo, type='device_m')
+                self.insert_items(block, main_dev_combo, type='device_m', canvas=current_canvas)
                 line_layout.addWidget(ref_dev_label)
                 line_layout.addWidget(ref_dev_name)
                 line_layout.addWidget(main_dev_label)
@@ -3517,10 +3528,6 @@ class MainWindow(QMainWindow):
                 w.blockSignals(True)
                 w.setText(text)
                 w.blockSignals(False)
-            else:
-                self.PWM_value_input.blockSignals(True)
-                self.PWM_value_input.setText(text)
-                self.PWM_value_input.blockSignals(False)
         if len(text) > 20:
                 text = text[:20]
         if block_data['type'] == 'RGB_LED':
@@ -3538,9 +3545,9 @@ class MainWindow(QMainWindow):
 
         block_data['widget'].update()
 
-    def insert_items(self, block, line_edit, type=None):
+    def insert_items(self, block, line_edit, type=None, canvas=None):
         #print("Inserting items into line edit")
-        current_canvas = self.current_canvas
+        current_canvas = self.current_canvas if canvas is None else canvas
         if current_canvas is None:
             print("ERROR: No current canvas available")
             return
@@ -3562,11 +3569,11 @@ class MainWindow(QMainWindow):
             all_items = []
             #print(f"All items before insertion: {all_items}")
             if block.block_type in ('Switch', 'Button'):
-                if self.current_canvas.reference == 'canvas':
+                if current_canvas.reference == 'canvas':
                     for id, text in Utils.devices['main_canvas'].items():
                         #print(f"Added device item into Switch/Button: {text}")
                         all_items.append(text['name'])
-                elif self.current_canvas.reference == 'function':
+                elif current_canvas.reference == 'function':
                     for f_id, f_info in Utils.functions.items():
                         if current_canvas == f_info.get('canvas'):
                             for id, text in Utils.devices['function_canvases'][f_id].items():
@@ -3595,14 +3602,14 @@ class MainWindow(QMainWindow):
                         all_items.append(d_info['name'])
                         #print(f"Added main device item: {d_info['name']}")
             else:
-                if self.current_canvas.reference == 'canvas':
+                if current_canvas.reference == 'canvas':
                     for id, text in Utils.variables['main_canvas'].items():
                         all_items.append(text['name'])
                         #print(f"Added variable item: {text['name']}")
                     for id, text in Utils.devices['main_canvas'].items():
                         #print(f"Added device item: {text['name']}")
                         all_items.append(text['name'])
-                elif self.current_canvas.reference == 'function':
+                elif current_canvas.reference == 'function':
                     for f_id, f_info in Utils.functions.items():
                         if current_canvas == f_info.get('canvas'):
                             for id, text in Utils.variables['function_canvases'][f_id].items():
@@ -4278,6 +4285,8 @@ class MainWindow(QMainWindow):
                     for d_id in id_list:
                         Utils.devices['function_canvases'][function_id][d_id]['name_input'].setStyleSheet(border_col)
             #print("Utils.devices:", Utils.devices)
+        for canvas, block in self.opend_inspectors.items():
+            self.update_inspector_content(block, canvas=canvas)
     
     def type_changed(self, input, id, type, canvas_reference=None, widget=None):
         #print(f"Updating variable {input}")
