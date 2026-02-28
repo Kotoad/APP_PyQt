@@ -42,7 +42,8 @@ def build_exe():
         'mpremote',
         'telnetlib3',
         'ssl',
-        'urllib.request'
+        'urllib.request',
+        'certifi',
     ]
     
     # Modules to exclude (reduces file size)
@@ -67,6 +68,7 @@ def build_exe():
         '--icon=resources/images/APPicon.ico',  # Application icon
         '--clean',                 # Clean build folders before building
         '--strip'                 # Strip debug symbols to reduce size
+        '--collect-all=ssl'       # Collect all SSL resources (certs, etc.)
     ]
     
     # Add hidden imports
@@ -89,6 +91,9 @@ def build_exe():
 
         print("[*] Copying resources folder...")
         shutil.copytree('resources', 'dist/OmniBoard Studio/resources', dirs_exist_ok=True)
+
+        print("[*] Copying app_settings.json...")
+        shutil.copy('app_settings.json', 'dist/OmniBoard Studio/app_settings.json')
 
         print("\n[✓] Build successful!")
         print("\n[*] Output:")

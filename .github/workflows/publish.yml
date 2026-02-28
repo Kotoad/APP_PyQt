@@ -31,7 +31,7 @@ jobs:
     - name: 📦 Install Python Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install PyQt6 PyQt6-QScintilla paramiko cryptography pyserial mpremote pyinstaller telnetlib3
+        pip install PyQt6 PyQt6-QScintilla paramiko cryptography pyserial mpremote pyinstaller telnetlib3 certifi
 
     - name: 🐧 Install Linux System Dependencies
       if: matrix.os == 'ubuntu-latest'
@@ -48,7 +48,6 @@ jobs:
     - name: 🗜️ Strip Debug Symbols (Linux)
       if: matrix.os == 'ubuntu-latest'
       run: |
-        find dist/ -name "*.so" -type f -exec strip --strip-unneeded {} +
         find dist/ -name "OmniBoard Studio" -type f -executable -exec strip --strip-unneeded {} +
 
     - name: 📦 Package Linux Build (tar.gz)

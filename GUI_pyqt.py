@@ -1,3 +1,5 @@
+import ssl
+import certifi
 from random import random
 import traceback as tb
 import inspect
@@ -171,7 +173,8 @@ def check_for_updates():
     try:
         url = "https://api.github.com/repos/Kotoad/APP_PyQt/releases"
         req = urllib.request.Request(url, headers={'User-Agent': 'OmniBoard-Updater'})
-        with urllib.request.urlopen(req, timeout=5) as response:
+        context = ssl.create_default_context(cafile=certifi.where())
+        with urllib.request.urlopen(req, timeout=5, context=context) as response:
             data = json.loads(response.read().decode())
             if isinstance(data, list) and len(data) > 0:
                 latest_release = data[0]
