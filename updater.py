@@ -6,6 +6,7 @@ import subprocess
 def perform_update(save_path):
     """Executes the update based on the OS."""
     if platform.system() == "Windows":
+        print(f"Running Windows installer: {save_path}")
         # Run Inno Setup installer silently
         subprocess.Popen([save_path, '/SILENT', '/CLOSEAPPLICATIONS'])
     else:

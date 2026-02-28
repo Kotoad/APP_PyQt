@@ -194,6 +194,7 @@ class UpdateCheckerThread(QThread):
     def run(self):
         has_update, version, assets = check_for_updates()
         print(f"Update check result: has_update={has_update}, version={version}, assets={assets}")
+        print(f"Current version: {CURRENT_VERSION}")
         if has_update:
             self.update_available.emit(version, assets)
         elif version:
@@ -211,7 +212,7 @@ class DownloadUpdateThread(QThread):
         temp_dir = tempfile.gettempdir()
         ext = ".exe" if sys.platform == "win32" else ".tar.gz"
         save_path = os.path.join(temp_dir, f"OmniBoard_Update{ext}")
-
+        print(f"Downloading update to: {save_path}")
         def report(block_num, block_size, total_size):
             if total_size > 0:
                 percent = int(block_num * block_size * 100 / total_size)
@@ -5541,6 +5542,7 @@ class MainWindow(QMainWindow):
                     break
             
             if download_url:
+                print(f"Starting update download from: {download_url}")
                 self.show_update_progress(download_url)
 
     def show_update_progress(self, url):
