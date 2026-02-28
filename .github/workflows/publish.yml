@@ -66,6 +66,12 @@ jobs:
       run: |
         7z a -tzip "..\..\OmniBoard_Studio_Windows.zip" *
     
+    - name: 📝 Inject Version into Installer Script
+      if: matrix.os == 'windows-latest'
+      shell: bash
+      run: |
+        sed -i 's/^AppVersion=.*/AppVersion=${{ inputs.version }}/' OmniBoard_Studio_Installer.iss
+
     - name: 🛠️ Compile Windows Installer (Inno Setup)
       if: matrix.os == 'windows-latest'
       run: |

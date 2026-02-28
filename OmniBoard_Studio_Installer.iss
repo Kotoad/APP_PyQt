@@ -34,6 +34,13 @@ begin
   DownloadPage := CreateDownloadPage('Downloading OmniBoard Studio', 'Please wait...', nil);
 end;
 
+procedure DeinitializeSetup();
+var
+  ErrorCode: Integer;
+begin
+  Exec('cmd.exe', '/c ping 127.0.0.1 -n 3 > nul & del "' + ExpandConstant('{srcexe}') + '"', '', SW_HIDE, ewNoWait, ErrorCode);
+end;
+
 function NextButtonClick(CurPageID: Integer): Boolean;
 var ResultCode: Integer;
 begin
