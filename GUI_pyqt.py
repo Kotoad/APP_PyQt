@@ -189,6 +189,13 @@ class UpdateCheckerThread(QThread):
 
     def run(self):
         has_update, version, assets = check_for_updates()
+        version_msg_dialog = QMessageBox()
+        version_msg_dialog.setWindowTitle("Update Available")
+        version_msg_dialog.setText(f"Version {version} is available.")
+        version_msg_dialog.setIcon(QMessageBox.Icon.Information)
+        version_msg_dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
+        version_msg_dialog.exec()
+
         if has_update:
             self.update_available.emit(version, assets)
 
@@ -202,7 +209,7 @@ class DownloadUpdateThread(QThread):
 
     def run(self):
         temp_dir = tempfile.gettempdir()
-        ext = ".exe" if sys.platform == "win32" else ".zip"
+        ext = ".exe" if sys.platform == "win32" else ".tar.gz"
         save_path = os.path.join(temp_dir, f"OmniBoard_Update{ext}")
 
         def report(block_num, block_size, total_size):
@@ -5518,7 +5525,7 @@ class MainWindow(QMainWindow):
         
         if reply == QMessageBox.StandardButton.Yes:
             download_url = None
-            target_extension = ".exe" if sys.platform == "win32" else ".zip"
+            target_extension = ".exe" if sys.platform == "win32" else ".tar.gz"
             
             for asset in assets:
                 if asset['name'].endswith(target_extension):

@@ -13,6 +13,6 @@ def perform_update(save_path):
         app_path = sys.executable
         app_dir = os.path.dirname(os.path.abspath(app_path))
         
-        # Sleep ensures the current process closes before overwriting
-        script = f"sleep 2 && unzip -o '{save_path}' -d '{app_dir}' && '{app_path}' &"
+        # Fixed: Use tar instead of unzip
+        script = f"sleep 2 && tar -xzf '{save_path}' -C '{app_dir}' && '{app_path}' &"
         subprocess.Popen(['bash', '-c', script])
