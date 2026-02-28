@@ -173,31 +173,27 @@ def check_for_updates():
         req = urllib.request.Request(url, headers={'User-Agent': 'OmniBoard-Updater'})
         with urllib.request.urlopen(req, timeout=5) as response:
             data = json.loads(response.read().decode())
-            #print(f"Data {data}, Type: {type(data)}")
             if isinstance(data, list) and len(data) > 0:
                 latest_release = data[0]
                 latest_version = latest_release.get("tag_name", "")
                 assets = latest_release.get("assets", [])
-                if latest_version and latest_version != CURRENT_VERSION:
-                    return True, latest_version, assets
+                if latest_version:
+                    has_update = (latest_version != CURRENT_VERSION)
+                    return has_update, latest_version, assets
     except Exception as e:
         print(f"Update check failed: {e}")
     return False, None, None
 
 class UpdateCheckerThread(QThread):
     update_available = pyqtSignal(str, list)
+    up_to_date = pyqtSignal(str)
 
     def run(self):
         has_update, version, assets = check_for_updates()
-        version_msg_dialog = QMessageBox()
-        version_msg_dialog.setWindowTitle("Update Available")
-        version_msg_dialog.setText(f"Version {version} is available.")
-        version_msg_dialog.setIcon(QMessageBox.Icon.Information)
-        version_msg_dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
-        version_msg_dialog.exec()
-
         if has_update:
             self.update_available.emit(version, assets)
+        elif version:
+            self.up_to_date.emit(version)
 
 class DownloadUpdateThread(QThread):
     progress = pyqtSignal(int)
@@ -5514,9 +5510,17 @@ class MainWindow(QMainWindow):
     def start_update_check(self):
         self.update_thread = UpdateCheckerThread()
         self.update_thread.update_available.connect(self.prompt_update)
+        self.update_thread.up_to_date.connect(self.notify_up_to_date)
         self.update_thread.start()
 
-    def prompt_update(self, version, assets):
+    def notify_up_to_date(self, version):
+        QMessageBox.information(
+            self, 'No Update Available',
+            f'You are already using the latest version ({version}).',
+            QMessageBox.StandardButton.Ok
+        )
+
+    def prompt_update(self, version, assetups):
         reply = QMessageBox.question(
             self, 'Update Available',
             f'Version {version} is available. Would you like to update and restart now?',
