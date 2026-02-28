@@ -1760,7 +1760,7 @@ class MainWindow(QMainWindow):
         self.t = self.translation_manager.translate
         self.path_manager = PathManager(self)
 
-        self.setWindowTitle(self.t("main_GUI._metadata.app_title"))
+        self.setWindowTitle(self.t("main_GUI._metadata.app_title") + f" {CURRENT_VERSION}")
         self.setWindowIcon(QIcon('resources/images/APPicon.ico'))
         self.resize(1200, 800)
 

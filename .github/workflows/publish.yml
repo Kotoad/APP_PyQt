@@ -64,7 +64,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       working-directory: dist/OmniBoard Studio
       run: |
-        Compress-Archive -Path * -DestinationPath "..\..\OmniBoard_Studio_Windows.zip"
+        7z a -tzip "..\..\OmniBoard_Studio_Windows.zip" *
     
     - name: 🛠️ Compile Windows Installer (Inno Setup)
       if: matrix.os == 'windows-latest'
