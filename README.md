@@ -1,15 +1,10 @@
 # Omniboard Studio
 
-Brief description of your project.
-
-## Features
-
-- Feature 1
-- Feature 2
-- Feature 3
+Desctop app for programing RPI's via node graphs.
 
 ## Installation
 
+To install the app use please this link: [omniboard.gateway.scarf.sh/latest/OmniBoard_Online_Installer.exe](omniboard.gateway.scarf.sh/latest/OmniBoard_Online_Installer.exe) or this command:
 ```bash
-pip install -r requirements.txt
+Invoke-WebRequest -Uri "https://omniboard.gateway.scarf.sh/latest/OmniBoard_Online_Installer.exe" -OutFile "OmniBoard_Online_Installer.exe"
 ```
