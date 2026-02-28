@@ -1762,7 +1762,7 @@ class MainWindow(QMainWindow):
         # Style
         self.setStyleSheet("""
             QWidget {
-                background-color: #2B2B2B;
+                background-color: #ffffff;
                 color: #FFFFFF;
             }
 
