@@ -6,16 +6,33 @@ import time
 
 def perform_update(save_path):
     if platform.system() == "Windows":
-        # Using shell=True and start helps detach the installer from the parent console
-        # Added /NOCANCEL to prevent users from interrupting the silent background task
-        cmd = f'start "" "{save_path}" /SILENT /NOCANCEL /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /LOG="update_install.log"'
-        subprocess.Popen(cmd, shell=True)
+        # Create StartupInfo object to hide the window
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = 0 # SW_HIDE
+
+        # Removed 'start ""' which was forcing a new window
+        # Added /VERYSILENT for maximum invisibility
+        cmd = [
+            save_path, 
+            '/VERYSILENT', 
+            '/SUPPRESSMSGBOXES', 
+            '/NOCANCEL', 
+            '/NORESTART', 
+            '/CLOSEAPPLICATIONS', 
+            f'/LOG={os.path.join(os.path.dirname(save_path), "update_install.log")}'
+        ]
         
-        # Give the OS a tiny breath to register the new process 
-        # before we kill the parent
+        # Launch without creating a console window
+        subprocess.Popen(
+            cmd, 
+            startupinfo=si, 
+            creationflags=subprocess.CREATE_NO_WINDOW
+        )
+        
         time.sleep(0.5) 
     else:
-        # Linux logic remains mostly the same
+        # Linux remains background-safe
         app_path = sys.executable
         app_dir = os.path.dirname(os.path.abspath(app_path))
         script = f"sleep 2 && tar -xzf '{save_path}' -C '{app_dir}' && '{app_path}' &"
