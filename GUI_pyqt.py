@@ -44,7 +44,7 @@ TranslationManager = get_Translation_Manager()
 DataControl = get_Data_Control()
 CodeEditorWindow = get_Code_Editor_Window()
 
-CURRENT_VERSION = "V0.11"
+CURRENT_VERSION = "V0.14"  # Update this with each release (format: Vx.y)
 
 # --- WORKER THREAD (Background Data Loading) ---
 class LoaderThread(QThread):
@@ -1769,7 +1769,7 @@ class MainWindow(QMainWindow):
         # Style
         self.setStyleSheet("""
             QWidget {
-                background-color: #ffffff;
+                background-color: #2B2B2B;
                 color: #FFFFFF;
             }
 
