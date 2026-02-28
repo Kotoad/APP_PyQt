@@ -2,25 +2,21 @@ import os
 import sys
 import platform
 import subprocess
+import time
 
 def perform_update(save_path):
-    """Executes the update based on the OS."""
     if platform.system() == "Windows":
-        print(f"Running Windows installer: {save_path}")
+        # Using shell=True and start helps detach the installer from the parent console
+        # Added /NOCANCEL to prevent users from interrupting the silent background task
+        cmd = f'start "" "{save_path}" /SILENT /NOCANCEL /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /LOG="update_install.log"'
+        subprocess.Popen(cmd, shell=True)
         
-        # 0x00000008 is the Windows API constant for DETACHED_PROCESS
-        DETACHED_PROCESS = 0x00000008 
-        
-        # Run Inno Setup installer silently and detached
-        subprocess.Popen(
-            [save_path, '/SILENT', '/CLOSEAPPLICATIONS'], 
-            creationflags=DETACHED_PROCESS
-        )
+        # Give the OS a tiny breath to register the new process 
+        # before we kill the parent
+        time.sleep(0.5) 
     else:
-        # For PyInstaller on Linux, sys.executable points to the packaged binary
+        # Linux logic remains mostly the same
         app_path = sys.executable
         app_dir = os.path.dirname(os.path.abspath(app_path))
-        
-        # Fixed: Use tar instead of unzip
         script = f"sleep 2 && tar -xzf '{save_path}' -C '{app_dir}' && '{app_path}' &"
         subprocess.Popen(['bash', '-c', script])

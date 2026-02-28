@@ -44,46 +44,33 @@ begin
   end;
 end;
 
-function NextButtonClick(CurPageID: Integer): Boolean;
+// Move the logic here so it triggers even in /SILENT mode
+procedure CurStepChanged(CurStep: TSetupStep);
 var ResultCode: Integer;
 begin
-  Result := True;
-  
-  if CurPageID = wpReady then begin
-    // 1. Force kill the running application to unlock files
-    Exec('taskkill.exe', '/F /IM "OmniBoard Studio.exe"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Sleep(1500); // 2. Wait 1.5 seconds for Windows to clear the file handles
+  if CurStep = ssInstall then begin
+    // 1. Force kill the app (using full path to taskkill for reliability)
+    Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM "OmniBoard Studio.exe"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Sleep(2000); // Give Windows time to release file handles
 
     DownloadPage.Clear;
     DownloadPage.Add('https://github.com/Kotoad/APP_PyQt/releases/latest/download/OmniBoard_Studio_Windows.zip', 'OmniBoard.zip', '');
-    DownloadPage.Show;
+    
+    // Only show the UI if we aren't in silent mode
+    if not WizardSilent then DownloadPage.Show;
     
     try
-      try
-        DownloadPage.Download;
-        ForceDirectories(ExpandConstant('{app}'));
-        
-        // 3. Extract the files
-        Exec('tar.exe', '-xf "' + ExpandConstant('{tmp}\OmniBoard.zip') + '" -C "' + ExpandConstant('{app}') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-        
-        // 4. Check for silent extraction failures
-        if ResultCode <> 0 then begin
-          if not WizardSilent() then begin
-            MsgBox('Extraction failed. Windows may still be locking the files. Result Code: ' + IntToStr(ResultCode), mbError, MB_OK);
-          end;
-          Result := False;
-        end else begin
-          InstallSuccessful := True;
-        end;
-        
-      except
-        if not WizardSilent() then begin
-          MsgBox('Installation failed.', mbError, MB_OK);
-        end;
-        Result := False;
-      end;
+      DownloadPage.Download;
+      ForceDirectories(ExpandConstant('{app}'));
+      
+      // Extract using tar
+      Exec(ExpandConstant('{sys}\tar.exe'), 
+           '-xf "' + ExpandConstant('{tmp}\OmniBoard.zip') + '" -C "' + ExpandConstant('{app}') + '"', 
+           '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+           
+      if ResultCode = 0 then InstallSuccessful := True;
     finally
-      DownloadPage.Hide;
+      if not WizardSilent then DownloadPage.Hide;
     end;
   end;
 end;
