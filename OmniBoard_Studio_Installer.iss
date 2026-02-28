@@ -1,6 +1,6 @@
 [Setup]
 AppName=OmniBoard Studio
-AppVersion=0.12
+AppVersion=0.11
 DefaultDirName={localappdata}\OmniBoard Studio
 DefaultGroupName=OmniBoard Studio
 PrivilegesRequired=lowest

@@ -58,7 +58,7 @@ def build_exe():
     args = [
         'GUI_pyqt.py',           # Entry point
         '--onedir',               # Single executable file
-        '--windowed',              # No console window
+        '--console',              # No console window
         '--name=OmniBoard Studio',  # App name
         '--distpath=dist',         # Output folder
         '--noconfirm',             # Don't ask for confirmation

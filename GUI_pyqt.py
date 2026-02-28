@@ -190,6 +190,7 @@ class UpdateCheckerThread(QThread):
 
     def run(self):
         has_update, version, assets = check_for_updates()
+        print(f"Update check result: has_update={has_update}, version={version}, assets={assets}")
         if has_update:
             self.update_available.emit(version, assets)
         elif version:
