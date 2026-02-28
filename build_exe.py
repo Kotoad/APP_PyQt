@@ -67,7 +67,7 @@ def build_exe():
         '--noconfirm',             # Don't ask for confirmation
         '--icon=resources/images/APPicon.ico',  # Application icon
         '--clean',                 # Clean build folders before building
-        '--strip'                 # Strip debug symbols to reduce size
+        '--strip',                 # Strip debug symbols to reduce size
         '--collect-all=ssl'       # Collect all SSL resources (certs, etc.)
     ]
     
