@@ -28,6 +28,7 @@ Type: filesandordirs; Name: "{app}"
 
 [Code]
 var DownloadPage: TDownloadWizardPage;
+    InstallSuccessful: Boolean;
 
 procedure InitializeWizard;
 begin
@@ -38,7 +39,9 @@ procedure DeinitializeSetup();
 var
   ErrorCode: Integer;
 begin
-  Exec('cmd.exe', '/c ping 127.0.0.1 -n 3 > nul & del "' + ExpandConstant('{srcexe}') + '"', '', SW_HIDE, ewNoWait, ErrorCode);
+  if InstallSuccessful then begin
+    Exec('cmd.exe', '/c ping 127.0.0.1 -n 3 > nul & del "' + ExpandConstant('{srcexe}') + '"', '', SW_HIDE, ewNoWait, ErrorCode);
+  end;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -69,6 +72,8 @@ begin
             MsgBox('Extraction failed. Windows may still be locking the files. Result Code: ' + IntToStr(ResultCode), mbError, MB_OK);
           end;
           Result := False;
+        end else begin
+          InstallSuccessful := True;
         end;
         
       except
