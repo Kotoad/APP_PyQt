@@ -58,12 +58,16 @@ begin
         
         // 4. Check for silent extraction failures
         if ResultCode <> 0 then begin
+          if not WizardSilent() then begin
             MsgBox('Extraction failed. Windows may still be locking the files. Result Code: ' + IntToStr(ResultCode), mbError, MB_OK);
-            Result := False;
+          end;
+          Result := False;
         end;
         
       except
-        MsgBox('Installation failed.', mbError, MB_OK);
+        if not WizardSilent() then begin
+          MsgBox('Installation failed.', mbError, MB_OK);
+        end;
         Result := False;
       end;
     finally

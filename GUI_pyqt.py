@@ -211,7 +211,7 @@ class DownloadUpdateThread(QThread):
     def run(self):
         temp_dir = tempfile.gettempdir()
         ext = ".exe" if sys.platform == "win32" else ".tar.gz"
-        save_path = os.path.join(temp_dir, f"OmniBoard_Update{ext}")
+        save_path = os.path.join(temp_dir, f"OmniBoard_Update{int(time.time())}{ext}")
         print(f"Downloading update to: {save_path}")
         def report(block_num, block_size, total_size):
             if total_size > 0:
@@ -5560,7 +5560,7 @@ class MainWindow(QMainWindow):
     def apply_update(self, save_path):
         from updater import perform_update
         perform_update(save_path)
-        QApplication.quit() # Safely shut down PyQt
+        os._exit(0)
 #MARK: Main  
 def main():
     app = QApplication(sys.argv)
