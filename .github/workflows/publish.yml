@@ -39,6 +39,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y libxcb-cursor0 libgl1 libxkbcommon-x11-0
 
+    - name: 📝 Inject Version into GUI_pyqt.py
+      run: python -c "import re; f=open('GUI_pyqt.py', 'r', encoding='utf-8'); c=f.read(); f.close(); c=re.sub(r'CURRENT_VERSION\s*=\s*\".*?\"', 'CURRENT_VERSION = \"${{ inputs.version }}\"', c); f=open('GUI_pyqt.py', 'w', encoding='utf-8'); f.write(c); f.close()"
+
     - name: 🏗️ Run Build Script
       env:
         PYTHONIOENCODING: utf8
