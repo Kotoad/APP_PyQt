@@ -5520,7 +5520,7 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Ok
         )
 
-    def prompt_update(self, version, assetups):
+    def prompt_update(self, version, assets):
         reply = QMessageBox.question(
             self, 'Update Available',
             f'Version {version} is available. Would you like to update and restart now?',
