@@ -41,6 +41,8 @@ def build_exe():
         'pyserial',
         'mpremote',
         'telnetlib3',
+        'ssl',
+        'urllib.request'
     ]
     
     # Modules to exclude (reduces file size)
