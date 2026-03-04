@@ -311,14 +311,18 @@ class HubWindow(QWidget):
 
         projects_path = Utils.get_base_path()/"projects"
 
-        if os.makedirs(projects_path, exist_ok=True):
-            for i in projects_path.iterdir():
-                if i.is_file() and i.suffix == ".project":
-                    name = i.name.split(".")[0]
-                    project_button = QPushButton(f"Project {name}")
-                    project_button.setStyleSheet("text-align: left; padding: 10px;")
-                    recent_layout.addWidget(project_button)
-                    project_button.clicked.connect(lambda _, p=name: self.open_file(p))
+        print(f"Looking for projects in: {projects_path}")
+        os.makedirs(projects_path, exist_ok=True)
+        print(f"Ensured projects directory exists at: {projects_path}")
+
+        for i in projects_path.iterdir():
+            print(f"Found file in projects directory: {i.name}")
+            if i.is_file() and i.suffix == ".project":
+                name = i.name.split(".")[0]
+                project_button = QPushButton(f"Project {name}")
+                project_button.setStyleSheet("text-align: left; padding: 10px;")
+                recent_layout.addWidget(project_button)
+                project_button.clicked.connect(lambda _, p=name: self.open_file(p))
 
         recent_layout.addStretch()
 
@@ -347,10 +351,12 @@ class MainWindow(QMainWindow):
         self.translation_manager = Utils.translation_manager
         self.t = self.translation_manager.translate
 
+
+        
+        self.reset_file()
         self.setup_ui()
         self.create_shortcuts()
         self.setup_auto_save_timer()
-        self.reset_file()
 
         if getattr(sys, 'frozen', False):
             self.start_update_check()
@@ -390,8 +396,12 @@ class MainWindow(QMainWindow):
 
     def reset_file(self):
         try:
-            with open("File.py", "w") as f:
-                f.write("")
+            if os.path.exists("File.py"):
+                with open("File.py", "w") as f:
+                    f.write("")
+            else:
+                with open("File.py", "x") as f:
+                    f.write("")
         except Exception as e:
             print(f"Error resetting File.py: {e}")
         Reports_path = Utils.get_base_path()/"resources"
