@@ -1,8 +1,8 @@
 from Imports import (QDialog, Qt, QVBoxLayout, QLabel, QTabWidget, QWidget, QFont, QTextEdit,
-                     QScrollArea, QPushButton,Path, os, get_utils, QScroller, QTextBrowser, QIcon,
+                     QScrollArea, QPushButton,Path, os, get_Utils, QScroller, QTextBrowser, QIcon,
                      QPropertyAnimation, QEasingCurve, QTimer, QRect)
 
-Utils = get_utils()
+Utils = get_Utils()
 
 class HelpWindow(QDialog):
     """Singleton Help Window"""
@@ -45,50 +45,46 @@ class HelpWindow(QDialog):
         # Style
         self.setStyleSheet("""
             QDialog {
-                background-color: #2B2B2B;
+                background-color: palette(window);
             }
             QTabWidget::pane {
-                border: 1px solid #3A3A3A;
-                background-color: #2B2B2B;
+                border: 1px solid palette(base);
+                background-color: palette(window);
             }
             QTabWidget::tab-bar {
                 alignment: left;
             }
             QTabBar::tab {
-                background-color: #2B2B2B;
-                color: #FFFFFF;
+                background-color: palette(window);
+                color: palette(text);
                 padding: 8px 20px;
-                border: 1px solid #3A3A3A;
+                border: 1px solid palette(base);
                 border-bottom: none;
             }
             QTabBar::tab:selected {
-                background-color: #1F538D;
+                background-color: palette(highlight);
             }
             QTabBar::tab:hover {
-                background-color: #2667B3;
+                background-color: palette(highlight).lighter(120);
             }
             QLabel {
-                color: #FFFFFF;
+                color: palette(text);
             }
             QPushButton {
-                background-color: #3A3A3A;
-                color: #FFFFFF;
+                background-color: palette(highlight);
+                color: palette(text);
                 border: none;
                 padding: 10px;
                 border-radius: 4px;
                 text-align: left;
             }
             QPushButton:hover {
-                background-color: #4A4A4A;
+                background-color: palette(highlight).lighter(120);
             }
             QPushButton:pressed {
-                background-color: #1F538D;
+                background-color: palette(highlight).darker(120);
             }
-            QTextBrowser {
-                background-color: #2B2B2B;
-                border: none;
-                color: #CCCCCC;
-            }
+
         """)
         
         layout = QVBoxLayout(self)
@@ -106,11 +102,14 @@ class HelpWindow(QDialog):
     def create_getting_started_tab(self):
         """Create the Getting Started tab"""
         #print("Creating Getting Started tab")
+        window = self.palette().color(self.palette().ColorRole.Window).name()
+        text = self.palette().color(self.palette().ColorRole.Text).name()
+        text_hightlight = self.palette().color(self.palette().ColorRole.HighlightedText).name()
         tab = QWidget()
         layout = QVBoxLayout(tab)
         layout.setSpacing(5)
         
-        css = self.get_content_stylesheet()
+        css = self.get_content_stylesheet().format(window=window, text=text, text_hightlight=text_hightlight)
 
         html_file_path = self.t("help_window.getting_started_tab.content")
 
@@ -168,10 +167,10 @@ class HelpWindow(QDialog):
         )
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("""
-            QScrollArea { border: none; background-color: #2B2B2B; }
-            QScrollBar:vertical { background-color: #1F1F1F; width: 12px; border: none; }
-            QScrollBar::handle:vertical { background-color: #3A3A3A; border-radius: 6px; min-height: 20px; }
-            QScrollBar::handle:vertical:hover { background-color: #4A4A4A; }
+            QScrollArea { border: none; background-color: palette(window); }
+            QScrollBar:vertical { background-color: palette(window); width: 12px; border: none; }
+            QScrollBar::handle:vertical { background-color: palette(mid); border-radius: 6px; min-height: 20px; }
+            QScrollBar::handle:vertical:hover { background-color: palette(highlight); }
         """)
         
         # Create container widget
@@ -208,11 +207,11 @@ class HelpWindow(QDialog):
         
         title_label = QLabel(title)
         title_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
-        title_label.setStyleSheet("color: #1F538D;")
+        title_label.setStyleSheet("color: palette(highlighted-text);")
         
         desc_label = QLabel(description)
         desc_label.setWordWrap(True)
-        desc_label.setStyleSheet("color: #CCCCCC;")
+        desc_label.setStyleSheet("color: palette(text);")
         
         view_btn = QPushButton(self.t("help_window.tutorials_tab.show_tutorial_button"))
         view_btn.setMaximumWidth(120)
@@ -224,7 +223,7 @@ class HelpWindow(QDialog):
         item_layout.addWidget(desc_label)
         item_layout.addWidget(view_btn)
         
-        item.setStyleSheet("QWidget { border-bottom: 1px solid #3A3A3A; }")
+        item.setStyleSheet("QWidget { border-bottom: 1px solid palette(mid); }")
         return item
 
     def show_tutorial_detail(self, title, description, tutorial_id):
@@ -251,7 +250,7 @@ class HelpWindow(QDialog):
         # Title
         title_label = QLabel(title)
         title_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        title_label.setStyleSheet("color: #1F538D;")
+        title_label.setStyleSheet("color: palette(highlighted-text);")
         detail_layout.addWidget(title_label)
         
         content = QTextBrowser()
@@ -264,7 +263,11 @@ class HelpWindow(QDialog):
         self.tutorial_layout.addWidget(detail_widget)
 
     def fill_content_area(self, content, tutorial_id):
-        css = self.get_content_stylesheet()
+        window = self.palette().color(self.palette().ColorRole.Window).name()
+        text = self.palette().color(self.palette().ColorRole.Text).name()
+        text_hightlight = self.palette().color(self.palette().ColorRole.HighlightedText).name()
+        print(f"Window {window}, text {text}, text_hightlight {text_hightlight}")
+        css = self.get_content_stylesheet().format(window=window, text=text, text_hightlight=text_hightlight)
         #print(f"Filling content area for tutorial ID: {tutorial_id}")
         match tutorial_id:
             case "0":
@@ -308,13 +311,30 @@ class HelpWindow(QDialog):
             case "1":
                 #print("Filling content for tutorial 1")
                 current_dir = self.base_path
-                Blinking_LED_Diagram = os.path.join(current_dir, "resources", "images", "Blinking_LED", "blinking_led_diagram.png")
-                Blinking_LED_Diagram = os.path.abspath(Blinking_LED_Diagram)  # Convert to absolute path
-                Blinking_LED_Diagram = Blinking_LED_Diagram.replace("\\", "/")
-                Blinking_LED_Flowchart = os.path.join(current_dir, "resources", "images", "Blinking_LED", "blinking_led_flowchart.png")
-                Blinking_LED_Flowchart = os.path.abspath(Blinking_LED_Flowchart)
-                Blinking_LED_Flowchart = Blinking_LED_Flowchart.replace("\\", "/")
-
+                Power_Supply_Symbol_DC = current_dir / "resources/images/Tutorials/Tutorial_1/Power_Supply_Symbol_DC.png"
+                Power_Supply_Symbol_AC = current_dir / "resources/images/Tutorials/Tutorial_1/Power_Supply_Symbol_DC.png"
+                Pin_Connection_Symbol = current_dir / "resources/images/Tutorials/Tutorial_1/Pin_Connection_Symbol.png"
+                Resistor_Symbol = current_dir / "resources/images/Tutorials/Tutorial_1/Resistor_Symbol.png"
+                Capacitor_Symbol = current_dir / "resources/images/Tutorials/Tutorial_1/Capacitor_Symbol.png"
+                Inductor_Symbol = current_dir / "resources/images/Tutorials/Tutorial_1/Inductor_Symbol.png"
+                Diode_Symbol = current_dir / "resources/images/Tutorials/Tutorial_1/Diode_Symbol.png"
+                LED_Symbol = current_dir / "resources/images/Tutorials/Tutorial_1/LED_Symbol.png"
+                Transistor_Symbol = current_dir / "resources/images/Tutorials/Tutorial_1/Transistor_Symbol.png"
+                Ground_Symbol = current_dir / "resources/images/Tutorials/Tutorial_1/Ground_Symbol.png"
+                for path in [
+                    Power_Supply_Symbol_DC,
+                    Power_Supply_Symbol_AC,
+                    Pin_Connection_Symbol,
+                    Resistor_Symbol,
+                    Capacitor_Symbol,
+                    Inductor_Symbol,
+                    Diode_Symbol,
+                    LED_Symbol,
+                    Transistor_Symbol,
+                    Ground_Symbol
+                ]:
+                    path = path.resolve()  # Ensure we have an absolute path
+                    path = path.as_posix()
                 html_file_path = self.t("help_window.tutorials_tab.tutorials.tutorial_1.content")
  
                 full_path = current_dir / html_file_path
@@ -324,8 +344,16 @@ class HelpWindow(QDialog):
                         html_template = f.read()
                         html_content = html_template.format(
                             css=css,
-                            Blinking_LED_Diagram=Blinking_LED_Diagram,
-                            Blinking_LED_Flowchart=Blinking_LED_Flowchart
+                            Power_Supply_Symbol_DC=Power_Supply_Symbol_DC,
+                            Power_Supply_Symbol_AC=Power_Supply_Symbol_AC,
+                            Pin_Connection_Symbol=Pin_Connection_Symbol,
+                            Resistor_Symbol=Resistor_Symbol,
+                            Capacitor_Symbol=Capacitor_Symbol,
+                            Inductor_Symbol=Inductor_Symbol,
+                            Diode_Symbol=Diode_Symbol,
+                            LED_Symbol=LED_Symbol,
+                            Transistor_Symbol=Transistor_Symbol,
+                            Ground_Symbol=Ground_Symbol
                         )
                     # Now use html_content in your QTextEdit or wherever you need it
                     # For tutorial:
@@ -420,12 +448,16 @@ class HelpWindow(QDialog):
     def create_faq_tab(self):
         """Create the FAQ tab"""
         #print("Creating FAQ tab")
+
+        window = self.palette().color(self.palette().ColorRole.Window).name()
+        text = self.palette().color(self.palette().ColorRole.Text).name()
+        text_hightlight = self.palette().color(self.palette().ColorRole.HighlightedText).name()
         tab = QWidget()
         layout = QVBoxLayout(tab)
         text_edit = QTextBrowser()
         text_edit.setReadOnly(True)
         text_edit.setOpenExternalLinks(True)
-        css = self.get_content_stylesheet()
+        css = self.get_content_stylesheet().format(window=window, text=text, text_hightlight=text_hightlight)
 
         html_file_path = self.t("help_window.faq_tab.content")
         full_path = self.base_path / html_file_path
@@ -451,38 +483,32 @@ class HelpWindow(QDialog):
         """Return CSS stylesheet for QTextEdit content"""
         return """
         <style>
-            body {
-                background-color: #2B2B2B;
-                color: #CCCCCC;
+            body {{
+                background-color: {window};
+                color: {text};
                 font-family: Arial, sans-serif;
-                line-height: 1.6;
-            }
-            h3 {
-                color: #1F538D;
-                font-size: 18px;
-                margin-top: 0;
-            }
-            p {
-                color: #CCCCCC;
+            }}
+            p {{
+                color: {text};
                 margin: 10px 0;
-            }
-            .highlight {
-                color: #2667B3;
+            }}
+            .highlight {{
+                color: {text_hightlight};
                 font-weight: bold;
-            }
-            .code {
-                background-color: #1F1F1F;
-                color: #90EE90;
+            }}
+            .code {{
+                background-color: {window};
+                color: #61ab16;
                 padding: 5px 8px;
                 border-radius: 4px;
                 font-family: monospace;
-            }
-            ul {
-                color: #CCCCCC;
-            }
-            li {
+            }}
+            ul {{
+                color: {text};
+            }}
+            li {{
                 margin: 5px 0;
-            }
+            }}
         </style>
         """
     

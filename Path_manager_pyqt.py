@@ -1,8 +1,9 @@
 from Imports import (Qt, QPoint, QLine, QPainter, QPen, QColor, QGraphicsPathItem,
                      QPointF, QPainterPath, QGraphicsEllipseItem, QGraphicsItem)
-from Imports import get_utils
+from Imports import get_Utils, get_Commands
 
-Utils = get_utils()
+Utils = get_Utils()
+AddPathCommand = get_Commands()[2]
 #MARK: - WaypointHandle
 class WaypointHandle(QGraphicsEllipseItem):
 
@@ -261,7 +262,21 @@ class PathManager:
                     # Create path graphics item
                     path_item = PathGraphicsItem(from_block, to_block, connection_id, self.canvas, circle_type, self.start_node['circle_type'], waypoints=self.preview_points)
                     print(f"    Created path item: {path_item}")
-                    self.canvas.scene.addItem(path_item)
+                    command = AddPathCommand(
+                        canvas=self.canvas,
+                        path_id=connection_id,
+                        path_data={
+                            'from': self.start_node['id'],
+                            'from_circle_type': self.start_node['circle_type'],
+                            'to': block_id,
+                            'to_circle_type': circle_type,
+                            'waypoints': self.preview_points,
+                            'canvas': self.canvas,
+                            'color': QColor(31, 83, 141),
+                            'item': path_item
+                        }
+                    )
+                    self.canvas.main_window.undo_stack.push(command)
                     
                     # Store in Utils and scene_paths
                     Utils.main_canvas['paths'][connection_id] = {
@@ -334,7 +349,10 @@ class PathManager:
         if not self.start_node:
             return
         
-        self.preview_points.insert(-1, (pos.x(), pos.y()))
+        snapped_x = round(pos.x() / 25) * 25
+        snapped_y = round(pos.y() / 25) * 25
+
+        self.preview_points.insert(-1, (snapped_x, snapped_y))
         # Update preview path
         print(f"Preview points: {self.preview_points}")
         if self.preview_item:
@@ -349,7 +367,9 @@ class PathManager:
         # Calculate waypoints
         if not self.preview_points:
             print(" → Initializing preview points")
-            self.preview_points = [(self.start_node['pos'].x(), self.start_node['pos'].y()), (mouse_pos.x(), mouse_pos.y())]
+            snapped_x = round(self.start_node['pos'].x() / 25) * 25
+            snapped_y = round(self.start_node['pos'].y() / 25) * 25
+            self.preview_points = [(snapped_x, snapped_y), (mouse_pos.x(), mouse_pos.y())]
         else:
             print(" → Updating last preview point")
             grid_size = 25

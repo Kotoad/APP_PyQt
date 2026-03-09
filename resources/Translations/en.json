@@ -23,8 +23,9 @@
       "faq": "FAQ",
       "compile": "Compile",
       "compile_code": "Compile Code",
-      "edit_code": "Edit Generated Code",
-      "view_code": "View Generated Code"
+      "hub": "Hub",
+      "visual_editor": "Visual Editor",
+      "code_editor": "Code Editor"
     },
     "top_toolbar": {
       "toolbar": "Main Toolbar",
@@ -35,7 +36,10 @@
       "settings": "Settings",
       "compile_upload": "Compile and Upload",
       "run": "Run",
-      "stop": "Stop Execution"
+      "stop": "Stop Execution",
+      "hub": "Hub",
+      "visual_editor": "Visual Editor",
+      "code_editor": "Code Editor"
     },
     "bottom_toolbar": {
       "toolbar": "Bottom Toolbar",
@@ -182,7 +186,9 @@
         "error": "Error",
         "unknown_model": "Unknown Raspberry Pi model: {model}. Please select your model manually in settings.",
         "config_error": "Configuration Error",
-        "config_error_message": "Raspberry Pi configuration is incomplete or invalid. Please check your settings."
+        "config_error_message": "Raspberry Pi configuration is incomplete or invalid. Please check your settings.",
+        "host_key_verification": "Host Key Verification",
+        "host_key_verification_message": "The authenticity of host '{hostname}' can't be established.\n\nfKey type: {key_type}\nFingerprint: {fingerprint}\n\nDo you trust this host?"
       },
       "new_canvas": "New Canvas",
       "enter_canvas_name": "Enter name for new canvas"
@@ -263,13 +269,6 @@
       "no_description": "No description available."
     }
   },
-  "code_view_window": {
-    "window_title": "Generated Code View",
-    "code_label": "Generated Code:",
-    "file_empty": "File is not generated. To generate the file, please compile the code first.",
-    "file_not_found": "File.py not found",
-    "error_reading_file": "Error reading file: {error_type}: {error_message}"
-  },
   "code_editor_window": {
     "window_title": "Code Editor",
     "save_button": "Save",
@@ -341,7 +340,16 @@
     "title": "Settings",
     "basic_settings_tab": {
       "title": "Basic Settings",
-      "select_language": "Select Language"
+      "select_language": "Select Language",
+      "select_theme": "Select Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "ui_scale": "UI Scale",
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large",
+      "apply_settings": "Apply Settings"
+
     },
     "rpi_settings_tab": {
       "title": "Raspberry Pi Settings",
@@ -365,11 +373,8 @@
       "unknown_model": "Unknown model"
     },
     "restart_dialog": {
-      "title": "Language change",
-      "message_default": "Language changed successfully!\nApp will restart in 3 seconds...\n\nClick 'OK' to restart now.",
-      "message_countdown": "Language changed successfully!\nApp will restart in {seconds} seconds...\n\nClick 'OK' to restart now.",
-      "restart_now": "Restart Now",
-      "restart_later": "Restart Later"
+      "title": "Restart Application",
+      "message": "Some changes require restarting the application to take effect. Do you want to restart now?"
     },
     "auto_detect_dialog": {
       "process": "Detecting Raspberry Pi on network.",

@@ -34,7 +34,9 @@ reports = {}
 
 config = {
     'grid_size': 25,  # Snap-to-grid pixel size
-    'pico_port': None,  # Serial port for Pico W (auto-detected
+    'pico_port': None,  # Serial port for Pico W (auto-detected)
+    'opend_project': None,  # Currently opened project name
+    'CURRENT_VERSION': "V0.14",
 }
 
 compiler = None
@@ -42,7 +44,7 @@ state_manager = None
 translation_manager = None
 file_manager = None
 data_control = None
-
+add_block_command = None
 # ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================

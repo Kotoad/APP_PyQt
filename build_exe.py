@@ -59,7 +59,7 @@ def build_exe():
 
     # Build command arguments
     args = [
-        'GUI_pyqt.py',           # Entry point
+        'Main.py',           # Entry point
         '--onedir',               # Single executable file
         '--windowed',              # No console window
         '--name=OmniBoard Studio',  # App name
