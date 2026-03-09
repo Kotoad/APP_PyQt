@@ -5,6 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OmniBoard Studio - Visual Programming Environment</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Analytics will only load if the user accepts cookies -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const banner = document.getElementById("cookie-banner");
+            const acceptBtn = document.getElementById("accept-cookies");
+            const declineBtn = document.getElementById("decline-cookies");
+
+            // Check if a preference is already saved
+            const consentStatus = localStorage.getItem("cookieConsent");
+
+            if (!consentStatus) {
+                // Show banner if no choice has been made
+                banner.classList.remove("hidden");
+                banner.classList.add("flex");
+            } else if (consentStatus === "accepted") {
+                // Execute tracking if previously accepted
+                loadAnalytics();
+            }
+
+            acceptBtn.addEventListener("click", function() {
+                localStorage.setItem("cookieConsent", "accepted");
+                banner.classList.add("hidden");
+                banner.classList.remove("flex");
+                loadAnalytics();
+            });
+
+            declineBtn.addEventListener("click", function() {
+                localStorage.setItem("cookieConsent", "declined");
+                banner.classList.add("hidden");
+                banner.classList.remove("flex");
+            });
+        });
+
+        function loadAnalytics() {
+            // Your Google Analytics or tracking script code goes inside this function.
+            // It will ONLY run if the user clicks "Accept".
+            console.log("Analytics loaded."); 
+        }
+    </script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-TVB6649D9Z"></script>
     <script>
@@ -83,5 +122,18 @@
         <p>&copy; 2026 OmniBoard Studio. All rights reserved.</p>
     </footer>
 
+    <div id="cookie-banner" class="fixed bottom-0 left-0 w-full bg-slate-900 border-t border-slate-700 p-4 md:p-6 z-[100] hidden flex-col md:flex-row justify-between items-center shadow-lg">
+    <div class="text-slate-300 text-sm mb-4 md:mb-0 max-w-3xl">
+        We use cookies to analyze site traffic and improve your experience. By clicking "Accept", you consent to our use of analytics cookies.
+    </div>
+    <div class="flex gap-4">
+        <button id="decline-cookies" class="px-4 py-2 text-sm font-medium text-slate-300 bg-slate-800 border border-slate-700 rounded-md hover:bg-slate-700 transition-colors">
+            Decline
+        </button>
+        <button id="accept-cookies" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-500 transition-colors">
+            Accept
+        </button>
+    </div>
+</div>
 </body>
 </html>
