@@ -1,18 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OmniBoard Studio - Visual Programming Environment</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group identify setPersonProperties setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags resetGroups onFeatureFlags addFeatureFlagsHandler onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-        posthog.init('phc_Mluykd4ZFp3kGqZaKOW5ZVppq7uvZhNzrGf2h9ZaRrQ', {
-            api_host: 'https://eu.i.posthog.com',
-            defaults: '2026-01-30'
-        })
-    </script>
-</head>
+
+<?php $pageTitle = 'Linux-based Raspberry Pi Setup'; include '../Head.php'; ?>
+
 <body class="bg-slate-900 text-slate-100 font-sans antialiased min-h-screen flex flex-col">
 
     <?php include '../Navbar.php'; ?>
@@ -25,6 +15,8 @@
             In this tutorial, we will guide you through setting up a Linux-based Raspberry Pi for use with OmniBoard Studio.
         </p>
     </header>
+
+    <hr class=" border-t border-slate-800">
 
     <main class="max-w-4xl mx-auto px-6 py-12 space-y-16 flex-grow">
         
@@ -50,7 +42,7 @@
 
         <section>
             <h2 class="text-2xl font-bold text-blue-400 mb-6">You will need:</h2>
-            <ul class="space-y-4 text-slate-300 bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
+            <ul class="space-y-4 text-slate-300 bg-slate-800/50 p-6 rounded-xl">
                 <li class="flex items-start gap-3">
                     <span class="text-blue-500 mt-1">●</span>
                     <span>A compatible Raspberry Pi board (see list above)</span>

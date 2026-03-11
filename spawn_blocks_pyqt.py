@@ -306,11 +306,11 @@ class BlockGraphicsItem(QGraphicsObject):
         painter.setFont(font)
         
         # Determine text
-        text = self.block_type.replace("_", " ")
+        name = self.block_type.replace("_", " ")
         # Draw text centered
         if self.block_type in ["While"]:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
-            painter.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter, text)
+            painter.drawText(text_rect, Qt.AlignmentFlag.AlignHCenter, name)
             text_rect2 = QRectF(self.radius, 0, self.width, self.height)
             condition_text = f"{self.value_1_name} {self.operator} {self.value_2_name}"
             painter.drawText(text_rect2, Qt.AlignmentFlag.AlignCenter, condition_text)
@@ -322,7 +322,7 @@ class BlockGraphicsItem(QGraphicsObject):
             ON_rect = QRectF(self.radius, 5, self.width-10, self.height)
             OFF_rect = QRectF(self.radius, 0, self.width-10, self.height-5)
             device_text = f"{self.value_1_name}"
-            painter.drawText(QRectF(self.radius+5, 5, self.width, self.height), Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeading, text)
+            painter.drawText(QRectF(self.radius+5, 5, self.width, self.height), Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeading, name)
             painter.drawText(QRectF(self.radius, 0, self.width, self.height), Qt.AlignmentFlag.AlignCenter, device_text)
             painter.drawText(ON_rect, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight, "ON")
             painter.drawText(OFF_rect, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignRight, "OFF")
@@ -416,17 +416,22 @@ class BlockGraphicsItem(QGraphicsObject):
         elif self.block_type in ["Toggle_LED", "LED_ON", "LED_OFF"]:
             device_text = f"{self.value_1_name}"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(device_rect, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter, name)
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
         elif self.block_type in ["Blink_LED"]:
             device_text = f"{self.value_1_name} - {self.sleep_time} ms"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(device_rect, Qt.AlignmentFlag.AlignVCenter, name)
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
         elif self.block_type in ["PWM_LED"]:
             device_text = f"{self.value_1_name} - {self.PWM_value}"
             device_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(device_rect, Qt.AlignmentFlag.AlignVCenter, name)
             painter.drawText(device_rect, Qt.AlignmentFlag.AlignCenter, device_text)
         elif self.block_type in ["RGB_LED"]:
             y_offset = 17.5
+            device_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(device_rect, Qt.AlignmentFlag.AlignVCenter, name)
             for i in range(1, 4):
                 val_name = getattr(self, f"value_{i}_1_name", "N")
                 PWM_value = getattr(self, f"value_{i}_2_PWM", "N")
@@ -436,7 +441,7 @@ class BlockGraphicsItem(QGraphicsObject):
                 y_offset += 25
         else:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
-            painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
+            painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, name)
 
     def _draw_connection_circles(self, painter):
         """Draw input/output connection circles"""

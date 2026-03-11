@@ -1,11 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OmniBoard Studio - Visual Programming Environment</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
+
+<?php $page_title = "Raspberry Pi Pico Setup - OmniBoard Studio"; include '../Head.php';?>
+
 <body class="bg-slate-900 text-slate-100 font-sans antialiased min-h-screen flex flex-col">
     
     <?php include '../Navbar.php'; ?>
@@ -18,6 +15,8 @@
             Learn how to flash the latest MicroPython firmware and prepare your board for OmniBoard Studio.
         </p>
     </header>
+
+    <hr class=" border-t border-slate-800">
 
     <main class="max-w-4xl mx-auto px-6 py-12 space-y-16 flex-col">
         <section>
@@ -33,7 +32,7 @@
         
         <section>
             <h2 class="text-2xl font-bold text-blue-400 mb-6">You will need:</h2>
-            <ul class="space-y-4 text-slate-300 bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
+            <ul class="space-y-4 text-slate-300 bg-slate-800/50 p-6 rounded-xl">
                 <li class="flex items-start gap-3">
                     <span class="text-blue-500 mt-1">●</span>
                     <span>A compatible Raspberry Pi Pico board (see list above)</span>
