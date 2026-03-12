@@ -6,7 +6,7 @@
         <a href="/FAQ.php">FAQ</a>
         <a href="/Download.php">Download App</a>
         <a href="/Contact.php">Contact Us</a>
-    </div>    
+    </div>
     <p>&copy; 2026 OmniBoard Studio. All rights reserved.</p>
 </footer>
 

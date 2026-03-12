@@ -4,7 +4,7 @@
 <?php $page_title = "Raspberry Pi Pico Setup - OmniBoard Studio"; include '../Head.php';?>
 
 <body class="bg-slate-900 text-slate-100 font-sans antialiased min-h-screen flex flex-col">
-    
+
     <?php include '../Navbar.php'; ?>
 
     <header class="max-w-4xl mx-auto px-6 py-16 text-center">
@@ -22,14 +22,24 @@
         <section>
             <h2 class="text-2xl font-bold text-blue-400 mb-6">Supported Raspberry Pi Pico Variants:</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">Raspberry Pi Pico</div>
-                <div class="p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">Raspberry Pi Pico W*</div>
-                <div class="p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">Raspberry Pi Pico WH*</div>
-                <div class="p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">Raspberry Pi Pico 2</div>
-                <div class="p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">Raspberry Pi Pico 2 W*</div>
+                <div
+                    class="p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
+                    Raspberry Pi Pico</div>
+                <div
+                    class="p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
+                    Raspberry Pi Pico W*</div>
+                <div
+                    class="p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
+                    Raspberry Pi Pico WH*</div>
+                <div
+                    class="p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
+                    Raspberry Pi Pico 2</div>
+                <div
+                    class="p-4 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
+                    Raspberry Pi Pico 2 W*</div>
             </div>
         </section>
-        
+
         <section>
             <h2 class="text-2xl font-bold text-blue-400 mb-6">You will need:</h2>
             <ul class="space-y-4 text-slate-300 bg-slate-800/50 p-6 rounded-xl">
@@ -52,37 +62,54 @@
             <h2 class="text-2xl font-bold text-blue-400 mb-6">Steps to set up your Raspberry Pi Pico:</h2>
             <ul class="space-y-4">
                 <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">1</div>
+                    <div
+                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
+                        1</div>
                     <div class="w-full">
                         <div class="text-slate-300 mt-1">Download the latest version of MicroPython for your RPI</div>
                         <ul class="space-y-4 text-slate-300 bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
                             <li class="flex items-start gap-3">
                                 <span class="text-blue-500 mt-1">●</span>
-                                <span>For Raspberry Pi Pico: <br class="sm:hidden"> <a href="https://micropython.org/download/RPI_PICO/" class="text-blue-400 hover:text-blue-300 underline break-all">https://micropython.org/download/RPI_PICO/</a></span>
+                                <span>For Raspberry Pi Pico: <br class="sm:hidden"> <a
+                                        href="https://micropython.org/download/RPI_PICO/"
+                                        class="text-blue-400 hover:text-blue-300 underline break-all">https://micropython.org/download/RPI_PICO/</a></span>
                             </li>
                             <li class="flex items-start gap-3">
                                 <span class="text-blue-500 mt-1">●</span>
-                                <span>For Raspberry Pi Pico W and WH: <br class="sm:hidden"> <a href="https://micropython.org/download/RPI_PICO_W/" class="text-blue-400 hover:text-blue-300 underline break-all">https://micropython.org/download/RPI_PICO_W/</a></span>
+                                <span>For Raspberry Pi Pico W and WH: <br class="sm:hidden"> <a
+                                        href="https://micropython.org/download/RPI_PICO_W/"
+                                        class="text-blue-400 hover:text-blue-300 underline break-all">https://micropython.org/download/RPI_PICO_W/</a></span>
                             </li>
                             <li class="flex items-start gap-3">
                                 <span class="text-blue-500 mt-1">●</span>
-                                <span>For Raspberry Pi Pico 2: <br class="sm:hidden"> <a href="https://micropython.org/download/RPI_PICO2/" class="text-blue-400 hover:text-blue-300 underline break-all">https://micropython.org/download/RPI_PICO2/</a></span>
+                                <span>For Raspberry Pi Pico 2: <br class="sm:hidden"> <a
+                                        href="https://micropython.org/download/RPI_PICO2/"
+                                        class="text-blue-400 hover:text-blue-300 underline break-all">https://micropython.org/download/RPI_PICO2/</a></span>
                             </li>
                             <li class="flex items-start gap-3">
                                 <span class="text-blue-500 mt-1">●</span>
-                                <span>For Raspberry Pi Pico 2 W and WH: <br class="sm:hidden"> <a href="https://micropython.org/download/RPI_PICO2_W/" class="text-blue-400 hover:text-blue-300 underline break-all">https://micropython.org/download/RPI_PICO2_W/</a></span>
+                                <span>For Raspberry Pi Pico 2 W and WH: <br class="sm:hidden"> <a
+                                        href="https://micropython.org/download/RPI_PICO2_W/"
+                                        class="text-blue-400 hover:text-blue-300 underline break-all">https://micropython.org/download/RPI_PICO2_W/</a></span>
                             </li>
                         </ul>
                     </div>
                 </div>
-                
+
                 <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">2</div>
-                    <div class="text-slate-300 mt-1">Connect your Raspberry Pi Pico to your computer using the Micro USB cable while holding down the BOOTSEL button (the white button) on the Pico. This will put the Pico into USB mass storage mode.</div>
+                    <div
+                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
+                        2</div>
+                    <div class="text-slate-300 mt-1">Connect your Raspberry Pi Pico to your computer using the Micro USB
+                        cable while holding down the BOOTSEL button (the white button) on the Pico. This will put the
+                        Pico into USB mass storage mode.</div>
                 </div>
                 <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">3</div>
-                    <div class="text-slate-300 mt-1">Copy the downloaded MicroPython firmware file to the Pico's root directory (the Pico will appear as a USB drive).</div>
+                    <div
+                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
+                        3</div>
+                    <div class="text-slate-300 mt-1">Copy the downloaded MicroPython firmware file to the Pico's root
+                        directory (the Pico will appear as a USB drive).</div>
                 </div>
             </ul>
         </section>
@@ -91,4 +118,5 @@
     <?php include '../Footer.php'; ?>
 
 </body>
-</html> 
+
+</html>
