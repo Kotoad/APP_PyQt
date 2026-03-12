@@ -17,7 +17,7 @@
     </header>
 
     <main class="w-full py-20 flex-grow border-t border-slate-800">
-        <section class="max-w-4xl mx-auto px-6">
+        <section class="max-w-4xl mx-auto px-6 text-center">
             <h2 class="text-2xl font-bold text-blue-400 mb-6">Email Us</h2>
             <p class="text-slate-300">For general inquiries, support, or partnership opportunities, please email us at <a href="mailto:krystofotta@gmail.com" class="text-blue-400 hover:underline">krystofotta@gmail.com</a>.</p>
         </section>

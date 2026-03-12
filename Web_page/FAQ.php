@@ -14,7 +14,7 @@
     
     <main class="w-full py-20 flex-grow">
         <section id="faq" class="bg-slate-900 py-20 border-t border-slate-800">
-            <div class="max-w-5xl mx-auto px-6">
+            <div class="max-w-5xl mx-auto px-6 text-center space-y-16">
                 <div>
                     <h2 class="text-2xl font-semibold mb-4 text-blue-400">What is OmniBoard Studio?</h2>
                     <p class="text-slate-400">OmniBoard Studio is a visual programming environment designed for microcontroller projects. It allows users to create and compile MicroPython code using a drag-and-drop node-based interface.</p>

@@ -18,7 +18,7 @@
 
     <hr class=" border-t border-slate-800">
 
-    <main class="max-w-4xl mx-auto px-6 py-12 space-y-16 flex-col">
+    <main class="max-w-4xl mx-auto px-6 py-12 space-y-16 flex-grow">
         <section>
             <h2 class="text-2xl font-bold text-blue-400 mb-6">Supported Raspberry Pi Pico Variants:</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -53,25 +53,27 @@
             <ul class="space-y-4">
                 <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
                     <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">1</div>
-                    <div class="text-slate-300 mt-1">Download the latest version of MicroPython for your RPI</div>
-                    <ul class="space-y-4 text-slate-300 bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
-                        <li class="flex items-start gap-3">
-                            <span class="text-blue-500 mt-1">●</span>
-                            <span>For Raspberry Pi Pico: <a href="https://micropython.org/download/RPI_PICO/" class="text-blue-400 hover:text-blue-300 underline">https://micropython.org/download/RPI_PICO/</a></span>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="text-blue-500 mt-1">●</span>
-                            <span>For Raspberry Pi Pico W and WH: <a href="https://micropython.org/download/RPI_PICO_W/" class="text-blue-400 hover:text-blue-300 underline">https://micropython.org/download/RPI_PICO_W/</a></span>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="text-blue-500 mt-1">●</span>
-                            <span>For Raspberry Pi Pico 2: <a href="https://micropython.org/download/RPI_PICO2/" class="text-blue-400 hover:text-blue-300 underline">https://micropython.org/download/RPI_PICO2/</a></span>
-                        </li>
-                        <li class="flex items-start gap-3">
-                            <span class="text-blue-500 mt-1">●</span>
-                            <span>For Raspberry Pi Pico 2 W and WH: <a href="https://micropython.org/download/RPI_PICO2_W/" class="text-blue-400 hover:text-blue-300 underline">https://micropython.org/download/RPI_PICO2_W/</a></span>
-                        </li>
-                    </ul>
+                    <div class="w-full">
+                        <div class="text-slate-300 mt-1">Download the latest version of MicroPython for your RPI</div>
+                        <ul class="space-y-4 text-slate-300 bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
+                            <li class="flex items-start gap-3">
+                                <span class="text-blue-500 mt-1">●</span>
+                                <span>For Raspberry Pi Pico: <br class="sm:hidden"> <a href="https://micropython.org/download/RPI_PICO/" class="text-blue-400 hover:text-blue-300 underline break-all">https://micropython.org/download/RPI_PICO/</a></span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <span class="text-blue-500 mt-1">●</span>
+                                <span>For Raspberry Pi Pico W and WH: <br class="sm:hidden"> <a href="https://micropython.org/download/RPI_PICO_W/" class="text-blue-400 hover:text-blue-300 underline break-all">https://micropython.org/download/RPI_PICO_W/</a></span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <span class="text-blue-500 mt-1">●</span>
+                                <span>For Raspberry Pi Pico 2: <br class="sm:hidden"> <a href="https://micropython.org/download/RPI_PICO2/" class="text-blue-400 hover:text-blue-300 underline break-all">https://micropython.org/download/RPI_PICO2/</a></span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <span class="text-blue-500 mt-1">●</span>
+                                <span>For Raspberry Pi Pico 2 W and WH: <br class="sm:hidden"> <a href="https://micropython.org/download/RPI_PICO2_W/" class="text-blue-400 hover:text-blue-300 underline break-all">https://micropython.org/download/RPI_PICO2_W/</a></span>
+                            </li>
+                        </ul>
+                    </div>
                 </div>
                 
                 <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
