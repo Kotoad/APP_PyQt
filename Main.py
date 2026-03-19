@@ -202,6 +202,7 @@ class UpdateCheckerThread(QThread):
 class DownloadUpdateThread(QThread):
     progress = pyqtSignal(int)
     finished = pyqtSignal(str)
+    error = pyqtSignal(str) # New signal to catch failures
 
     def __init__(self, url):
         super().__init__()
@@ -211,17 +212,41 @@ class DownloadUpdateThread(QThread):
         temp_dir = tempfile.gettempdir()
         ext = ".exe" if sys.platform == "win32" else ".tar.gz"
         save_path = os.path.join(temp_dir, f"OmniBoard_Update{int(time.time())}{ext}")
-        print(f"Downloading update to: {save_path}")
-        def report(block_num, block_size, total_size):
-            if total_size > 0:
-                percent = int(block_num * block_size * 100 / total_size)
-                self.progress.emit(min(percent, 100))
+        print(f"Downloading update to: {save_path}", flush=True)
 
         try:
-            urllib.request.urlretrieve(self.url, save_path, reporthook=report)
+            req = urllib.request.Request(self.url, headers={'User-Agent': 'OmniBoard-Updater'})
+            context = ssl.create_default_context(cafile=certifi.where())
+            
+            with urllib.request.urlopen(req, context=context) as response, open(save_path, 'wb') as out_file:
+                # Safely get Content-Length
+                content_length = response.getheader('Content-Length')
+                total_size = int(content_length) if content_length else 0
+                
+                block_size = 8192
+                downloaded_size = 0
+                
+                while True:
+                    buffer = response.read(block_size)
+                    if not buffer:
+                        break
+                    
+                    out_file.write(buffer)
+                    downloaded_size += len(buffer)
+                    
+                    if total_size > 0:
+                        percent = int(downloaded_size * 100 / total_size)
+                        self.progress.emit(min(percent, 100))
+                        
+            # Prevent trying to install a tiny HTML error page
+            if downloaded_size < 100000: # If less than 100KB
+                raise Exception(f"Downloaded file is too small ({downloaded_size} bytes). The server likely blocked the download.")
+
             self.finished.emit(save_path)
+            
         except Exception as e:
-            print(f"Download failed: {e}")
+            print(f"Download failed: {e}", flush=True)
+            self.error.emit(str(e))
 
 #MARK: - Universal Error Handler
 class UniversalErrorHandler(QObject):
@@ -942,6 +967,11 @@ class MainWindow(QMainWindow):
         self.download_thread = DownloadUpdateThread(url)
         self.download_thread.progress.connect(self.progress_dialog.setValue)
         self.download_thread.finished.connect(self.apply_update)
+        
+        # Catch and display errors
+        self.download_thread.error.connect(lambda err: QMessageBox.critical(self, "Update Error", f"Download failed:\n{err}"))
+        self.download_thread.error.connect(self.progress_dialog.cancel)
+        
         self.progress_dialog.canceled.connect(self.download_thread.terminate)
         self.download_thread.start()
 
