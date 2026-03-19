@@ -57,6 +57,7 @@ jobs:
           git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }} [skip ci]"
           git push
 
+          
   # ─────────────────────────────────────────────
   # 2. Build Windows — EXE + Inno Setup installer
   # ─────────────────────────────────────────────
