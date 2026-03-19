@@ -5,15 +5,15 @@ on:
     inputs:
       # Optional: allow manual triggering with a specific version
       version:
-        description: 'Release version tag (e.g., v0.12). If left blank, the workflow will auto-bump the patch version.'
-        required: false
+        description: 'Release version tag (e.g., v0.12.0).'
+        required: true
         type: string
 
 jobs:
   # ─────────────────────────────────────────────
-  # 1. Bump version and commit it back to the repo
+  # 1. Update version and commit it back to the repo
   # ─────────────────────────────────────────────
-  bump-version:
+  update-version:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,23 +24,10 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Bump patch version
+      - name: Update version
         id: bump
         run: |
-          OLD=$(cat version.txt)
-          # Strip leading 'v' or 'V', split on dots
-          CLEAN_OLD=$(echo $OLD | sed 's/^[vV]//')
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CLEAN_OLD"
-          
-          # Default to 0 if PATCH is empty
-          PATCH=${PATCH:-0}
-          PATCH=$((PATCH + 1))
-          
-          # Match the V-prefix formatting used in your files
-          NEW="V${MAJOR}.${MINOR}.${PATCH}"
-          echo "$NEW" > version.txt
-          echo "new_version=$NEW" >> $GITHUB_OUTPUT
-          echo "Bumped $OLD → $NEW"
+          echo "CURRENT_VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
 
       - name: Update files and clear passwords
         run: |
@@ -67,7 +54,7 @@ jobs:
   # 2. Build Windows — EXE + Inno Setup installer
   # ─────────────────────────────────────────────
   build-windows:
-    needs: bump-version
+    needs: update-version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -126,7 +113,7 @@ jobs:
   # 3. Build Linux — tar.gz bundle
   # ─────────────────────────────────────────────
   build-linux:
-    needs: bump-version
+    needs: update-version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -170,7 +157,7 @@ jobs:
   # 4. Upload everything to FTP + update version.php
   # ─────────────────────────────────────────────
   deploy:
-    needs: [bump-version, build-windows, build-linux]
+    needs: [update-version, build-windows, build-linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
