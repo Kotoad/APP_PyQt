@@ -158,9 +158,16 @@ def check_for_updates():
                 assets = data.get("assets", [])
                 print(f"Latest version: {latest_version}, Assets: {assets}")
                 if latest_version:
-                    main_vesion, sub_version, patch_version = Utils.config['CURRENT_VERSION'].split(".")
+                    main_version, sub_version, patch_version = Utils.config['CURRENT_VERSION'].split(".")
+                    print(f"Current version: {main_version}.{sub_version}.{patch_version}")
                     latest_main, latest_sub, latest_patch = latest_version.split(".")
-                    if (int(latest_main), int(latest_sub), int(latest_patch)) > (int(main_vesion), int(sub_version), int(patch_version)):
+                    print(f"Latest version parts: {latest_main}.{latest_sub}.{latest_patch}")
+                    main_version = main_version.strip("vV")  # Remove leading 'v' if present
+                    print(f"Stripped current main version: {main_version}")
+                    latest_main = latest_main.strip("vV")  # Remove leading 'v' if present
+                    print(f"Stripped latest main version: {latest_main}")
+
+                    if (int(latest_main), int(latest_sub), int(latest_patch)) > (int(main_version), int(sub_version), int(patch_version)):
                         print("Update available!")
                         return True, latest_version, assets, "Update available"
                     else:
