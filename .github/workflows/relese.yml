@@ -75,7 +75,8 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install pyinstaller pyqt5 certifi
+          python -m pip install --upgrade pip
+          pip install PyQt6 PyQt6-QScintilla paramiko cryptography pyserial mpremote pyinstaller telnetlib3 certifi
           # Add any other deps your app needs:
           # pip install -r requirements.txt
 
@@ -144,7 +145,7 @@ jobs:
             libxcb-randr0 libxcb-render-util0 libxcb-xinerama0
 
       - name: Install Python dependencies
-        run: pip install pyinstaller pyqt5 certifi
+        run: pip install PyQt6 PyQt6-QScintilla paramiko cryptography pyserial mpremote pyinstaller telnetlib3 certifi
         # pip install -r requirements.txt
 
       - name: Build binary with PyInstaller
@@ -223,20 +224,22 @@ jobs:
           cp install.sh                                              ftp_downloads/
           cp version.php                                             ftp_root/
 
-      - name: Upload binaries to FTP /downloads/
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Upload binaries via SFTP
+        uses: wangyucode/sftp-upload-action@v3
         with:
-          server:     ${{ secrets.FTP_SERVER }}
-          username:   ${{ secrets.FTP_USER }}
-          password:   ${{ secrets.FTP_PASSWORD }}
-          server-dir: /downloads/
-          local-dir:  ftp_downloads/
+          host: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: 22
+          localDir: 'ftp_downloads'
+          remoteDir: '/downloads'
 
-      - name: Upload version.php to FTP root
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Upload version.php via SFTP
+        uses: wangyucode/sftp-upload-action@v3
         with:
-          server:     ${{ secrets.FTP_SERVER }}
-          username:   ${{ secrets.FTP_USER }}
-          password:   ${{ secrets.FTP_PASSWORD }}
-          server-dir: /
-          local-dir:  ftp_root/
+          host: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: 22
+          localDir: 'ftp_root'
+          remoteDir: '/'
