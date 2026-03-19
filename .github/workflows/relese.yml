@@ -195,7 +195,7 @@ jobs:
           cp artifacts/windows-build/OmniBoard_Online_Installer.exe ftp_downloads/
           cp artifacts/linux-build/OmniBoard_Studio_Linux.tar.gz    ftp_downloads/
           cp install.sh                                              ftp_downloads/
-          cp Web_page/API/version.php                                ftp_root/API/
+          cp Web_page/API/version.php                                ftp_API/
 
       - name: Install lftp
         run: sudo apt-get update -q && sudo apt-get install -y lftp
