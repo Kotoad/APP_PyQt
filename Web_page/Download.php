@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<?php $page_title = "Download OmniBoard Studio - Visual Programming Environment"; include 'Head.php';?>
+<?php $page_title = "Download OmniBoard Studio - Visual Programming Environment"; include 'Head';?>
 
 <body class="bg-slate-900 text-slate-100 font-sans antialiased min-h-screen flex flex-col">
 
-    <?php include 'Navbar.php'; ?>
+    <?php include 'Navbar'; ?>
 
     <header class="max-w-5xl mx-auto px-6 py-20 text-center">
         <h1 class="text-4xl font-bold mb-6 text-white">Download OmniBoard Studio</h1>
@@ -43,7 +43,7 @@
         </section>
     </main>
 
-    <?php include 'Footer.php'; ?>
+    <?php include 'Footer'; ?>
 
 </body>
 
