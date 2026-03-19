@@ -1,0 +1,238 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'Web_page/**'
+
+jobs:
+  # ─────────────────────────────────────────────
+  # 1. Bump version and commit it back to the repo
+  # ─────────────────────────────────────────────
+  bump-version:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # version.txt must contain a single line like: v1.2.3
+      - name: Bump patch version
+        id: bump
+        run: |
+          OLD=$(cat version.txt)
+          # Strip leading 'v', split on dots
+          IFS='.' read -r MAJOR MINOR PATCH <<< "${OLD#v}"
+          PATCH=$((PATCH + 1))
+          NEW="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "$NEW" > version.txt
+          echo "new_version=$NEW" >> $GITHUB_OUTPUT
+          echo "Bumped $OLD → $NEW"
+
+      # Patch the app config JSON so CURRENT_VERSION matches
+      # Adjust the path/key if your config file is named differently
+      - name: Update app config version
+        run: |
+          VERSION=${{ steps.bump.outputs.new_version }}
+          # Replaces "CURRENT_VERSION": "vX.Y.Z" in your settings JSON
+          find . -name "*.json" | xargs grep -l "CURRENT_VERSION" | while read f; do
+            sed -i "s/\"CURRENT_VERSION\": \"[^\"]*\"/\"CURRENT_VERSION\": \"$VERSION\"/" "$f"
+            echo "Patched $f"
+          done
+
+      - name: Commit version bump
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.txt
+          git add -A "*.json"
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }} [skip ci]"
+          git push
+
+  # ─────────────────────────────────────────────
+  # 2. Build Windows — EXE + Inno Setup installer
+  # ─────────────────────────────────────────────
+  build-windows:
+    needs: bump-version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        # Pull the version-bump commit
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install pyinstaller pyqt5 certifi
+          # Add any other deps your app needs:
+          # pip install -r requirements.txt
+
+      - name: Build EXE with PyInstaller
+        run: |
+          pyinstaller `
+            --noconfirm `
+            --onedir `
+            --windowed `
+            --name "OmniBoard Studio" `
+            --icon "resources/images/Appicon.ico" `
+            --add-data "resources;resources" `
+            Main.py
+          # Output lands in dist\OmniBoard Studio\
+
+      - name: Zip the app folder
+        run: |
+          $version = Get-Content version.txt
+          Compress-Archive `
+            -Path "dist\OmniBoard Studio\*" `
+            -DestinationPath "OmniBoard_Studio_Windows.zip"
+
+      - name: Patch download URL in ISS
+        # Point the installer at your server instead of GitHub
+        run: |
+          $version = Get-Content version.txt
+          (Get-Content OmniBoard_Studio_Installer.iss) `
+            -replace 'https://github\.com/[^'']+/OmniBoard_Studio_Windows\.zip', `
+                     "https://omniboardstudio.cz/downloads/OmniBoard_Studio_Windows.zip" `
+            | Set-Content OmniBoard_Studio_Installer.iss
+
+      - name: Compile Inno Setup installer
+        run: |
+          choco install innosetup --no-progress -y
+          iscc OmniBoard_Studio_Installer.iss
+          # Output: OmniBoard_Online_Installer.exe (as set in OutputBaseFilename)
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            OmniBoard_Studio_Windows.zip
+            OmniBoard_Online_Installer.exe
+
+  # ─────────────────────────────────────────────
+  # 3. Build Linux — tar.gz bundle
+  # ─────────────────────────────────────────────
+  build-linux:
+    needs: bump-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system deps (Qt needs these on headless runners)
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y libglib2.0-0 libgl1 libxkbcommon-x11-0 \
+            libdbus-1-3 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-xinerama0
+
+      - name: Install Python dependencies
+        run: pip install pyinstaller pyqt5 certifi
+        # pip install -r requirements.txt
+
+      - name: Build binary with PyInstaller
+        run: |
+          pyinstaller \
+            --noconfirm \
+            --onedir \
+            --windowed \
+            --name "OmniBoard Studio" \
+            --icon "resources/images/Appicon.ico" \
+            --add-data "resources:resources" \
+            Main.py
+
+      - name: Package as tar.gz
+        run: |
+          VERSION=$(cat version.txt)
+          tar -czf OmniBoard_Studio_Linux.tar.gz \
+            -C "dist" "OmniBoard Studio"
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: OmniBoard_Studio_Linux.tar.gz
+
+  # ─────────────────────────────────────────────
+  # 4. Upload everything to FTP + update version.php
+  # ─────────────────────────────────────────────
+  deploy:
+    needs: [bump-version, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Write version.php
+        run: |
+          VERSION=${{ needs.bump-version.outputs.new_version }}
+          cat > version.php <<EOF
+          <?php
+          header('Content-Type: application/json');
+          header('Access-Control-Allow-Origin: *');
+          echo json_encode([
+              "tag_name"   => "$VERSION",
+              "assets" => [
+                  [
+                      "name"         => "OmniBoard_Studio_Installer.exe",
+                      "download_url" => "https://omniboardstudio.cz/downloads/OmniBoard_Online_Installer.exe"
+                  ],
+                  [
+                      "name"         => "OmniBoard_Studio_Linux.tar.gz",
+                      "download_url" => "https://omniboardstudio.cz/downloads/OmniBoard_Studio_Linux.tar.gz"
+                  ]
+              ]
+          ]);
+          EOF
+
+      # Active24 standard FTP — set these secrets in your repo:
+      # FTP_SERVER   → e.g. ftp.omniboardstudio.cz
+      # FTP_USER     → your Active24 FTP username
+      # FTP_PASSWORD → your Active24 FTP password
+      # Flatten artifacts into a single staging dir so local-dir points exactly
+      # at what we want — avoids the invalid 'include' parameter entirely
+      - name: Stage files for FTP upload
+        run: |
+          mkdir -p ftp_downloads ftp_root
+          cp artifacts/windows-build/OmniBoard_Studio_Windows.zip   ftp_downloads/
+          cp artifacts/windows-build/OmniBoard_Online_Installer.exe ftp_downloads/
+          cp artifacts/linux-build/OmniBoard_Studio_Linux.tar.gz    ftp_downloads/
+          cp install.sh                                              ftp_downloads/
+          cp version.php                                             ftp_root/
+
+      - name: Upload binaries to FTP /downloads/
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server:     ${{ secrets.FTP_SERVER }}
+          username:   ${{ secrets.FTP_USER }}
+          password:   ${{ secrets.FTP_PASSWORD }}
+          server-dir: /downloads/
+          local-dir:  ftp_downloads/
+
+      - name: Upload version.php to FTP root
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server:     ${{ secrets.FTP_SERVER }}
+          username:   ${{ secrets.FTP_USER }}
+          password:   ${{ secrets.FTP_PASSWORD }}
+          server-dir: /
+          local-dir:  ftp_root/

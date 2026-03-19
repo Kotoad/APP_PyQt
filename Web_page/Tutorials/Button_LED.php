@@ -8,7 +8,8 @@
     <?php include '../Navbar.php'; ?>
 
     <header class="max-w-4xl mx-auto px-6 py-16 text-center">
-        <h1 class="text-4xl font-extrabold tracking-tight text-white mb-6">How to Create a Button controlled LED Project
+        <h1 class="text-4xl font-extrabold tracking-tight text-white mb-6">
+            How to Create a Button controlled LED Project
         </h1>
         <p class="text-lg text-slate-400 max-w-2xl mx-auto">In this tutorial, we will guide you through creating a
             simple button controlled LED project using OmniBoard Studio.</p>

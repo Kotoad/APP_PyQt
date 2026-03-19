@@ -3,8 +3,7 @@ DEFAULT_DIR="$HOME/.local/share/OmniBoardStudio"
 read -p "Enter installation directory [$DEFAULT_DIR]: " USER_DIR
 APP_DIR=${USER_DIR:-$DEFAULT_DIR}
 
-REPO="Kotoad/APP_PyQt"
-URL="https://github.com/$REPO/releases/latest/download/OmniBoard_Studio_Linux.tar.gz"
+URL="https://omniboardstudio.cz/downloads/OmniBoard_Studio_Linux.tar.gz"
 
 echo "Downloading OmniBoard Studio..."
 wget -q --show-progress "$URL" -O /tmp/omniboard.tar.gz

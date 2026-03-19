@@ -190,6 +190,16 @@
         "host_key_verification": "Host Key Verification",
         "host_key_verification_message": "The authenticity of host '{hostname}' can't be established.\n\nfKey type: {key_type}\nFingerprint: {fingerprint}\n\nDo you trust this host?"
       },
+      "update_manager": {
+        "update_available_title": "Update Available",
+        "update_available_message": "A new version of OmniBoard Studio is available: {version}.\nWould you like to download it now?",
+        "connection_error_title": "Connection Error",
+        "connection_error_message": "Failed to check for updates. Please check your internet connection.",
+        "no_update_available": "No Update Available",
+        "version_up_to_date": "You are already using the latest version ({version}).",
+        "downloading_update": "Downloading Update...",
+        "cancel": "Cancel"
+      },
       "new_canvas": "New Canvas",
       "enter_canvas_name": "Enter name for new canvas"
     },
@@ -276,65 +286,6 @@
     "save_error": "Error saving code: {error_type}: {error_message}",
     "file_not_found": "File.py not found",
     "error_reading_file": "Error reading file: {error_type}: {error_message}"
-  },
-  "help_window": {
-    "window_title": "Help Window",
-    "getting_started_tab": {
-      "title": "Get Started",
-      "content": "resources/Translations/en/Getting_started_en.html",
-      "file_not_found": "<p>Getting Started file not found.</p>",
-      "error_loading_file": "<p>Error loading Getting Started file.</p>"
-    },
-    "tutorials_tab": {
-      "title": "Tutorials",
-      "show_tutorial_button": "View tutorial",
-      "back_to_tutorials_button": "← Back to tutorials",
-      "file_not_found": "<p>tutorial file not found.</p>",
-      "error_loading_file": "<p>Error loading tutorial file.</p>",
-      "tutorials": {
-        "tutorial_0_linux_based_RPI": {
-          "title": "Linux-based Raspberry Pi",
-          "description": "Initial setup and connecting to your Raspberry Pi",
-          "content": "resources/Translations/en/Tutorials/Tutorial_0_linux_based_RPI_variant_en.html"
-        },
-        "tutorial_0_RPI_PICO": {
-          "title": "RPI Pico",
-          "description": "Setting up and connecting to Raspberry Pi Pico",
-          "content": "resources/Translations/en/Tutorials/Tutorial_0_RPI_PICO_variant_en.html"
-        },
-        "tutorial_1": {
-          "title": "Blinking LED",
-          "description": "This tutorial demonstrates how to blink an LED connected to your Raspberry Pi.",
-          "content": "resources/Translations/en/Tutorials/Tutorial_1_en.html"
-        },
-        "tutorial_2": {
-          "title": "Button Controlled LED",
-          "description": "This tutorial shows how to control an LED using a button input.",
-          "content": "resources/Translations/en/Tutorials/Tutorial_2_en.html"
-        },
-        "tutorial_3": {
-          "title": "LED lighthouse",
-          "description": "Working with different LED patterns and timings.",
-          "content": "resources/Translations/en/Tutorials/Tutorial_3_en.html"
-        },
-        "tutorial_4": {
-          "title": "Complex Logic",
-          "description": "Combine multiple blocks for advanced workflows.",
-          "content": "resources/Translations/en/Tutorials/Tutorial_4_en.html"
-        },
-        "tutorial_5": {
-          "title": "Using Variables",
-          "description": "Learn how to use variables to store and manipulate data.",
-          "content": "resources/Translations/en/Tutorials/Tutorial_5_en.html"
-        }
-      }
-    },
-    "faq_tab": {
-      "title": "FAQ",
-      "content": "resources/Translations/en/FAQ_en.html",
-      "file_not_found": "<p>FAQ file not found.</p>",
-      "error_loading_file": "<p>Error loading FAQ file.</p>"
-      }
   },
   "setting_window": {
     "title": "Settings",

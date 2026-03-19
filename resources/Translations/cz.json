@@ -190,6 +190,16 @@
         "host_key_verification": "Ověření klíče hostitele",
         "host_key_verification_message": "Autenticita hostitele '{hostname}' nelze ověřit.\n\nTyp klíče: {key_type}\nOtisk prstu: {fingerprint}\n\nDůvěřujete tomuto hostiteli?"
       },
+      "update_manager": {
+        "update_available_title": "Dostupná aktualizace",
+        "update_available_message": "Je dostupná nová verze OmniBoard Studio: {version}.\nChcete ji stáhnout nyní?",
+        "connection_error_title": "Chyba připojení",
+        "connection_error_message": "Chyba připojení. Prosím zkontrolujte svoje internetové připojení.",
+        "no_update_available": "Nejsou dostupné žádné aktualizace",
+        "version_up_to_date": "Používáte již nejnovější verzi ({version}).",
+        "downloading_update": "Stahování aktualizace...",
+        "cancel": "Zrušit"
+      },
       "new_canvas": "Nové plátno",
       "enter_canvas_name": "Zadejte název nového plátna"
     },
@@ -276,65 +286,6 @@
     "save_error": "Chyba při ukládání kódu: {error_type}: {error_message}",
     "file_not_found": "Soubor.py nenalezen",
     "error_reading_file": "Chyba při čtení souboru: {error_type}: {error_message}"
-  },
-  "help_window": {
-    "window_title": "Okno nápovědy",
-    "getting_started_tab": {
-      "title": "Začít",
-      "content": "resources/Translations/cs/Getting_started_cs.html",
-      "file_not_found": "<p>Soubor Začít nenalezen.</p>",
-      "error_loading_file": "<p>Chyba při načítání souboru Začít.</p>"
-    },
-    "tutorials_tab": {
-      "title": "Tutorialy",
-      "show_tutorial_button": "Zobrazit tento tutorial",
-      "back_to_tutorials_button": "← Zpět na seznam tutorialů",
-      "file_not_found": "<p>Soubor tutorialu nenalezen.</p>",
-      "error_loading_file": "<p>Chyba při načítání souboru tutorialu.</p>",
-      "tutorials": {
-        "tutorial_0_linux_based_RPI": {
-          "title": "RPI založené na Linuxu",
-          "description": "Prvotní nastavení a připojení k Raspberry Pi",
-          "content": "resources/Translations/cs/Tutorials/Tutorial_0_linux_based_RPI_variant_cs.html"
-        },
-        "tutorial_0_RPI_PICO": {
-          "title": "RPI Pico",
-          "description": "Nastavení a připojení k Raspberry Pi Pico",
-          "content": "resources/Translations/cs/Tutorials/Tutorial_0_RPI_PICO_variant_cs.html"
-        },
-        "tutorial_1": {
-          "title": "Blikající LED",
-          "description": "Tento příklad ukazuje, jak blikat LED připojenou k vašemu Raspberry Pi.",
-          "content": "resources/Translations/cs/Tutorials/Tutorial_1_cs.html"
-        },
-        "tutorial_2": {
-          "title": "LED řízená tlačítkem",
-          "description": "Tento příklad ukazuje, jak ovládat LED pomocí vstupního tlačítka.",
-          "content": "resources/Translations/cs/Tutorials/Tutorial_2_cs.html"
-        },
-        "tutorial_3": {
-          "title": "LED maják",
-          "description": "Práce s různými LED vzory a časováním.",
-          "content": "resources/Translations/cs/Tutorials/Tutorial_3_cs.html"
-        },
-        "tutorial_4": {
-          "title": "Složitá logika",
-          "description": "Kombinujte více prvků pro pokročilé pracovní toky.",
-          "content": "resources/Translations/cs/Tutorials/Tutorial_4_cs.html"
-        },
-        "tutorial_5": {
-          "title": "Použití proměnných",
-          "description": "Naučte se používat proměnné k ukládání a manipulaci dat.",
-          "content": "resources/Translations/cs/Tutorials/Tutorial_5_cs.html"
-        }
-      }
-    },
-    "faq_tab": {
-      "title": "Časté dotazy",
-      "content": "resources/Translations/cs/FAQ_cs.html",
-      "file_not_found": "<p>Soubor FAQ nenalezen.</p>",
-      "error_loading_file": "<p>Chyba při načítání souboru FAQ.</p>"
-    }
   },
   "setting_window": {
     "title": "Nastavení",

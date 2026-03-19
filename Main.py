@@ -3,9 +3,9 @@ from Imports import (QThread, pyqtSignal, QSplashScreen, QPixmap, QColor, QProgr
                      json, os, threading, warnings, QProgressDialog, QMainWindow, QIcon, QVBoxLayout, QLabel,
                      QAction, QFont, QToolBar, QSize, QSizePolicy, QSlider, QShortcut, QKeySequence, QHBoxLayout,
                      QPushButton, QScrollArea, QListWidget, QSplitter, QInputDialog, QLineEdit, QUndoStack)
-import urllib.request, ssl, certifi, tempfile, traceback as tb, glob
+import urllib.request, ssl, certifi, tempfile, traceback as tb, glob, webbrowser
 from Imports import (get_Utils, get_Code_Compiler, get_State_Manager, get_File_Manager, get_Data_Control, get_Translation_Manager,
-                     get_Graphic_Programing_Window, get_Code_Editor_Window, get_Device_Settings_Mindow, get_Help_Window, get_Blocks_Window,
+                     get_Graphic_Programing_Window, get_Code_Editor_Window, get_Device_Settings_Mindow, get_Blocks_Window,
                      get_Commands)
 
 Utils = get_Utils()
@@ -18,7 +18,6 @@ CodeEditorWindow = get_Code_Editor_Window()
 GraphicPrograminWindow = get_Graphic_Programing_Window()[0]
 DeviceSettingsWindow = get_Device_Settings_Mindow()
 BlocksWindow = get_Blocks_Window()
-HelpWindow = get_Help_Window()
 #MARK: - Loading Screen
 class LoaderThread(QThread):
     """
@@ -144,7 +143,7 @@ class NativeSplash(QSplashScreen):
 #MARK: - Update Checker
 def check_for_updates():
     try:
-        url = "https://api.github.com/repos/Kotoad/APP_PyQt/releases"
+        url = "https://omniboadstudio.cz/API/version.php"
         req = urllib.request.Request(url, headers={'User-Agent': 'OmniBoard-Updater'})
         context = ssl.create_default_context(cafile=certifi.where())
         with urllib.request.urlopen(req, timeout=5, context=context) as response:
@@ -155,19 +154,27 @@ def check_for_updates():
                 assets = latest_release.get("assets", [])
                 if latest_version:
                     has_update = (latest_version != Utils.config['CURRENT_VERSION'])
-                    return has_update, latest_version, assets
+                    return has_update, latest_version, assets, "Success"
+    except urllib.error.URLError as e:
+        print(f"Update check failed (URL error): {e}")
+        return False, None, None, "Network error"
     except Exception as e:
         print(f"Update check failed: {e}")
-    return False, None, None
+        return False, None, None, str(e)
+    
+    return False, None, None, "No releases found"
 
 class UpdateCheckerThread(QThread):
     update_available = pyqtSignal(str, list)
     up_to_date = pyqtSignal(str)
+    connection_error = pyqtSignal()
 
     def run(self):
-        has_update, version, assets = check_for_updates()
-        print(f"Update check result: has_update={has_update}, version={version}, assets={assets}")
+        has_update, version, assets, status = check_for_updates()
+        print(f"Update check result: has_update={has_update}, version={version}, assets={assets}, status={status}")
         print(f"Current version: {Utils.config['CURRENT_VERSION']}")
+        if status == "Network error":
+            self.connection_error.emit()
         if has_update:
             self.update_available.emit(version, assets)
         elif version:
@@ -197,6 +204,7 @@ class DownloadUpdateThread(QThread):
         except Exception as e:
             print(f"Download failed: {e}")
 
+#MARK: - Universal Error Handler
 class UniversalErrorHandler(QObject):
     """
     Captures:
@@ -358,8 +366,8 @@ class MainWindow(QMainWindow):
         self.create_shortcuts()
         self.setup_auto_save_timer()
 
-        if getattr(sys, 'frozen', False):
-            self.start_update_check()
+        #if getattr(sys, 'frozen', False):
+        self.start_update_check()
 
     def setup_ui(self):
         self.setWindowTitle(self.t("main_GUI._metadata.app_title") + " " + Utils.config['CURRENT_VERSION'])
@@ -756,9 +764,15 @@ class MainWindow(QMainWindow):
 
     def open_help_window(self, which):
         """Open the help window"""
-        help_window = HelpWindow.get_instance(parent=self, which=which)
-        if Utils.state_manager.app_state.on_help_dialog_open():
-            help_window.open()
+        urls = {
+            0: "https://www.omniboardstudio.cz",
+            1: "https://www.omniboardstudio.cz/Tutorials.php",
+            2: "https://www.omniboardstudio.cz/FAQ.php"
+        }
+
+        url = urls.get(which, "https://www.omniboardstudio.cz")
+        print(f"Opening help URL: {url}")
+        webbrowser.open(url)    
     
     def open_settings_window(self):
         """Open the device settings window"""
@@ -863,19 +877,27 @@ class MainWindow(QMainWindow):
         self.update_thread = UpdateCheckerThread()
         self.update_thread.update_available.connect(self.prompt_update)
         self.update_thread.up_to_date.connect(self.notify_up_to_date)
+        self.update_thread.connection_error.connect(self.notify_connection_error)
         self.update_thread.start()
 
     def notify_up_to_date(self, version):
         QMessageBox.information(
-            self, self.t("update_manager.no_update_available"),
-            self.t("update_manager.version_up_to_date", version=version),
+            self, self.t("main_GUI.dialogs.update_manager.no_update_available"),
+            self.t("main_GUI.dialogs.update_manager.version_up_to_date", version=version),
+            QMessageBox.StandardButton.Ok
+        )
+
+    def notify_connection_error(self):
+        QMessageBox.warning(
+            self, self.t("main_GUI.dialogs.update_manager.connection_error_title"),
+            self.t("main_GUI.dialogs.update_manager.connection_error_message"),
             QMessageBox.StandardButton.Ok
         )
 
     def prompt_update(self, version, assets):
         reply = QMessageBox.question(
-            self, self.t("update_manager.update_available_title"),
-            self.t("update_manager.update_available_message", version=version),
+            self, self.t("main_GUI.dialogs.update_manager.update_available_title"),
+            self.t("main_GUI.dialogs.update_manager.update_available_message", version=version),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         
@@ -885,7 +907,7 @@ class MainWindow(QMainWindow):
             
             for asset in assets:
                 if asset['name'].endswith(target_extension):
-                    download_url = asset['browser_download_url']
+                    download_url = asset['download_url']
                     break
             
             if download_url:
@@ -893,7 +915,7 @@ class MainWindow(QMainWindow):
                 self.show_update_progress(download_url)
 
     def show_update_progress(self, url):
-        self.progress_dialog = QProgressDialog(self.t("update_manager.downloading_update"), self.t("update_manager.cancel"), 0, 100, self)
+        self.progress_dialog = QProgressDialog(self.t("main_GUI.dialogs.update_manager.downloading_update"), self.t("main_GUI.dialogs.update_manager.cancel"), 0, 100, self)
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.progress_dialog.setAutoClose(True)
         self.progress_dialog.show()

@@ -21,12 +21,6 @@ import math
 import time
 import warnings
 from datetime import datetime
-if sys.platform == 'win32':
-    # Code for Windows
-    from ctypes import windll, wintypes, byref
-elif sys.platform.startswith('linux'):
-    # Code for Linux
-    import fcntl
 from pathlib import Path
 
 # ============================================================================
@@ -93,11 +87,6 @@ def get_Blocks_Window():
     """Lazy import blocksWindow - avoid circular import"""
     from Blocks_window_pyqt import blocksWindow
     return blocksWindow
-
-def get_Help_Window():
-    """Lazy import HelpWindow - avoid circular import"""
-    from Help_window import HelpWindow
-    return HelpWindow
 
 def get_State_Machine():
     """Lazy import AppStateMachine - avoid circular import"""

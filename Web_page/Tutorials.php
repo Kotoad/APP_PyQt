@@ -33,6 +33,8 @@
                     class="text-sm text-slate-400 hover:text-blue-400 transition-colors">Button controlled LED</a>
                 <a herf="/Tutorials/Timing_LED.php"
                     class="text-sm text-slate-400 hover:text-blue-400 transition-colors">Timing LED</a>
+                <a href="/Tutorials/LED_trafic_light.php"
+                    class="text-sm text-slate-400 hover:text-blue-400 transition-colors">LED traffic light</a>
 
                 <h3 class="text-sm font-bold text-slate-100 uppercase tracking-wider mb-2 mt-6">Advanced</h3>
                 <a href="/Tutorials/Tutorial_5_en.php"

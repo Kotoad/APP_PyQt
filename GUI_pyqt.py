@@ -25,7 +25,7 @@ from Imports import (
 from Imports import (
     get_Spawn_Blocks, get_Device_Settings_Mindow,
     get_Path_Manager, get_Blocks_Window, get_Utils,
-    get_Help_Window, get_Code_Editor_Window, get_Commands
+    get_Code_Editor_Window, get_Commands
 )
 Utils = get_Utils()
 
@@ -36,7 +36,6 @@ DeviceSettingsWindow = get_Device_Settings_Mindow()
 PathManager = get_Path_Manager()[0]
 PathGraphicsItem = get_Path_Manager()[1]
 blocksWindow = get_Blocks_Window()
-HelpWindow = get_Help_Window()
 RemoveBlockCommand = get_Commands()[1]
 RemovePathCommand = get_Commands()[3]
 
@@ -4110,16 +4109,6 @@ class GUI(QWidget):
         except Exception as e:
             print(f"Error closing device settings window: {e}")
             DeviceSettingsWindow._instance = None
-        
-        try:
-            help_window = HelpWindow.get_instance(self.current_canvas)
-            if help_window.is_hidden == False:
-                print("Closing help window")
-                help_window.close()
-            HelpWindow._instance = None
-        except Exception as e:
-            print(f"Error closing help window: {e}")
-            HelpWindow._instance = None
 
     #MARK: - Compile and Upload Methods
     def compile_and_upload(self):
