@@ -19,7 +19,7 @@ def perform_update(save_path):
             '/SUPPRESSMSGBOXES', 
             '/NOCANCEL', 
             '/NORESTART', 
-            f'/DIR="{app_dir}"',  # Force extraction to the current app directory
+            f'/DIR={app_dir}',  # Force extraction to the current app directory
             f'/LOG={os.path.join(os.path.dirname(save_path), "update_install.log")}'
         ]
         
