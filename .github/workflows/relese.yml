@@ -43,11 +43,14 @@ jobs:
           # Clear host in app_settings.json
           sed -i 's/"rpi_host": *"[^"]*"/"rpi_host": ""/' app_settings.json
 
+          # Clear username in app_settings.json
+            sed -i 's/"rpi_user": *"[^"]*"/"rpi_user": ""/' app_settings.json
+
       - name: Commit version bump and sanitized config
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add version.txt Utils.py Web_page/API/version.php app_settings.json
+          git add version.txt Utils.py Web_page/API/version.php
           git commit -m "chore: bump version to ${{ inputs.version }} and sanitize config [skip ci]"
           git push
 
