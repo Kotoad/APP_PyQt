@@ -237,13 +237,6 @@ jobs:
           set ftp:ssl-protect-data true;
           set ssl:verify-certificate no;
           open -u ${{ secrets.FTP_USER }},${{ secrets.FTP_PASSWORD }} ${{ secrets.FTP_SERVER }};
-          mkdir -p /Admin;
-          mirror -R Web_page/Admin/ /Admin/;
           put .env -o /Admin/.env;
-          mkdir -p /Auth;
-          mirror -R Web_page/Auth/ /Auth/;
-          mkdir -p /data;
-          put Web_page/data/.htaccess -o /data/.htaccess;
           put Web_page/data/releases.json -o /data/releases.json;
-          put Web_page/.htaccess;
           "
