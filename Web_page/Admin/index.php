@@ -123,6 +123,30 @@ function api_get(string $url, array $headers = [], int $timeout = 10): array|fal
     return is_array($decoded) ? $decoded : false;
 }
 
+function api_post(string $url, array $headers = [], array $payload = [], int $timeout = 15): array|false
+{
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => json_encode($payload),
+        CURLOPT_HTTPHEADER     => $headers,
+        CURLOPT_TIMEOUT        => $timeout,
+        CURLOPT_USERAGENT      => 'OmniBoard-Admin/1.0',
+        CURLOPT_FOLLOWLOCATION => true,
+    ]);
+    $response = curl_exec($ch);
+    $err      = curl_errno($ch);
+    curl_close($ch);
+    
+    if ($err || $response === false) {
+        return false;
+    }
+    
+    $decoded = json_decode($response, true);
+    return is_array($decoded) ? $decoded : false;
+}
+
 function github_headers(): array
 {
     $h = ['Accept: application/vnd.github+json', 'X-GitHub-Api-Version: 2022-11-28'];
@@ -156,10 +180,7 @@ $gh_issues  = api_get('https://api.github.com/repos/' . GITHUB_REPO . '/issues?s
 $gh_tags    = api_get('https://api.github.com/repos/' . GITHUB_REPO . '/tags?per_page=30', github_headers());
 
 // ── PostHog configured? ───────────────────────────────────────────────────────
-$posthog_configured = (
-    POSTHOG_PERSONAL_API_KEY !== 'REPLACE_WITH_YOUR_PERSONAL_API_KEY' &&
-    POSTHOG_PROJECT_ID       !== 'REPLACE_WITH_YOUR_PROJECT_ID'
-);
+$posthog_configured = !empty(POSTHOG_PERSONAL_API_KEY) && !empty(POSTHOG_PROJECT_ID);
 
 $ph_trends   = null;
 $ph_pages    = null;
@@ -171,34 +192,35 @@ if ($posthog_configured) {
         'Content-Type: application/json',
     ];
 
-    // 7-day pageview trend
-    $date_from = date('Y-m-d', strtotime('-7 days'));
-    $ph_trends = api_get(
-        POSTHOG_API_HOST . '/api/projects/' . POSTHOG_PROJECT_ID
-            . '/insights/trend/?events=[{"id":"$pageview","name":"$pageview","type":"events","order":0}]'
-            . '&date_from=' . $date_from . '&interval=day',
-        $ph_headers,
-        15
-    );
+    $query_url = POSTHOG_API_HOST . '/api/projects/' . POSTHOG_PROJECT_ID . '/query/';
 
-    // Top pages (event property breakdown)
-    $ph_pages = api_get(
-        POSTHOG_API_HOST . '/api/projects/' . POSTHOG_PROJECT_ID
-            . '/insights/trend/?events=[{"id":"$pageview","name":"$pageview","type":"events","order":0}]'
-            . '&breakdown=$current_url&breakdown_type=event'
-            . '&date_from=' . $date_from,
-        $ph_headers,
-        15
-    );
+    // 7-day pageview trend
+    $ph_trends = api_post($query_url, $ph_headers, [
+        'query' => [
+            'kind'      => 'TrendsQuery',
+            'series'    => [['kind' => 'EventsNode', 'event' => '$pageview']],
+            'dateRange' => ['date_from' => '-7d']
+        ]
+    ]);
+
+    // Top pages
+    $ph_pages = api_post($query_url, $ph_headers, [
+        'query' => [
+            'kind'            => 'TrendsQuery',
+            'series'          => [['kind' => 'EventsNode', 'event' => '$pageview']],
+            'breakdownFilter' => ['breakdown' => '$current_url', 'breakdown_type' => 'event'],
+            'dateRange'       => ['date_from' => '-7d']
+        ]
+    ]);
 
     // Sessions count (unique sessions in last 7 days)
-    $ph_sessions = api_get(
-        POSTHOG_API_HOST . '/api/projects/' . POSTHOG_PROJECT_ID
-            . '/insights/trend/?events=[{"id":"$pageview","name":"$pageview","type":"events","order":0}]'
-            . '&date_from=' . $date_from . '&display=BoldNumber',
-        $ph_headers,
-        15
-    );
+    $ph_sessions = api_post($query_url, $ph_headers, [
+        'query' => [
+            'kind'      => 'TrendsQuery',
+            'series'    => [['kind' => 'EventsNode', 'event' => '$pageview', 'math' => 'unique_session']],
+            'dateRange' => ['date_from' => '-7d']
+        ]
+    ]);
 }
 
 // ── App usage aggregates ───────────────────────────────────────────────────────
@@ -273,9 +295,11 @@ $chart_users_data      = array_values($users_by_source);
 // PostHog trend chart data
 $ph_trend_labels = [];
 $ph_trend_data   = [];
-if ($ph_trends && isset($ph_trends['result'][0]['data'])) {
-    $ph_trend_labels = $ph_trends['result'][0]['labels'] ?? [];
-    $ph_trend_data   = $ph_trends['result'][0]['data']   ?? [];
+$ph_res = $ph_trends['results'] ?? $ph_trends['result'] ?? null;
+
+if ($ph_res && isset($ph_res[0]['data'])) {
+    $ph_trend_labels = $ph_res[0]['labels'] ?? [];
+    $ph_trend_data   = $ph_res[0]['data']   ?? [];
 }
 
 ?>
@@ -467,13 +491,14 @@ if ($ph_trends && isset($ph_trends['result'][0]['data'])) {
         <h3 class="font-semibold text-slate-100 mb-4">Pageviews – Last 7 Days</h3>
         <?php if (empty($ph_trend_data)): ?>
         <p class="text-slate-400 text-sm">No pageview data returned from PostHog.</p>
+        <p class="text-slate-400 text-sm"><?= $ph_trend_data ?></p>
         <?php else: ?>
         <canvas id="phTrendChart" height="80"></canvas>
         <?php endif; ?>
     </div>
 
     <!-- Top pages table -->
-    <?php if ($ph_pages && !empty($ph_pages['result'])): ?>
+    <?php if ($ph_pages && !empty($ph_pages['results'] ?? $ph_pages['result'])): ?>
     <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden mb-6">
         <div class="px-6 py-4 border-b border-slate-700">
             <h3 class="font-semibold text-slate-100">Top Pages (Last 7 Days)</h3>
@@ -488,7 +513,7 @@ if ($ph_trends && isset($ph_trends['result'][0]['data'])) {
                 </thead>
                 <tbody class="divide-y divide-slate-700/50">
                     <?php
-                    $sorted_pages = $ph_pages['result'];
+                    $sorted_pages = $ph_pages['results'] ?? $ph_pages['result'] ?? [];
                     usort($sorted_pages, fn($a, $b) => array_sum($b['data'] ?? []) <=> array_sum($a['data'] ?? []));
                     foreach (array_slice($sorted_pages, 0, 15) as $page):
                         $url   = $page['breakdown_value'] ?? $page['label'] ?? '–';
@@ -517,7 +542,7 @@ if ($ph_trends && isset($ph_trends['result'][0]['data'])) {
     <div class="bg-blue-900/20 border border-blue-700 rounded-xl px-6 py-4 mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
             <p class="text-blue-300 text-sm uppercase tracking-widest mb-1">Current Live Version</p>
-            <p class="text-white text-3xl font-bold">v0.22.15</p>
+            <p class="text-white text-3xl font-bold"><?= $config['CURRENT_VERSION'] ?></p>
         </div>
         <div class="flex flex-col gap-2 text-sm">
             <a href="https://omniboardstudio.cz/downloads/OmniBoard_Online_Installer.exe"

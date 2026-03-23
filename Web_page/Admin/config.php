@@ -71,3 +71,6 @@ define('IP_HASH_SALT', $_ENV['IP_HASH_SALT'] ?? '');
 
 // Session lifetime in seconds (4 hours)
 define('ADMIN_SESSION_LIFETIME', 4 * 60 * 60);
+
+// Current app version (displayed in admin dashboard)
+define('CURRENT_VERSION', 'v0.22.15');
