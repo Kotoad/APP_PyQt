@@ -35,3 +35,6 @@ env/
 Thumbs.db
 File.py
 last_report.json
+app_starts.json
+users.json
+releases.json
