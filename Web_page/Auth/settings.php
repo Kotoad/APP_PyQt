@@ -40,17 +40,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['unlink_provider'])) {
     $provider = $_POST['unlink_provider'];
     
     if (isset($user['providers'][$provider])) {
-        // Prevent user from unlinking their LAST provider (locking themselves out)
         if (count($user['providers']) > 1) {
             unset($users[$email]['providers'][$provider]);
             _save_users($users);
-            $user = $users[$email]; // Update local reference
-            $message = ucfirst($provider) . " has been successfully unlinked.";
+            $_SESSION['flash_message'] = ucfirst($provider) . " has been successfully unlinked.";
         } else {
-            $error = "You cannot unlink your only login method.";
+            $_SESSION['flash_error'] = "You cannot unlink your only login method.";
         }
     }
+    // PRG Pattern: Redirect immediately after POST processing
+    header('Location: /Auth/settings.php');
+    exit;
 }
+
+// Retrieve flash messages for display
+$message = $_SESSION['flash_message'] ?? '';
+$error = $_SESSION['flash_error'] ?? '';
+unset($_SESSION['flash_message'], $_SESSION['flash_error']);
 
 $providers = $user['providers'] ?? [];
 $has_github = isset($providers['github']);

@@ -98,15 +98,15 @@ if (!isset($users[$account_key]['providers'])) {
 // Save specific GitHub data
 $users[$account_key]['providers']['github'] = [
     'email'           => $primary_email,
-    'github_username' => $user_info['login'] ?? '',
-    'avatar_url'      => $user_info['avatar_url'] ?? '',
+    'github_username' => $user['login'] ?? '',
+    'avatar_url'      => $user['avatar_url'] ?? '',
     'linked_at'       => $users[$account_key]['providers']['github']['linked_at'] ?? $now
 ];
 
 // Maintain top-level fields for Admin dashboard backwards compatibility
 $users[$account_key]['source'] = 'multiple';
-$users[$account_key]['github_username'] = $user_info['login'] ?? '';
-$users[$account_key]['avatar_url'] = $user_info['avatar_url'] ?? '';
+$users[$account_key]['github_username'] = $user['login'] ?? '';
+$users[$account_key]['avatar_url'] = $user['avatar_url'] ?? '';
 
 _save_users($users);
 
