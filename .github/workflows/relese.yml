@@ -204,4 +204,21 @@ jobs:
           mkdir -p /API;
           cd /API;
           put Web_page/API/version.php;
+          put Web_page/API/track.php;
+          "
+
+      - name: Upload Admin & Auth files via lftp (FTPS)
+        run: |
+          lftp -c "
+          set ftp:ssl-force true;
+          set ftp:ssl-protect-data true;
+          set ssl:verify-certificate no;
+          open -u ${{ secrets.FTP_USER }},${{ secrets.FTP_PASSWORD }} ${{ secrets.FTP_SERVER }};
+          mkdir -p /Admin;
+          mirror -R Web_page/Admin/ /Admin/;
+          mkdir -p /Auth;
+          mirror -R Web_page/Auth/ /Auth/;
+          mkdir -p /data;
+          put Web_page/data/.htaccess -o /data/.htaccess;
+          put Web_page/.htaccess;
           "

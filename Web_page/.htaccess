@@ -1,13 +1,26 @@
 RewriteEngine On
 
+# Strip .php extension from visible URLs (canonical redirect)
 RewriteCond %{THE_REQUEST} ^[A-Z]{3,}\s([^.]+)\.php [NC]
 RewriteRule ^ %1 [R=301,L]
 
-# Check if the requested URL is NOT an existing directory
-RewriteCond %{REQUEST_FILENAME} !-d
+# Deny direct HTTP access to the data directory
+RewriteRule ^data(/.*)?$ - [F,L]
 
-# Check if the requested URL with a .php extension IS an existing file
+# Route /Admin/ and /Admin/index to Admin/index.php
+RewriteRule ^Admin/?$ Admin/index.php [L]
+
+# Route /Auth/* to Auth/*.php (OAuth callbacks)
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^Auth/(.+)$ Auth/$1.php [L]
 
-# If both conditions are met, internally route to the .php file
+# Route /API/* to API/*.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^API/(.+)$ API/$1.php [L]
+
+# Standard .php-extension routing for all other pages
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.php -f
 RewriteRule ^(.*)$ $1.php [L]

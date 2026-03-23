@@ -141,9 +141,34 @@ class NativeSplash(QSplashScreen):
         self.loading_text = text
         self.repaint()
 #MARK: - Update Checker
+def _get_or_create_install_id() -> str:
+    """Returns a persistent anonymous UUID for this installation."""
+    import uuid as _uuid
+    data_dir = os.path.join(
+        os.environ.get('APPDATA', os.path.expanduser('~')),
+        'Visual Programming'
+    )
+    id_file = os.path.join(data_dir, 'install_id.txt')
+    try:
+        if os.path.isfile(id_file):
+            stored = open(id_file).read().strip()
+            if stored:
+                return stored
+        os.makedirs(data_dir, exist_ok=True)
+        new_id = str(_uuid.uuid4())
+        open(id_file, 'w').write(new_id)
+        return new_id
+    except Exception:
+        return ''
+
 def check_for_updates():
     try:
-        url = "https://www.omniboardstudio.cz/API/version.php"
+        _platform = 'windows' if sys.platform == 'win32' else ('macos' if sys.platform == 'darwin' else 'linux')
+        _version  = Utils.config.get('CURRENT_VERSION', '').lstrip('vV')
+        _install_id = _get_or_create_install_id()
+        import urllib.parse as _parse
+        _params = _parse.urlencode({'v': _version, 'p': _platform, 'id': _install_id})
+        url = f"https://www.omniboardstudio.cz/API/version.php?{_params}"
         req = urllib.request.Request(url, headers={'User-Agent': 'OmniBoard-Updater'})
         context = ssl.create_default_context(cafile=certifi.where())
         with urllib.request.urlopen(req, timeout=5, context=context) as response:

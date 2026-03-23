@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"c:/Random/APP_PyQt/Web_page/data\")",
+      "Bash(mkdir -p \"c:/Random/APP_PyQt/Web_page/Admin\")",
+      "Bash(mkdir -p \"c:/Random/APP_PyQt/Web_page/Auth\")"
+    ]
+  }
+}
