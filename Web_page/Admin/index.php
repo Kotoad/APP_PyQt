@@ -157,7 +157,7 @@ $gh_tags    = api_get('https://api.github.com/repos/' . GITHUB_REPO . '/tags?per
 
 // ── PostHog configured? ───────────────────────────────────────────────────────
 $posthog_configured = (
-    POSTHOG_PERSONAL_API_KEY !== 'phx_REPLACE_WITH_YOUR_PERSONAL_API_KEY' &&
+    POSTHOG_PERSONAL_API_KEY !== 'REPLACE_WITH_YOUR_PERSONAL_API_KEY' &&
     POSTHOG_PROJECT_ID       !== 'REPLACE_WITH_YOUR_PROJECT_ID'
 );
 
