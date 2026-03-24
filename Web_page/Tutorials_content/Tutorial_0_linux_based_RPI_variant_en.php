@@ -1,7 +1,8 @@
+<?php require_once __DIR__ . '/../i18n.php'; ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="<?= htmlspecialchars($current_lang ?? 'en') ?>">
 
-<?php $pageTitle = 'Linux-based Raspberry Pi Setup'; include '../Head.php'; ?>
+<?php $pageTitle = t('Tutorial_0_linux_based_RPI_variant_en', 'page_title', 'Linux-based Raspberry Pi Setup'); include '../Head.php'; ?>
 
 <body class="bg-slate-900 text-slate-100 font-sans antialiased min-h-screen flex flex-col">
 
@@ -9,11 +10,10 @@
 
     <header class="max-w-4xl mx-auto px-6 py-16 text-center border-b border-slate-800">
         <h1 class="text-4xl font-extrabold tracking-tight text-white mb-6">
-            How to set up a Linux-based Raspberry Pi
+            <?= t('Tutorial_0_linux_based_RPI_variant_en', 'header.title', 'How to set up a Linux-based Raspberry Pi') ?>
         </h1>
         <p class="text-lg text-slate-400 max-w-2xl mx-auto">
-            In this tutorial, we will guide you through setting up a Linux-based Raspberry Pi for use with OmniBoard
-            Studio.
+            <?= t('Tutorial_0_linux_based_RPI_variant_en', 'header.description', 'In this tutorial, we will guide you through setting up a Linux-based Raspberry Pi for use with OmniBoard Studio.') ?>
         </p>
     </header>
 
@@ -22,223 +22,63 @@
     <main class="max-w-4xl mx-auto px-6 py-12 space-y-16 flex-grow">
 
         <section>
-            <h2 class="text-2xl font-bold text-blue-400 mb-6">RPI models:</h2>
+            <h2 class="text-2xl font-bold text-blue-400 mb-6"><?= t('Tutorial_0_linux_based_RPI_variant_en', 'sections.0.title', 'RPI models:') ?></h2>
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi 5</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi 4 Model B</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi 3 Model B+</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi 3 Model B</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi 3 Model A+</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi 2 Model B</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi 1 Model B+</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi 1 Model B</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi 1 Model A+</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi 1 Model A</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi Zero 2 W*</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi Zero 2 WH*</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi Zero W*</div>
-                <div
-                    class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
-                    Raspberry Pi Zero</div>
+                <?php for($i=0; $i<14; $i++): ?>
+                <div class="p-3 bg-slate-800 border border-slate-700 rounded-lg text-slate-300 text-sm font-medium text-center">
+                    <?= t('Tutorial_0_linux_based_RPI_variant_en', "sections.0.models.{$i}") ?>
+                </div>
+                <?php endfor; ?>
             </div>
         </section>
 
         <section>
-            <h2 class="text-2xl font-bold text-blue-400 mb-6">You will need:</h2>
+            <h2 class="text-2xl font-bold text-blue-400 mb-6"><?= t('Tutorial_0_linux_based_RPI_variant_en', 'sections.1.title', 'You will need:') ?></h2>
             <ul class="space-y-4 text-slate-300 bg-slate-800/50 p-6 rounded-xl">
+                <?php for($i=0; $i<4; $i++): ?>
                 <li class="flex items-start gap-3">
                     <span class="text-blue-500 mt-1">●</span>
-                    <span>A compatible Raspberry Pi board (see list above)</span>
+                    <span><?= t('Tutorial_0_linux_based_RPI_variant_en', "sections.1.requirements.{$i}") ?></span>
                 </li>
-                <li class="flex items-start gap-3">
-                    <span class="text-blue-500 mt-1">●</span>
-                    <span>MicroSD card, at least 8GB but 32GB+ Class 10 recommended</span>
-                </li>
-                <li class="flex items-start gap-3">
-                    <span class="text-blue-500 mt-1">●</span>
-                    <span>Power supply for your Raspberry Pi (any ordinary 5V USB power supply will do)</span>
-                </li>
-                <li class="flex items-start gap-3">
-                    <span class="text-blue-500 mt-1">●</span>
-                    <span>HDMI cable and monitor (optional, for initial setup). <strong class="text-white">You will need
-                            micro HDMI reduction adapter for some models.</strong></span>
-                </li>
+                <?php endfor; ?>
             </ul>
         </section>
 
         <section>
-            <h2 class="text-2xl font-bold text-blue-400 mb-6">Steps to set up your Raspberry Pi:</h2>
+            <h2 class="text-2xl font-bold text-blue-400 mb-6"><?= t('Tutorial_0_linux_based_RPI_variant_en', 'sections.2.title', 'Steps to set up your Raspberry Pi:') ?></h2>
             <div class="space-y-4">
-
+                <?php for($i=0; $i<11; $i++): ?>
                 <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div
-                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
-                        1</div>
-                    <div class="text-slate-300 mt-1">Download the latest version of Raspberry Pi Imager for easier
-                        setup. Link: <a href="https://www.raspberrypi.com/software/"
-                            class="text-blue-400 hover:text-blue-300 underline">https://www.raspberrypi.com/software/</a>.
-                    </div>
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30"><?= $i+1 ?></div>
+                    <div class="text-slate-300 mt-1"><?= t('Tutorial_0_linux_based_RPI_variant_en', "sections.2.steps.{$i}") ?></div>
                 </div>
+                <?php endfor; ?>
 
                 <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div
-                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
-                        2</div>
-                    <div class="text-slate-300 mt-1">Insert your MicroSD card into your computer and launch Raspberry Pi
-                        Imager.</div>
-                </div>
-
-                <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div
-                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
-                        3</div>
-                    <div class="text-slate-300 mt-1">Select your RPI model and the desired OS (recommended: Raspberry Pi
-                        OS 64-bit. You can select lite but you will lose the ability to use the GUI of you RPI whith is
-                        not realy beginer friendly).</div>
-                </div>
-
-                <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div
-                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
-                        4</div>
-                    <div class="text-slate-300 mt-1">Select your MicroSD card as the target storage.</div>
-                </div>
-
-                <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div
-                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
-                        5</div>
-                    <div class="text-slate-300 mt-1">Click "Next" and enter desired Hostname (Name of your RPI),
-                        Username (login username) and Password (login password). <strong class="text-white">Make sure to
-                            remember your username and password!</strong></div>
-                </div>
-
-                <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div
-                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
-                        6</div>
-                    <div class="text-slate-300 mt-1">Enter your WiFi network name and password. You can add new networks
-                        later in the RPI settings via GUI or SSH.</div>
-                </div>
-
-                <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div
-                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
-                        7</div>
-                    <div class="text-slate-300 mt-1">Select time zone and keyboard layout.</div>
-                </div>
-
-                <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div
-                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
-                        8</div>
-                    <div class="text-slate-300 mt-1"><strong class="text-white">Enable SSH and VNC if you want to use
-                            remote access features.</strong></div>
-                </div>
-
-                <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div
-                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
-                        9</div>
-                    <div class="text-slate-300 mt-1">Click "Write" to start writing the image to your MicroSD card.
-                        <strong class="text-white">NOTE: This will wipe all data on the MicroSD card!</strong></div>
-                </div>
-
-                <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div
-                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
-                        10</div>
-                    <div class="text-slate-300 mt-1">When the writing is complete, safely eject the MicroSD card from
-                        your computer and insert it into your Raspberry Pi.</div>
-                </div>
-
-                <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div
-                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
-                        11</div>
-                    <div class="text-slate-300 mt-1">Power on your Raspberry Pi and connect keyboard and mouse (if you
-                        are using a GUI).</div>
-                </div>
-
-                <div class="flex gap-4 p-5 bg-slate-800 border border-slate-700 rounded-xl">
-                    <div
-                        class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">
-                        12</div>
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold border border-blue-500/30">12</div>
                     <div class="text-slate-300 mt-1">
-                        <span class="font-bold text-white">First time configuration and connection</span>
+                        <span class="font-bold text-white"><?= t('Tutorial_0_linux_based_RPI_variant_en', 'sections.2.steps.11.description', 'First time configuration and connection') ?></span>
                         <ul class="mt-4 space-y-3 pl-4 border-l-2 border-slate-700">
+                            <?php for($j=0; $j<5; $j++): ?>
                             <li class="relative">
                                 <span class="absolute -left-[21px] top-2 w-2 h-2 rounded-full bg-slate-600"></span>
-                                If using GUI, enter your username and password to log in. Then open Terminal
-                                (Applications > Accessories > Terminal).
+                                <?= t('Tutorial_0_linux_based_RPI_variant_en', "sections.2.steps.11.instructions.{$j}") ?>
                             </li>
-                            <li class="relative">
-                                <span class="absolute -left-[21px] top-2 w-2 h-2 rounded-full bg-slate-600"></span>
-                                If using SSH, find your RPI's IP address in your router's admin panel or via a tool like
-                                nmap, then connect using SSH client (e.g., PuTTY on Windows, Terminal on macOS/Linux).
-                                Command: <code
-                                    class="bg-slate-900 text-sky-400 px-1 py-0.5 rounded border border-slate-700">ssh username@ip_address</code>.
-                                Then type yes and enter your password. Now you are in the RPI's command line interface.
-                            </li>
-                            <li class="relative">
-                                <span class="absolute -left-[21px] top-2 w-2 h-2 rounded-full bg-slate-600"></span>
-                                Run commands to update your system: <code
-                                    class="bg-slate-900 text-sky-400 px-1 py-0.5 rounded border border-slate-700">sudo apt update && sudo apt full-upgrade -y</code>
-                            </li>
-                            <li class="relative">
-                                <span class="absolute -left-[21px] top-2 w-2 h-2 rounded-full bg-slate-600"></span>
-                                If you are using GUI, you can use RealVNC Viewer to connect to your RPI's desktop
-                                environment. NOTE: You must enable VNC in the RPI settings (Preferences > Raspberry Pi
-                                Configuration > VNC).
-                            </li>
-                            <li class="relative">
-                                <span class="absolute -left-[21px] top-2 w-2 h-2 rounded-full bg-slate-600"></span>
-                                Reboot your Raspberry Pi to apply all changes using <code
-                                    class="bg-slate-900 text-sky-400 px-1 py-0.5 rounded border border-slate-700">sudo reboot</code>.
-                            </li>
+                            <?php endfor; ?>
                         </ul>
                     </div>
                 </div>
             </div>
 
             <div class="mt-8 p-4 bg-blue-900/20 border border-blue-800 rounded-lg text-blue-200 text-sm">
-                Red LED indicates power and green LED indicates reading/writing to the MicroSD card.
+                <?= t('Tutorial_0_linux_based_RPI_variant_en', 'sections.2.notes.0', 'Red LED indicates power and green LED indicates reading/writing to the MicroSD card.') ?>
             </div>
             <div class="mt-8 p-4 bg-blue-900/20 border border-blue-800 rounded-lg text-blue-200 text-sm">
-                *W means what this RPI model has WiFi built-in. All RPIs model 3 and above have WiFi built-in.<br>
-                *WH means what this RPI model has WiFi built-in and headers allready populated.
+                <?= t('Tutorial_0_linux_based_RPI_variant_en', 'sections.2.notes.1', '*W means what this RPI model has WiFi built-in...') ?>
             </div>
         </section>
     </main>
 
     <?php include '../Footer.php'; ?>
-
 </body>
-
 </html>

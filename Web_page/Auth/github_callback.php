@@ -3,7 +3,28 @@
 //  OmniBoard Studio – GitHub OAuth callback
 // ─────────────────────────────────────────────
 
-session_start();
+$session_lifetime = 60 * 60 * 24 * 30; // 30 days
+
+// 1. Tell the server not to delete the session file for 30 days
+ini_set('session.gc_maxlifetime', $session_lifetime);
+
+// 2. Determine cookie domain dynamically to support localhost testing and production
+$current_host = $_SERVER['HTTP_HOST'];
+$cookie_domain = ($current_host === 'localhost') ? 'localhost' : '.omniboardstudio.cz';
+
+// 3. Set cookie parameters including wildcard domain (note the leading dot)
+session_set_cookie_params([
+    'lifetime' => $session_lifetime,
+    'path'     => '/',
+    'domain'   => $cookie_domain,
+    'secure'   => ($current_host !== 'localhost'), // Requires HTTPS in production
+    'httponly' => true,
+    'samesite' => 'Lax'
+]);
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 require_once __DIR__ . '/../Admin/config.php';
 
