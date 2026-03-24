@@ -93,43 +93,58 @@ if ($primary_email === '') {
     exit;
 }
 
-// ── Load / update users.json ─────────────────────────────────────────────────
-$users = _load_users();
-$now   = date('c');
+// ── Load / update SQL Database ───────────────────────────────────────────────
+$now = date('Y-m-d H:i:s'); // Changed to standard SQL DATETIME format
 
 // Identify the account: Use active session if linking, otherwise use GitHub email
 $account_key = $_SESSION['user_email'] ?? $primary_email;
 
-if (!isset($users[$account_key])) {
-    $users[$account_key] = [
-        'email'         => $account_key,
-        'registered_at' => $now,
-        'last_login'    => $now,
-        'providers'     => []
+// Fetch existing user from database
+$stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+$stmt->execute([$account_key]);
+$existing_user = $stmt->fetch();
+
+if (!$existing_user) {
+    // Brand new user registration
+    $providers = [
+        'github' => [
+            'email'           => $primary_email,
+            'github_username' => $user['login'] ?? '',
+            'avatar_url'      => $user['avatar_url'] ?? '',
+            'linked_at'       => $now
+        ]
     ];
+
+    $stmt = $pdo->prepare("INSERT INTO users (email, registered_at, last_login, source, github_username, avatar_url, providers) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([
+        $account_key,
+        $now,
+        $now,
+        'multiple',
+        $user['login'] ?? '',
+        $user['avatar_url'] ?? '',
+        json_encode($providers)
+    ]);
 } else {
-    $users[$account_key]['last_login'] = $now;
+    // Existing user login / account linking
+    $providers = json_decode($existing_user['providers'], true) ?? [];
+    
+    $providers['github'] = [
+        'email'           => $primary_email,
+        'github_username' => $user['login'] ?? '',
+        'avatar_url'      => $user['avatar_url'] ?? '',
+        'linked_at'       => $providers['github']['linked_at'] ?? $now
+    ];
+
+    $stmt = $pdo->prepare("UPDATE users SET last_login = ?, github_username = ?, avatar_url = ?, providers = ? WHERE email = ?");
+    $stmt->execute([
+        $now,
+        $user['login'] ?? '',
+        $user['avatar_url'] ?? '',
+        json_encode($providers),
+        $account_key
+    ]);
 }
-
-// Ensure the providers array exists (for migrating older accounts)
-if (!isset($users[$account_key]['providers'])) {
-    $users[$account_key]['providers'] = [];
-}
-
-// Save specific GitHub data
-$users[$account_key]['providers']['github'] = [
-    'email'           => $primary_email,
-    'github_username' => $user['login'] ?? '',
-    'avatar_url'      => $user['avatar_url'] ?? '',
-    'linked_at'       => $users[$account_key]['providers']['github']['linked_at'] ?? $now
-];
-
-// Maintain top-level fields for Admin dashboard backwards compatibility
-$users[$account_key]['source'] = 'multiple';
-$users[$account_key]['github_username'] = $user['login'] ?? '';
-$users[$account_key]['avatar_url'] = $user['avatar_url'] ?? '';
-
-_save_users($users);
 
 // Set session and redirect to the new Settings page
 $_SESSION['user_email'] = $account_key;
@@ -170,25 +185,4 @@ function _github_get(string $url, string $token): mixed
     $response = curl_exec($ch);
     curl_close($ch);
     return json_decode($response ?: '[]', true);
-}
-
-function _load_users(): array
-{
-    $file = DATA_DIR . 'users.json';
-    if (!file_exists($file)) {
-        return [];
-    }
-    $data = json_decode(file_get_contents($file), true);
-    return is_array($data) ? $data : [];
-}
-
-function _save_users(array $users): void
-{
-    if (!is_dir(DATA_DIR)) {
-        mkdir(DATA_DIR, 0755, true);
-    }
-    $file = DATA_DIR . 'users.json';
-    $tmp  = $file . '.tmp';
-    file_put_contents($tmp, json_encode($users, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
-    rename($tmp, $file);
 }

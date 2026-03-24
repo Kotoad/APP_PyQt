@@ -29,6 +29,21 @@ if (file_exists($envFile)) {
 //  OmniBoard Studio – Admin Configuration
 // ─────────────────────────────────────────────
 
+define('DB_HOST', $_env['DB_HOST'] ?? '');
+define('DB_NAME', $_env['DB_NAME'] ?? '');
+define('DB_USER', $_env['DB_USER'] ?? '');
+define('DB_PASS', $_env['DB_PASS'] ?? '');
+
+try {
+    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4", DB_USER, DB_PASS, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, // Throws exceptions on errors
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false
+    ]);
+} catch (PDOException $e) {
+    die("Database connection failed: " . $e->getMessage());
+}
+
 // PostHog REST API credentials (server-side only)
 // Get your personal API key from: https://eu.posthog.com/settings/user-api-keys
 define('POSTHOG_PERSONAL_API_KEY', $_ENV['POSTHOG_PERSONAL_API_KEY'] ?? '');
