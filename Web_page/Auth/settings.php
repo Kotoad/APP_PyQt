@@ -11,26 +11,17 @@ if (empty($_SESSION['user_email'])) {
 
 $email = $_SESSION['user_email'];
 
-function _load_users() {
-    $file = DATA_DIR . 'users.json';
-    return file_exists($file) ? json_decode(file_get_contents($file), true) : [];
-}
-
-function _save_users($users) {
-    $file = DATA_DIR . 'users.json';
-    $tmp = $file . '.tmp';
-    file_put_contents($tmp, json_encode($users, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
-    rename($tmp, $file);
-}
-
-$users = _load_users();
-$user = $users[$email] ?? null;
+$stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+$stmt->execute([$email]);
+$user = $stmt->fetch();
 
 if (!$user) {
     unset($_SESSION['user_email']);
     header('Location: /');
     exit;
 }
+
+$user['providers'] = json_decode($user['providers'], true) ?? [];
 
 $message = '';
 $error = '';
@@ -40,8 +31,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['unlink_provider'])) {
     
     if (isset($user['providers'][$provider])) {
         if (count($user['providers']) > 1) {
-            unset($users[$email]['providers'][$provider]);
-            _save_users($users);
+            // Remove the provider from the array
+            unset($user['providers'][$provider]);
+            
+            // Save the updated providers array back to the database
+            $updateStmt = $pdo->prepare("UPDATE users SET providers = ? WHERE email = ?");
+            $updateStmt->execute([json_encode($user['providers']), $email]);
+
             // Replace placeholder {provider} dynamically using PHP str_replace
             $msg = t('Settings', 'messages.unlink_success', '{provider} has been successfully unlinked.');
             $_SESSION['flash_message'] = str_replace('{provider}', ucfirst($provider), $msg);
@@ -51,6 +47,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['unlink_provider'])) {
     }
     header('Location: /Auth/settings.php');
     exit;
+}
+
+$display_avatar = null;
+
+if ($user) {
+    if (isset($user['providers']['github']['avatar_url'])) {
+        $display_avatar = $user['providers']['github']['avatar_url'];
+    } elseif (isset($user['providers']['google']['avatar_url'])) {
+        $display_avatar = $user['providers']['google']['avatar_url'];
+    } else {
+        $display_avatar = null;
+    }
 }
 
 $message = $_SESSION['flash_message'] ?? '';
@@ -88,8 +96,8 @@ include __DIR__ . '/../Head.php';
 
             <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-8 shadow-sm">
                 <div class="flex items-center gap-4 mb-4">
-                    <?php if (!empty($user['avatar_url'])): ?>
-                        <img src="<?= htmlspecialchars($user['avatar_url']) ?>" alt="Avatar" class="w-16 h-16 rounded-full border-2 border-slate-600">
+                    <?php if (!empty($display_avatar)): ?>
+                        <img src="<?= htmlspecialchars($display_avatar) ?>" alt="Avatar" class="w-16 h-16 rounded-full border-2 border-slate-600">
                     <?php else: ?>
                         <div class="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center text-2xl text-slate-400 font-bold border-2 border-slate-600">
                             <?= strtoupper(substr($email, 0, 1)) ?>

@@ -1,38 +1,30 @@
 <?php
 require_once __DIR__ . '/i18n.php';
 
+require_once __DIR__ . '/Admin/config.php';
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 $display_avatar = null;
 
-if (!empty($_SESSION['user_email'])) {
-    $config_file = __DIR__ . '/Admin/config.php';
-    if (file_exists($config_file) && !defined('DATA_DIR')) {
-        require_once $config_file;
-    }
+$stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+$stmt->execute([$_SESSION['user_email'] ?? '']);
+$user = $stmt->fetch();
 
-    $users_file = defined('DATA_DIR') ? DATA_DIR . 'users.json' : __DIR__ . '/Admin/data/users.json';
-    
-    if (file_exists($users_file)) {
-        $users = json_decode(file_get_contents($users_file), true);
-        $email = $_SESSION['user_email'];
-        
-        if (isset($users[$email]['providers'])) {
-            $providers = $users[$email]['providers'];
-            if (!empty($providers['github']['avatar_url'])) {
-                $display_avatar = $providers['github']['avatar_url'];
-            } elseif (!empty($providers['google']['avatar_url'])) {
-                $display_avatar = $providers['google']['avatar_url'];
-            }
-        }
-        
-        if (!$display_avatar && !empty($users[$email]['avatar_url'])) {
-            $display_avatar = $users[$email]['avatar_url'];
-        }
+if ($user) {
+    $providers = json_decode($user['providers'], true) ?? [];
+    if (isset($providers['github']['avatar_url'])) {
+        $display_avatar = $providers['github']['avatar_url'];
+    } elseif (isset($providers['google']['avatar_url'])) {
+        $display_avatar = $providers['google']['avatar_url'];
+    } else {
+        $display_avatar = null;
     }
 }
+
+
 ?>
 <nav class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
     <div class="w-full mx-auto px-6 py-4 flex justify-between items-center">
@@ -63,8 +55,7 @@ if (!empty($_SESSION['user_email'])) {
                     </a>
                     <a href="/Auth/logout.php" class="border border-red-800 text-red-400 hover:bg-red-900/30 px-3 py-1.5 rounded text-sm transition-colors"><?= t('Navbar', 'auth.logged_in.1', 'Logout') ?></a>
                 <?php else: ?>
-                    <a href="/Auth/login.php?provider=github" class="text-slate-300 text-sm hover:text-white transition-colors"><?= t('Navbar', 'auth.logged_out.0', 'GitHub Login') ?></a>
-                    <a href="/Auth/login.php?provider=google" class="text-slate-300 text-sm hover:text-white transition-colors"><?= t('Navbar', 'auth.logged_out.1', 'Google Login') ?></a>
+                    <a href="/Auth/login_page.php" class="border border-slate-700 text-slate-300 hover:bg-slate-800 px-3 py-1.5 rounded text-sm transition-colors"><?= t('Navbar', 'auth.logged_out', 'Login / Register') ?></a>
                 <?php endif; ?>
             </div>
         </div>
@@ -86,8 +77,7 @@ if (!empty($_SESSION['user_email'])) {
                 <a href="/Auth/settings.php" class="text-slate-300 hover:text-blue-400"><?= t('Navbar', 'auth.logged_in.0', 'Account Settings') ?></a>
                 <a href="/Auth/logout.php" class="text-red-400 hover:text-red-300"><?= t('Navbar', 'auth.logged_in.1', 'Logout') ?></a>
             <?php else: ?>
-                <a href="/Auth/login.php?provider=github" class="text-slate-300 hover:text-blue-400"><?= t('Navbar', 'auth.logged_out.0', 'GitHub Login') ?></a>
-                <a href="/Auth/login.php?provider=google" class="text-slate-300 hover:text-blue-400"><?= t('Navbar', 'auth.logged_out.1', 'Google Login') ?></a>
+                <a href="/Auth/login_page.php" class="text-slate-300 hover:text-blue-400"><?= t('Navbar', 'auth.logged_out', 'Login / Register') ?></a>
             <?php endif; ?>
         </div>
     </div>

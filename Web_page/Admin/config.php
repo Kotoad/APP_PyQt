@@ -29,10 +29,10 @@ if (file_exists($envFile)) {
 //  OmniBoard Studio – Admin Configuration
 // ─────────────────────────────────────────────
 
-define('DB_HOST', $_env['DB_HOST'] ?? '');
-define('DB_NAME', $_env['DB_NAME'] ?? '');
-define('DB_USER', $_env['DB_USER'] ?? '');
-define('DB_PASS', $_env['DB_PASS'] ?? '');
+define('DB_HOST', $_ENV['DB_HOST'] ?? '');
+define('DB_NAME', $_ENV['DB_NAME'] ?? '');
+define('DB_USER', $_ENV['DB_USER'] ?? '');
+define('DB_PASS', $_ENV['DB_PASS'] ?? '');
 
 try {
     $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4", DB_USER, DB_PASS, [

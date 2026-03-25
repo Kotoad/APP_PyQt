@@ -43,30 +43,12 @@ jobs:
           sed -i 's/"rpi_host": *"[^"]*"/"rpi_host": ""/' app_settings.json
           sed -i 's/"rpi_user": *"[^"]*"/"rpi_user": ""/' app_settings.json
 
-          # --- NEW: Automate releases.json ---
-          mkdir -p Web_page/data
-          if [ ! -f Web_page/data/releases.json ]; then
-            echo "[]" > Web_page/data/releases.json
-          fi
-
-          # Create a new JSON object for this release
-          NEW_RELEASE=$(jq -n \
-            --arg v "$VERSION" \
-            --arg d "$DATE" \
-            --arg wf "/downloads/$VERSION/OmniBoard_Online_Installer.exe" \
-            --arg lf "/downloads/$VERSION/OmniBoard_Studio_Linux.tar.gz" \
-            --arg n "$NOTES" \
-            '{version: $v, date: $d, windows_file: $wf, linux_file: $lf, notes: $n}')
-
-          # Prepend the new release to the top of the releases.json array
-          jq --argjson new "$NEW_RELEASE" '. | [$new] + .' Web_page/data/releases.json > tmp.json && mv tmp.json Web_page/data/releases.json
-
       - name: Commit version bump and sanitized config
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add version.txt Utils.py Web_page/API/version.php Web_page/data/releases.json
-          git commit -m "chore: bump version to ${{ inputs.version }} and add to releases.json [skip ci]"
+          git add version.txt Utils.py Web_page/API/version.php
+          git commit -m "chore: bump version to ${{ inputs.version }} [skip ci]"
           git push
 
   # ─────────────────────────────────────────────
@@ -192,6 +174,7 @@ jobs:
           echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
           echo "DB_USER=${{ secrets.DB_USER }}" >> .env
           echo "DB_PASS=${{ secrets.DB_PASS }}" >> .env
+          echo "ACTION_API_TOKEN=${{ secrets.ACTION_API_TOKEN }}" >> .env
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v4
@@ -242,5 +225,16 @@ jobs:
           set ssl:verify-certificate no;
           open -u ${{ secrets.FTP_USER }},${{ secrets.FTP_PASSWORD }} ${{ secrets.FTP_SERVER }};
           put .env -o /Admin/.env;
-          put Web_page/data/releases.json -o /data/releases.json;
           "
+      - name: Log Release to MySQL Database
+        run: |
+          VERSION="${{ inputs.version }}"
+          NOTES="${{ inputs.notes }}"
+          DATE=$(date +'%Y-%m-%d')
+          W_FILE="/downloads/$VERSION/OmniBoard_Online_Installer.exe"
+          L_FILE="/downloads/$VERSION/OmniBoard_Studio_Linux.tar.gz"
+
+          curl -f -X POST https://omniboardstudio.cz/API/add_release.php \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.ACTION_API_TOKEN }}" \
+            -d "{\"version\":\"$VERSION\", \"date\":\"$DATE\", \"windows_file\":\"$W_FILE\", \"linux_file\":\"$L_FILE\", \"notes\":\"$NOTES\"}"

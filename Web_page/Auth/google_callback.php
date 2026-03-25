@@ -90,40 +90,40 @@ $existing_user = $stmt->fetch();
 if (!$existing_user) {
     // Brand new user registration
     $providers = [
-        'github' => [
+        'google' => [
             'email'           => $primary_email,
-            'github_username' => $user['login'] ?? '',
-            'avatar_url'      => $user['avatar_url'] ?? '',
+            'google_id'       => $user_info['sub'] ?? '',
+            'avatar_url'      => $user_info['picture'] ?? '',
             'linked_at'       => $now
         ]
     ];
 
-    $stmt = $pdo->prepare("INSERT INTO users (email, registered_at, last_login, source, github_username, avatar_url, providers) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $pdo->prepare("INSERT INTO users (email, registered_at, last_login, source, google_name, avatar_url, providers) VALUES (?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         $account_key,
         $now,
         $now,
         'multiple',
-        $user['login'] ?? '',
-        $user['avatar_url'] ?? '',
+        $user_info['name'] ?? '',
+        $user_info['picture'] ?? '',
         json_encode($providers)
     ]);
 } else {
     // Existing user login / account linking
     $providers = json_decode($existing_user['providers'], true) ?? [];
     
-    $providers['github'] = [
+    $providers['google'] = [
         'email'           => $primary_email,
-        'github_username' => $user['login'] ?? '',
-        'avatar_url'      => $user['avatar_url'] ?? '',
-        'linked_at'       => $providers['github']['linked_at'] ?? $now
+        'google_id'       => $user_info['sub'] ?? '',
+        'avatar_url'      => $user_info['picture'] ?? '',
+        'linked_at'       => $providers['google']['linked_at'] ?? $now
     ];
 
-    $stmt = $pdo->prepare("UPDATE users SET last_login = ?, github_username = ?, avatar_url = ?, providers = ? WHERE email = ?");
+    $stmt = $pdo->prepare("UPDATE users SET last_login = ?, google_name = ?, avatar_url = ?, providers = ? WHERE email = ?");
     $stmt->execute([
         $now,
-        $user['login'] ?? '',
-        $user['avatar_url'] ?? '',
+        $user_info['name'] ?? '',
+        $user_info['picture'] ?? '',
         json_encode($providers),
         $account_key
     ]);

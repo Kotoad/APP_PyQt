@@ -1,4 +1,8 @@
 <?php
+
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 // ─────────────────────────────────────────────
 //  OmniBoard Studio – Admin Dashboard
 // ─────────────────────────────────────────────
@@ -35,15 +39,17 @@ if (isset($_GET['logout'])) {
 // ── Login handler ─────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'])) {
     if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
-        $_SESSION['login_error'] = 'Invalid request token.';
+        $_SESSION['login_error'] = 'Invalid request token. Please try again.';
     } elseif (
         $_POST['username'] === ADMIN_USERNAME &&
         password_verify($_POST['password'], ADMIN_PASSWORD_HASH)
     ) {
-        session_regenerate_id(true);
         $_SESSION['admin_logged_in']      = true;
         $_SESSION['admin_last_activity']  = time();
         $_SESSION['csrf_token']           = bin2hex(random_bytes(32));
+        
+        // Force PHP to save the session to disk before redirecting
+        session_write_close(); 
         header('Location: /Admin/');
         exit;
     } else {
@@ -167,9 +173,21 @@ function load_json_file(string $path): array
 }
 
 $app_starts = load_json_file(DATA_DIR . 'app_starts.json');
-$users_map  = load_json_file(DATA_DIR . 'users.json');
 $local_releases = load_json_file(DATA_DIR . 'releases.json');
-$users      = array_values($users_map);
+
+// Fetch users from MySQL database instead of JSON
+try {
+    $stmt = $pdo->query("SELECT * FROM users ORDER BY registered_at DESC");
+    $users = $stmt->fetchAll();
+
+    // Decode the JSON 'providers' column back into an array for the dashboard logic
+    foreach ($users as &$u) {
+        $u['providers'] = json_decode($u['providers'], true) ?? [];
+    }
+    unset($u); // break reference
+} catch (PDOException $e) {
+    die("Error fetching users: " . $e->getMessage());
+}
 
 // Sort app_starts descending by timestamp
 usort($app_starts, fn($a, $b) => strcmp($b['timestamp'] ?? '', $a['timestamp'] ?? ''));
@@ -1029,12 +1047,12 @@ if ($ph_res && isset($ph_res[0]['data'])) {
                     </td>
                 </tr>
                 <tr class="hover:bg-slate-700/30">
-                    <td class="px-4 py-3 font-mono text-slate-300 text-xs">data/users.json</td>
-                    <td class="px-4 py-3 text-slate-300"><?= human_bytes($users_file_size) ?></td>
+                    <td class="px-4 py-3 font-mono text-slate-300 text-xs">MySQL Database (users table)</td>
+                    <td class="px-4 py-3 text-slate-500">N/A</td>
                     <td class="px-4 py-3 text-slate-300"><?= number_format(count($users)) ?></td>
                     <td class="px-4 py-3">
-                        <span class="text-xs px-2 py-0.5 rounded <?= file_exists(DATA_DIR . 'users.json') ? 'bg-green-900/40 text-green-300' : 'bg-slate-700 text-slate-400' ?>">
-                            <?= file_exists(DATA_DIR . 'users.json') ? 'Yes' : 'No' ?>
+                        <span class="text-xs px-2 py-0.5 rounded bg-blue-900/40 text-blue-300">
+                            Active
                         </span>
                     </td>
                 </tr>
