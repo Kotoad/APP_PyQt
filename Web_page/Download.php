@@ -3,7 +3,7 @@ require_once __DIR__ . '/i18n.php';
 
 require_once __DIR__ . '/Admin/config.php';
 
-$stmt = $pdo->prepare("SELECT * FROM releases ORDER BY release_date DESC");
+$stmt = $pdo->prepare("SELECT * FROM releases ORDER BY id DESC");
 $stmt->execute();
 $releases = $stmt->fetchAll();
 
@@ -74,7 +74,7 @@ include 'Head.php';
                             <?php foreach ($previous_releases as $release): ?>
                             <tr class="hover:bg-slate-700/30 transition-colors">
                                 <td class="px-6 py-4 font-semibold text-slate-200"><?= htmlspecialchars($release['version']) ?></td>
-                                <td class="px-6 py-4 text-slate-400"><?= htmlspecialchars($release['date']) ?></td>
+                                <td class="px-6 py-4 text-slate-400"><?= htmlspecialchars($release['release_date']) ?></td>
                                 <td class="px-6 py-4">
                                     <?php if (!empty($release['windows_file'])): ?>
                                         <a href="<?= htmlspecialchars($release['windows_file']) ?>" class="text-blue-400 hover:text-blue-300 download">.exe</a>

@@ -176,7 +176,7 @@ $app_starts = load_json_file(DATA_DIR . 'app_starts.json');
 
 // Fetch users from MySQL database instead of JSON
 try {
-    $stmt = $pdo->query("SELECT * FROM users ORDER BY registered_at DESC");
+    $stmt = $pdo->query("SELECT * FROM users ORDER BY id DESC");
     $users = $stmt->fetchAll();
 
     // Decode the JSON 'providers' column back into an array for the dashboard logic
@@ -190,7 +190,7 @@ try {
 
 // Fetch releases from MySQL database instead of JSON
 try {
-    $stmt = $pdo->query("SELECT * FROM releases ORDER BY release_date DESC");
+    $stmt = $pdo->query("SELECT * FROM releases ORDER BY id DESC");
     $releases = $stmt->fetchAll();
 } catch (PDOException $e) {
     die("Error fetching releases: " . $e->getMessage());
@@ -425,7 +425,7 @@ if ($ph_res && isset($ph_res[0]['data'])) {
     </div>
 
     <!-- Quick Links -->
-    <div class="grid md:grid-cols-3 gap-4 mb-8">
+    <div class="grid md:grid-cols-2 gap-4 mb-8">
         <a href="https://eu.posthog.com" target="_blank"
            class="flex items-center gap-3 bg-slate-800 border border-slate-700 hover:border-blue-600 rounded-xl p-4 transition-colors group">
             <div class="w-10 h-10 bg-blue-600/20 rounded-lg flex items-center justify-center text-blue-400 text-xl group-hover:bg-blue-600/30 transition-colors">&#128202;</div>
