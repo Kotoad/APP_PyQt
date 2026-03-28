@@ -55,7 +55,7 @@
                             <li class="flex items-start gap-3"><span class="text-blue-500 mt-1">●</span><span><?= t('Timing_LED', 'sections.0.steps.2.details.instructions.0', 'Connect the GPIO pin asigned to the LED to the rezistor.') ?></span></li>
                             <li class="flex items-start gap-3"><span class="text-blue-500 mt-1">●</span><span><?= t('Timing_LED', 'sections.0.steps.2.details.instructions.1', 'Connect the positive leg of the LED to a resistor, and then connect the other end of the LED to ground...') ?></span></li>
                             <figure class="w-full flex flex-col items-center mt-4">
-                                <img src="Blinking_LED/Blinking_LED_Circuit.png" alt="Timind LED circiut" class="rounded-lg border border-slate-700">
+                                <img src="../assets/Timing_LED_assets/Timing_LED_Circuit.png" alt="Timing LED Circuit" class="rounded-lg border border-slate-700">
                             </figure>
                         </ul>
                     </details>

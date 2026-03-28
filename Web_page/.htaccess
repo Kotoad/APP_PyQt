@@ -1,8 +1,18 @@
+# Disable MultiViews to prevent Apache from guessing file extensions
+# when a directory and a file share the same base name.
+Options -MultiViews
+
 RewriteEngine On
 
 # Global redirect: www to non-www
 RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
 RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+
+# Remove trailing slash from URLs (unless it is an actual, existing directory)
+# This prevents the server from forcing a directory redirect if a folder is deleted or moved.
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} ^(.+)/$
+RewriteRule ^ %1 [R=301,L]
 
 # Strip .php extension from visible URLs (canonical redirect)
 RewriteCond %{THE_REQUEST} ^[A-Z]{3,}\s([^.]+)\.php [NC]

@@ -1120,12 +1120,12 @@ def apply_theme(app):
         # Warning/Moved accent
         palette.setColor(QPalette.ColorRole.BrightText, QColor(255, 160, 0))
         # Primary Teal accent for links and highlights
-        palette.setColor(QPalette.ColorRole.Link, QColor(96, 165, 250))
-        palette.setColor(QPalette.ColorRole.Highlight, QColor(96, 165, 250))
+        palette.setColor(QPalette.ColorRole.Link, QColor(59, 130, 246))
+        palette.setColor(QPalette.ColorRole.Highlight, QColor(59, 130, 246))
         palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
         palette.setColor(QPalette.ColorRole.NoRole, QColor(51, 65, 85))
         # Teal accent
-        palette.setColor(QPalette.ColorRole.Accent, QColor(96, 165, 250))
+        palette.setColor(QPalette.ColorRole.Accent, QColor(59, 130, 246))
     elif theme == 'light':
         palette.setColor(QPalette.ColorRole.Window, QColor(253, 245, 230))
         palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.black)

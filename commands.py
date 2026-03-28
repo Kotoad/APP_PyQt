@@ -104,8 +104,10 @@ class RemoveBlockCommand(QUndoCommand):
                     if other_block_id in self.blocks_dict:
                         if is_out:
                             other_conn_type = self.blocks_dict[other_block_id]['in_connections'].get(path_id)
+                            self.blocks_dict[other_block_id]['in_connections'].pop(path_id, None)
                         else:
                             other_conn_type = self.blocks_dict[other_block_id]['out_connections'].get(path_id)
+                            self.blocks_dict[other_block_id]['out_connections'].pop(path_id, None)
                         
                         self.paths_data[path_id] = {
                             'data': path_data,
@@ -113,6 +115,9 @@ class RemoveBlockCommand(QUndoCommand):
                             'other_conn_type': other_conn_type,
                             'is_out': is_out
                         }
+
+                        
+                        
         else:
             self.blocks_dict.pop(self.block_id, None)
             self.canvas.scene.removeItem(self.removed_block)

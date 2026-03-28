@@ -59,7 +59,7 @@
                                 <li class="flex items-start gap-3"><span class="text-blue-500 mt-1">●</span><span><?= t('Button_LED', 'sections.0.steps.2.details.instructions.0', 'Connect the GPIO pin asigned to the LED to the rezistor.') ?></span></li>
                                 <li class="flex items-start gap-3"><span class="text-blue-500 mt-1">●</span><span><?= t('Button_LED', 'sections.0.steps.2.details.instructions.1', 'Connect the positive leg of the LED to a resistor, and then connect the other end of the LED to ground...') ?></span></li>
                                 <figure class="w-full flex flex-col items-center mt-4">
-                                    <img src="Button_led/Button_led_Circuit.png" alt="Button controlled LED Circuit" class="rounded-lg border border-slate-700">
+                                    <img src="../assets/Button_LED_assets/Button_LED_Circuit.png" alt="Button controlled LED Circuit" class="rounded-lg border border-slate-700">
                                 </figure>
                             </ul>
                         </details>

@@ -40,7 +40,8 @@ class CodeCompiler:
             "Exponential_operations": self.handle_math_block,
             "Random_number": self.handle_rand_block,
             "Function": self.handle_function_block,
-            "Networks": self.handle_networks_block
+            "Networks": self.handle_networks_block,
+            "Return": self.handle_return_block
         }
     
     def compile(self):
@@ -62,6 +63,14 @@ class CodeCompiler:
         elif Utils.app_settings.rpi_model_index in (1,2,3,4,5,6,7):
             #print(f"RPI Model selected: {Utils.app_settings.rpi_model} (Index: {Utils.app_settings.rpi_model_index})")
             self.GPIO_compile = True
+
+        self.func_to_compile = {}
+
+        for func_id, func_info in Utils.functions.items():
+            print(f"Registering function for compilation: {func_info['name']} (ID: {func_id})")
+            if func_id not in self.func_to_compile:
+                print(f"Adding function '{func_info['name']}' to compilation list with ID: {func_id}")
+                self.func_to_compile[func_id] = func_info['name'], "Not Compiled", ""
 
         self.create_hashmap()
 
@@ -913,14 +922,14 @@ class CodeCompiler:
                     return f"{value_str}"
             elif value_type == 'Variable':
                 print(f"Looking up variable: {value_str}")
-                print(f"Utils.variables: {Utils.variables}")
+                #print(f"Utils.variables: {Utils.variables}")
                 if self.compiling_what == 'canvas':
                     print(f"Searching in main canvas variables")
                     search_variables = Utils.variables['main_canvas']
                 elif self.compiling_what == 'function':
                     #print(f"Searching in function canvas variables for function {self.compiling_function}")
                     search_variables = Utils.variables['function_canvases'][self.compiling_function]
-                print(f"Variables to search: {search_variables}")
+                #print(f"Variables to search: {search_variables}")
                 if self.compiling_what == 'canvas':
                     for var_id, var_info in search_variables.items():
                         print(var_info)
@@ -1121,54 +1130,81 @@ class CodeCompiler:
             self.indent_level -= 1
             
     def handle_function_block(self, block):
-        #print(f"Handling Function block {block['id']}")
+
         self.last_block = block
         func_name = block['name']
-        #print(f"Calling function: {func_name}")
-        self.writeline(f"{func_name}(")
-        #print(f"block internal vars: {block['internal_vars']}")
-        #print(f"block internal devs: {block['internal_devs']}")
-        self.indent_level += 1
-        for l_widget, v_info in block['internal_vars']['main_vars'].items():
-            #print(f"Function argument: {v_info['name']}")
-            resolved_value = self.resolve_value(v_info['name'], v_info['type'])
-            #print(f"Resolved argument value: {resolved_value}")
-            self.writeline(f"{resolved_value},")
-        for l_widget, d_info in block['internal_devs']['main_devs'].items():
-            #print(f"Function device argument: {d_info['name']}")
-            resolved_value = self.resolve_value(d_info['name'], d_info['type'])
-            #print(f"Resolved device argument value: {resolved_value}")
-            self.writeline(f"{resolved_value},")
-        self.indent_level -= 1
-        self.writeline(")")
-        self.memory_indent_level = self.indent_level
-        self.indent_level = 0  # Reset indent for function definition
-        self.current_lines = self.function_lines
-        self.writeline("")  # Blank line before function
-        self.writeline(f"def {func_name}(")
-        self.indent_level += 1
-        #print(f"ref_vars: {block['internal_vars']['ref_vars']}")
-        #print(f"ref_devs: {block['internal_devs']['ref_devs']}")
-        for l_widget, v_info in block['internal_vars']['ref_vars'].items():
-            #print(f"Function variable parameter: {v_info['name']}")
-            self.writeline(f"{v_info['name']},")
-        for l_widget, d_info in block['internal_devs']['ref_devs'].items():
-            #print(f"Function device parameter: {d_info['name']}")
-            self.writeline(f"{d_info['name']},")
-        self.indent_level -= 1
-        self.writeline("):")
-        self.indent_level += 1
-        self.compiling_what = 'function'
-        for f_id, f_info in Utils.functions.items():
-            #print(f"{f_id}: {f_info}")
-            if f_info['name'] == func_name:
-                self.compiling_function = f_info['id']
-                break
-        #print(f"Compiling function: {self.compiling_function}, compiling_what: {self.compiling_what}")
-        start_function_block = self.find_block_by_type('Start')
-        #print(f"Function start block: {start_function_block}")
-        next_id = self.get_next_block(start_function_block['id'])
-        #print(f"Processing function blocks starting from: {next_id}")
+
+        for f_id, f_info in self.func_to_compile.items():
+            if f_info[0] == func_name:
+                if f_info[1] == "Not Compiled":
+                    self.func_to_compile[f_id] = (f_info[0], "Compiled", "")
+                    self.memory_indent_level = self.indent_level
+                    self.indent_level = 0  # Reset indent for function definition
+                    self.current_lines = self.function_lines
+                    self.writeline("")  # Blank line before function
+                    self.writeline(f"def {func_name}(")
+                    self.indent_level += 1
+                    #print(f"ref_vars: {block['internal_vars']['ref_vars']}")
+                    #print(f"ref_devs: {block['internal_devs']['ref_devs']}")
+                    for l_widget, v_info in block['internal_vars']['ref_vars'].items():
+                        #print(f"Function variable parameter: {v_info['name']}")
+                        self.writeline(f"{v_info['name']},")
+                    for l_widget, d_info in block['internal_devs']['ref_devs'].items():
+                        #print(f"Function device parameter: {d_info['name']}")
+                        self.writeline(f"{d_info['name']},")
+                    self.indent_level -= 1
+                    self.writeline("):")
+                    self.indent_level += 1
+                    self.compiling_what = 'function'
+                    for fu_id, fu_info in Utils.functions.items():
+                        #print(f"{f_id}: {f_info}")
+                        if fu_info['name'] == func_name:
+                            self.compiling_function = fu_info['id']
+                            break
+                    start_block = self.find_block_by_type('Start')
+                    if start_block:
+                        next_id = self.get_next_block(start_block['id'])
+                        self.process_block(next_id)
+
+                print(f"Function block return var name: {block.get('return_var_name')}, compiling what: {self.compiling_what}")
+                target_var = self.resolve_value(block['return_var_name'], 'Variable') if 'return_var_name' in block else None
+                print(f"Resolved target variable for function return: {target_var}")
+                if target_var:
+                    self.writeline(f"{target_var} = {func_name}(")
+                else:
+                    self.writeline(f"{func_name}(")
+                #print(f"block internal vars: {block['internal_vars']}")
+                #print(f"block internal devs: {block['internal_devs']}")
+                self.indent_level += 1
+                for l_widget, v_info in block['internal_vars']['main_vars'].items():
+                    #print(f"Function argument: {v_info['name']}")
+                    resolved_value = self.resolve_value(v_info['name'], v_info['type'])
+                    #print(f"Resolved argument value: {resolved_value}")
+                    self.writeline(f"{resolved_value},")
+                for l_widget, d_info in block['internal_devs']['main_devs'].items():
+                    #print(f"Function device argument: {d_info['name']}")
+                    resolved_value = self.resolve_value(d_info['name'], d_info['type'])
+                    #print(f"Resolved device argument value: {resolved_value}")
+                    self.writeline(f"{resolved_value},")
+                self.indent_level -= 1
+                self.writeline(")")
+                
+                next_id = self.get_next_block(block['id'])
+                if next_id:
+                    #print(f"Processing next block after Function call: {next_id}")
+                    pass
+
+                self.process_block(next_id)
+        
+    def handle_return_block(self, block):
+        return_value = self.resolve_value(block['value_1_name'], block['value_1_type'])
+        self.writeline(f"return {return_value}")
+        if self.compiling_what == 'function':
+            self.func_to_compile[self.compiling_function] = (self.func_to_compile[self.compiling_function][0], "Compiled", return_value)
+        next_id = self.get_next_block(block['id'])
+        if next_id:
+            #print(f"Processing next block after Return: {next_id}")
+            pass
         self.process_block(next_id)
 
     def handle_math_block(self, block):
@@ -1250,7 +1286,7 @@ class CodeCompiler:
             self.compiling_function = None
             self.writeline("")  # Blank line after function
             self.current_lines = self.main_lines
-            self.indent_level = self.memory_indent_level
+            self.indent_level = self.memory_indent_level+1
             #print(f"Resuming canvas compilation at indent level {self.indent_level}")
             #print(f"Last block was function call: {self.last_block}")
             next_id = self.get_next_block(self.last_block['id'])

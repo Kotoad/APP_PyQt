@@ -33,6 +33,7 @@ class BlockGraphicsItem(QGraphicsObject):
         print(f'Initializing BlockGraphicsItem: {block_id} of type {block_type} at ({x}, {y}) on canvas {parent_canvas}, name: {name if name else "N/A"}')
         self.signals = BlockSignals()
         self.state_manager = Utils.state_manager
+        self.canvas = parent_canvas
         if GUI is not None:
             self.GUI = GUI
         elif hasattr(parent_canvas, 'GUI'):
@@ -44,7 +45,6 @@ class BlockGraphicsItem(QGraphicsObject):
         self.border_color = QColor("black")
         self.block_id = block_id
         self.block_type = block_type
-        self.canvas = parent_canvas
         self.canvas_id = None
         self.name = name
         self.grid_size = 25
@@ -139,7 +139,7 @@ class BlockGraphicsItem(QGraphicsObject):
             self.width = 100
             self.height = 75
         elif self.block_type in ["Timer","Basic_operations", "Exponential_operations",
-                                "Random_number", "Blink_LED", "PWM_LED"]:
+                                "Random_number", "Blink_LED", "PWM_LED", "Return"]:
             self.width = 150
             self.height = 50
         elif self.block_type in [ "Start", "End", "While_true", "Toggle_LED", "Switch", "LED_ON", "LED_OFF", "Plus_one", "Minus_one"]:
@@ -229,23 +229,35 @@ class BlockGraphicsItem(QGraphicsObject):
                 text = f"{val_name} - {PWM_value}"
                 if len(text) > len(text_to_measure):
                     text_to_measure = text
+        elif self.block_type == "Return":
+            text_to_measure = f"Return {self.value_1_name}"
         elif self.block_type == "Function":
-             # Function blocks calculate height in _setup_dimensions, but here we check width
-             longest_line = metrics.horizontalAdvance(self.name)
-             
-             # Check variables
-             if self.canvas_id in Utils.variables['function_canvases']:
-                 for v in Utils.variables['function_canvases'][self.canvas_id].values():
-                     w = metrics.horizontalAdvance(v['name'])
-                     if w > longest_line: longest_line = w
-                     
-             # Check devices
-             if self.canvas_id in Utils.devices['function_canvases']:
-                 for d in Utils.devices['function_canvases'][self.canvas_id].values():
-                     w = metrics.horizontalAdvance(d['name'])
-                     if w > longest_line: longest_line = w
-             
-             text_to_measure = " " * int(longest_line / metrics.averageCharWidth()) # Approximate for below logic
+            longest_line = ""
+            i = 1
+            for v_id, v_info in Utils.variables['function_canvases'][self.canvas_id].items():
+                var_text = ""
+                
+                ref_var_a = v_info.get('name', "N")
+                main_var_a = getattr(self, f"main_var_{i}_name", "N")
+
+                if ref_var_a != "N":
+                    var_text = f"{ref_var_a}     {main_var_a}"
+                if len(var_text) > len(longest_line):
+                    longest_line = var_text
+                i += 1
+
+            i = 1
+            for d_id, d_info in Utils.devices['function_canvases'][self.canvas_id].items():
+                dev_text = ""
+
+                ref_dev_a = d_info.get('name', "N")
+                main_dev_a = getattr(self, f"main_dev_{i}_name", "N")
+
+                if ref_dev_a != "N":
+                    dev_text = f"{ref_dev_a}     {main_dev_a}"
+                if len(dev_text) > len(longest_line):
+                    longest_line = dev_text 
+                i += 1
 
         # --- Update Width ---
         if text_to_measure:
@@ -282,7 +294,8 @@ class BlockGraphicsItem(QGraphicsObject):
             "LED_ON": QColor("#57A139"),   # Green
             "LED_OFF": QColor("#57A139"),    # Green
             "Networks": QColor("#00CED1"),       # Dark turquoise
-
+            "Return": QColor("#90EE90")       # Light green
+    
         }
         return colors.get(self.block_type, QColor("#FFD700"))  # Default yellow
 
@@ -335,6 +348,8 @@ class BlockGraphicsItem(QGraphicsObject):
             small_font = QFont(self.font, 8)
             painter.setFont(small_font)
             y_offset = 25
+
+            # Draw internal variables and devices on left
             for v_id, v_info in Utils.variables['function_canvases'][self.canvas_id].items():
                 #print(f"   Drawing variable: {v_info['name']}")
                 var_text = f"{v_info['name']}"
@@ -348,6 +363,41 @@ class BlockGraphicsItem(QGraphicsObject):
                 dev_rect = QRectF(self.radius + 10, y_offset, self.width - 20, 15)
                 painter.drawText(dev_rect, Qt.AlignmentFlag.AlignRight, dev_text)
                 y_offset += 25
+            
+            y_offset = 25
+
+
+            if self.canvas.reference == 'canvas':
+                if Utils.main_canvas['blocks'].get(self.block_id, {}).get('internal_vars', {}).get('main_vars') is None:
+                    #print(f"Warning: No main_vars found in block_data for block '{self.name}'")
+                    if self.canvas.reference == 'canvas':
+                        data = Utils.project_data.main_canvas['blocks'].get(self.block_id, {})
+                else:
+                    data = Utils.main_canvas['blocks'].get(self.block_id, {})
+            elif self.canvas.reference == 'function':
+                for f_id, f_info in Utils.functions.items():
+                    if self.canvas == f_info.get('canvas'):
+                        if f_info['blocks'].get(self.block_id, {}).get('internal_vars', {}).get('main_vars') is None:
+                            #print(f"Warning: No main_vars found in block_data for block '{self.name}' in function canvas")
+                            data = f_info['blocks'].get(self.block_id, {})
+                        else:
+                            data = f_info['blocks'].get(self.block_id, {})
+                        break
+            
+            #print(f"Data for function block '{self.name}': {data}")
+            # Draw main variables and devices on right
+            for i in range(1, len(Utils.variables['function_canvases'][self.canvas_id]) + 1):
+                main_var_text = f"{getattr(self, f'main_var_{i}_name', 'N')}"
+                main_var_rect = QRectF(self.radius + self.width - 20 - painter.fontMetrics().boundingRect(main_var_text).width(), y_offset, painter.fontMetrics().boundingRect(main_var_text).width(), 15)
+                painter.drawText(main_var_rect, Qt.AlignmentFlag.AlignLeft, main_var_text)
+                y_offset += 25
+
+            for i in range(1, len(Utils.devices['function_canvases'][self.canvas_id]) + 1):
+                main_dev_text = f"{getattr(self, f'main_dev_{i}_name', 'N')}"
+                main_dev_rect = QRectF(self.radius + self.width - 20 - painter.fontMetrics().boundingRect(main_dev_text).width(), y_offset, painter.fontMetrics().boundingRect(main_dev_text).width(), 15)
+                painter.drawText(main_dev_rect, Qt.AlignmentFlag.AlignLeft, main_dev_text)
+                y_offset += 25
+
         elif self.block_type == "If":
             #print(f"Drawing text for If block with {self.condition_count} conditions")
             large_font = QFont(self.font, 15, QFont.Weight.Bold)
@@ -439,6 +489,10 @@ class BlockGraphicsItem(QGraphicsObject):
                 text_rect = QRectF(self.radius, y_offset, self.width, 15)
                 painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, text)
                 y_offset += 25
+        elif self.block_type == "Return":
+            return_text = f"Return {self.value_1_name}"
+            return_rect = QRectF(self.radius, 0, self.width, self.height)
+            painter.drawText(return_rect, Qt.AlignmentFlag.AlignCenter, return_text)
         else:
             text_rect = QRectF(self.radius, 0, self.width, self.height)
             painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, name)

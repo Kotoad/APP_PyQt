@@ -29,6 +29,22 @@ class DataControl:
                 'out_connections': {},
                 'canvas': self
             }
+        elif block_type == 'Return':
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'outputs': 1,
+                'value_1_name': 'N',
+                'value_1_type': None,
+                'in_connections': {},
+                'out_connections': {},
+                'canvas': self
+            }
         elif block_type == 'Button':
             info = {
                 'type': block_type.split('_')[0],
@@ -134,6 +150,8 @@ class DataControl:
                 'x': x,
                 'y': y,
                 'outputs': 1,
+                'return_var_name': '',
+                'return_var_type': None,
                 'internal_vars': {
                     'main_vars': {},
                     'ref_vars': {},
@@ -295,6 +313,22 @@ class DataControl:
                 'value_2_name': data.get('value_2_name', "N"),
                 'value_2_type': data.get('value_2_type', "N/A"),
                 'operator': data.get('operator', "=="),
+                'in_connections': data.get('in_connections', {}),
+                'out_connections': data.get('out_connections', {}),
+                'canvas': canvas
+            }
+        elif block_type == 'Return':
+            info = {
+                'type': block_type,
+                'id': block_id,
+                'widget': block,
+                'width': block.boundingRect().width(),
+                'height': block.boundingRect().height(),
+                'x': x,
+                'y': y,
+                'outputs': data.get('outputs', 1),
+                'value_1_name': data.get('value_1_name', "N"),
+                'value_1_type': data.get('value_1_type', "N/A"),
                 'in_connections': data.get('in_connections', {}),
                 'out_connections': data.get('out_connections', {}),
                 'canvas': canvas
@@ -491,6 +525,8 @@ class DataControl:
                 'x': x,
                 'y': y,
                 'outputs': data.get('outputs', 1),
+                'return_var_name': data.get('return_var_name', ''),
+                'return_var_type': data.get('return_var_type', None),
                 'internal_vars': {
                     'main_vars': data.get('internal_vars', {}).get('main_vars', {}),
                     'ref_vars': data.get('internal_vars', {}).get('ref_vars', {}),
@@ -551,6 +587,20 @@ class DataControl:
                 'value_2_name': block_info.get('value_2_name', ''),
                 'value_2_type': block_info.get('value_2_type', ''),
                 'operator': block_info.get('operator', ''),
+                'in_connections': block_info.get('in_connections', {}),
+                'out_connections': block_info.get('out_connections', {}),
+            }
+        elif block_info['type'] == 'Return':
+            info = {
+                'type': block_info['type'],
+                'id': block_id,
+                'width': block_info['widget'].boundingRect().width(),
+                'height': block_info['widget'].boundingRect().height(),
+                'x': block_info['x'],
+                'y': block_info['y'],
+                'outputs': block_info.get('outputs', 1),
+                'value_1_name': block_info.get('value_1_name', ''),
+                'value_1_type': block_info.get('value_1_type', ''),
                 'in_connections': block_info.get('in_connections', {}),
                 'out_connections': block_info.get('out_connections', {}),
             }
@@ -723,6 +773,8 @@ class DataControl:
                 'x': block_info['x'],
                 'y': block_info['y'],
                 'outputs': block_info.get('outputs', 1),
+                'return_var_name': block_info.get('return_var_name', ''),
+                'return_var_type': block_info.get('return_var_type', None),
                 'internal_vars': {
                     'main_vars': block_info['internal_vars'].get('main_vars', {}),
                     'ref_vars': block_info['internal_vars'].get('ref_vars', {}),

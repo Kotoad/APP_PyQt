@@ -55,7 +55,7 @@
                             </li>
                         </ul>
                         <figure class="w-full flex flex-col items-center mt-4">
-                            <img src="Blinking_LED/Blinking_LED_Flowchart.png" alt="Blinking LED Blocks" class="rounded-lg border border-slate-700">
+                            <img src="../assets/Blinking_LED_assets/Blinking_LED_Flowchart.png" alt="Blinking LED Blocks" class="rounded-lg border border-slate-700">
                         </figure>
                     </details>
                 </div>
@@ -74,7 +74,7 @@
                         </li>
                     </ul>
                     <figure class="w-full flex flex-col items-center mt-4">
-                        <img src="Blinking_LED/Blinking_LED_Circuit.png" alt="Blinking LED Circuit" class="rounded-lg border border-slate-700">
+                        <img src="../assets/Blinking_LED_assets/Blinking_LED_Circuit.png" alt="Blinking LED Circuit" class="rounded-lg border border-slate-700">
                     </figure>
                 </div>
 

@@ -836,8 +836,8 @@ class SearchableLineEdit(QLineEdit):
         
         self.setStyleSheet("""
         QLineEdit {
-            background-color: palette(base);
-            border: 1px solid palette(mid);
+            background-color: palette(window);
+            border: 1px solid palette(base);
             border-radius: 3px;
             font-size: 10px;
             color: #333;
@@ -2376,6 +2376,20 @@ class GUI(QWidget):
                 current_canvas.inspector_content_layout.count(), 
                 interval_input
             )
+
+        if block_data['type'] == 'Return':
+            # Return block inputs
+            value_label = QLabel(f"{self.t('main_GUI.inspector.return_value')}:")
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), value_label)
+            
+            return_input = SearchableLineEdit()
+            return_input.setText(block_data.get('value_1_name', ''))
+            return_input.setPlaceholderText(self.t("main_GUI.inspector.value_1_name_placeholder"))
+            return_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+            
+            self.insert_items(block, return_input, canvas=current_canvas)
+            
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), return_input)
         #Loops and If blocks inputs
         if block_data['type'] in ('While', 'For Loop'):
             name_label = QLabel(f"{self.t('main_GUI.inspector.value_1_name')}:")
@@ -2670,8 +2684,9 @@ class GUI(QWidget):
                 if canv_info.get('ref') == 'function' and canv_info.get('name') == block_data.get('name'):
                     break
             #print(f"Function canvas info: {canv_info}")
-            
+            idx = 1
             for var_id, var_info in Utils.variables['function_canvases'][canv_info['id']].items():
+
                 line_widget = QWidget()
                 line_layout = QHBoxLayout(line_widget)
                 line_layout.setContentsMargins(0, 0, 0, 0)
@@ -2681,7 +2696,9 @@ class GUI(QWidget):
                 ref_var_name = QLabel(var_info['name'])
 
                 main_var_label = QLabel(self.t("main_GUI.inspector.main_variable"))
+
                 main_var_combo = SearchableLineEdit()
+                main_var_combo.setText(block_data['internal_vars']['main_vars'].get(var_id, {}).get('name', ''))
                 main_var_combo.setPlaceholderText(self.t("main_GUI.inspector.main_variables_placeholder"))
 
                 self.insert_items(block, main_var_combo, type='variable_m', canvas=current_canvas)
@@ -2707,8 +2724,8 @@ class GUI(QWidget):
                 block_data['internal_vars']['ref_vars'][var_id]['name'] = var_info['name']
                 block_data['internal_vars']['ref_vars'][var_id]['type'] = 'Variable'
 
-                main_var_combo.textChanged.connect(lambda text, bd=block_data, v=var_id: self.function_variable_changed(text, bd, v))
-
+                main_var_combo.textChanged.connect(lambda text, bd=block_data, v=var_id, i=idx: self.function_variable_changed(text, bd, v, i))
+                idx += 1
                 current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), line_widget)
             
             separator = QFrame()
@@ -2721,8 +2738,9 @@ class GUI(QWidget):
             dev_label = QLabel(self.t("main_GUI.inspector.input_devices"))
 
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), dev_label)
-
+            idx = 0
             for dev_id, dev_info in Utils.devices['function_canvases'][canv_info['id']].items():
+                
                 line_widget = QWidget()
                 line_layout = QHBoxLayout(line_widget)
                 line_layout.setContentsMargins(0, 0, 0, 0)
@@ -2733,6 +2751,7 @@ class GUI(QWidget):
                 main_dev_label = QLabel(self.t("main_GUI.inspector.main_device"))
 
                 main_dev_combo = SearchableLineEdit()
+                main_dev_combo.setText(block_data['internal_devs']['main_devs'].get(dev_id, {}).get('name', ''))
                 main_dev_combo.setPlaceholderText(self.t("main_GUI.inspector.main_devices_placeholder"))
 
                 self.insert_items(block, main_dev_combo, type='device_m', canvas=current_canvas)
@@ -2759,12 +2778,23 @@ class GUI(QWidget):
                 block_data['internal_devs']['ref_devs'][dev_id]['name'] = dev_info['name']
                 block_data['internal_devs']['ref_devs'][dev_id]['type'] = 'Device'
 
-                main_dev_combo.textChanged.connect(lambda text, bd=block_data, d=dev_id: self.function_device_changed(text, bd, d))
-
+                main_dev_combo.textChanged.connect(lambda text, bd=block_data, d=dev_id, i=idx: self.function_device_changed(text, bd, d, i))
+                idx += 1
 
                 current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), line_widget)
+
+            return_label = QLabel(self.t("main_GUI.inspector.return_variable"))
+            return_input = SearchableLineEdit()
+            return_input.setText(block_data.get('return_var_name', ''))
+            return_input.setPlaceholderText(self.t("main_GUI.inspector.return_variable_placeholder"))
+            return_input.textChanged.connect(lambda text, bd=block_data: self.Block_return_var_name_changed(text, bd))
+
+            self.insert_items(block, return_input, type='variable_m', canvas=current_canvas)
+
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), return_label)
+            current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), return_input)
 #MARK: - Block Property Change Handlers
-    def function_variable_changed(self, text, block_data, var_id=None):
+    def function_variable_changed(self, text, block_data, var_id=None, idx=None):
         #print(f"Function variable changed to: {text}, type: {type}")
         # Implement the logic to update function variable mapping in block_data
         # This is a placeholder implementation
@@ -2778,9 +2808,20 @@ class GUI(QWidget):
             }
         block_data['internal_vars']['main_vars'][var_id]['name'] = text
         block_data['internal_vars']['main_vars'][var_id]['type'] = 'Variable'
+
+        setattr(block_data['widget'], f'main_var_{idx if idx is not None else 1}_name', text)
+
+
         print(f"Updated block_data: {block_data}")
 
-    def function_device_changed(self, text, block_data, dev_id=None):
+        block_data['widget'].recalculate_size()
+
+        if hasattr(self.current_canvas, 'path_manager'):
+            self.current_canvas.path_manager.update_paths_for_widget(block_data['widget'])
+        
+        block_data['widget'].update()
+
+    def function_device_changed(self, text, block_data, dev_id=None, idx=None):
         #print(f"Function device changed to: {text}, type: {type}")
         # Implement the logic to update function device mapping in block_data
         # This is a placeholder implementation
@@ -2794,7 +2835,28 @@ class GUI(QWidget):
             }
         block_data['internal_devs']['main_devs'][dev_id]['name'] = text
         block_data['internal_devs']['main_devs'][dev_id]['type'] = 'Device'
+
+        setattr(block_data['widget'], f'main_dev_{idx if idx is not None else 1}_name', text)
+
         print(f"Updated block_data: {block_data}")
+
+        block_data['widget'].recalculate_size()
+
+        if hasattr(self.current_canvas, 'path_manager'):
+            self.current_canvas.path_manager.update_paths_for_widget(block_data['widget'])
+        
+        block_data['widget'].update()
+
+    def Block_return_var_name_changed(self, text, block_data):
+        block_data['return_var_name'] = text
+        block_data['return_var_type'] = 'Variable'
+
+        block_data['widget'].recalculate_size()
+
+        if hasattr(self.current_canvas, 'path_manager'):
+            self.current_canvas.path_manager.update_paths_for_widget(block_data['widget'])
+        
+        block_data['widget'].update()
 
     def Block_value_1_name_changed(self, text, block_data, idx=None):
         current_canvas = self.current_canvas
@@ -4580,7 +4642,7 @@ class GUI(QWidget):
             if canvas_info['canvas'] == canvas:
                 break
         if block_type in ('While', 'Button', 'Switch', 'Basic_operations', 'Exponential_operations', 'Random_number',
-                          'Blink_LED', 'Toggle_LED', 'LED_ON', 'LED_OFF', 'PWM_LED', 'Plus_one', 'Minus_one'):
+                          'Blink_LED', 'Toggle_LED', 'LED_ON', 'LED_OFF', 'PWM_LED', 'Plus_one', 'Minus_one', 'Return'):
             block.value_1_name = data.get('value_1_name', "N")
         if block_type in ('While', 'Basic_operations', 'Exponential_operations', 'Random_number'):
             block.value_2_name = data.get('value_2_name', 'N')
@@ -4606,7 +4668,14 @@ class GUI(QWidget):
                 str_2 = f"value_{i}_2_PWM"
                 setattr(block, str_1, data['first_vars'].get(str_1, f"N"))
                 setattr(block, str_2, data['second_vars'].get(str_2, f"N"))
-                
+        if block_type == 'Function':
+            
+            for i in range(1, len(data.get('internal_vars', {}).get('main_vars', {})) + 1):
+                str_arg = f"main_var_{i}_name"
+                setattr(block, str_arg, data.get('internal_vars', {}).get('main_vars', {}).get(str_arg, f"N"))
+            for i in range(1, len(data.get('internal_devs', {}).get('main_devs', {})) + 1):
+                str_dev = f"main_dev_{i}_name"
+                setattr(block, str_dev, data.get('internal_vars', {}).get('main_devs', {}).get(str_dev, f"N"))
         canvas.scene.addItem(block)
         
         # Store in Utils
