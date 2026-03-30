@@ -26,13 +26,23 @@ if ($version !== '' || $platform !== '' || $anonymous_id !== '') {
     $raw_ip  = trim(explode(',', $raw_ip)[0]);
     $ip_hash = substr(hash('sha256', $raw_ip . IP_HASH_SALT), 0, 12);
 
-    $stmt = $pdo->prepare("
-        INSERT INTO app_starts (started_at, version, platform, ip_hash, anonymous_id, starts)
-        VALUES (?, ?, ?, ?, ?, 1)
-        ON DUPLICATE KEY UPDATE
-        started_at=VALUES(started_at), version=VALUES(version), platform=VALUES(platform), ip_hash=VALUES(ip_hash), anonymous_id=VALUES(anonymous_id), starts = starts + 1
-    ");
-    $stmt->execute([date('c'), $version, $platform, $ip_hash, $anonymous_id]);
+    // 1. Check if the record exists
+    $checkStmt = $pdo->prepare("SELECT id FROM app_starts WHERE anonymous_id = ? AND version = ?");
+    $checkStmt->execute([$anonymous_id, $version]);
+    $existingRow = $checkStmt->fetch();
+
+    if ($existingRow) {
+        // 2a. It exists, strictly UPDATE
+        $updateStmt = $pdo->prepare("UPDATE app_starts SET started_at = ?, starts = starts + 1 WHERE id = ?");
+        $updateStmt->execute([date('c'), $existingRow['id']]);
+    } else {
+        // 2b. It does not exist, strictly INSERT
+        $insertStmt = $pdo->prepare("
+            INSERT INTO app_starts (started_at, version, platform, ip_hash, anonymous_id, starts)
+            VALUES (?, ?, ?, ?, ?, 1)
+        ");
+        $insertStmt->execute([date('c'), $version, $platform, $ip_hash, $anonymous_id]);
+    }
 }
 
 // ── Return the dynamic release manifest ──────────────────────────────────────

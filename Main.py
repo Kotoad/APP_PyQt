@@ -518,6 +518,27 @@ class MainWindow(QMainWindow):
     def create_menu_bar(self):
         """Create the menu bar"""
         self.menubar = self.menuBar()
+
+        self.menubar.setStyleSheet("""
+            QMenuBar {
+                background-color: palette(base);
+                color: white;
+            }
+            QMenuBar::item {
+                background-color: transparent;
+                padding: 5px 15px;
+            }
+            QMenuBar::item:selected {
+                background-color: palette(highlight);
+            }
+            QMenu {
+                background-color: palette(base);
+                color: white;
+            }
+            QMenu::item:selected {
+                background-color: palette(highlight);
+            }
+        """)
         #print(f"Menubar Height: {menubar.height()}")
         # File menu
         file_menu = self.menubar.addMenu(self.t("main_GUI.menu.file"))
@@ -582,6 +603,23 @@ class MainWindow(QMainWindow):
         icon_path = "resources/images/Tool_bar/"
 
         toolbar = QToolBar(self.t("main_GUI.top_toolbar.toolbar"))
+        toolbar.setStyleSheet("""
+            QToolBar {
+                background-color: palette(base);
+                border: none;
+            }
+            QToolButton {
+                background-color: transparent;
+                border: none;
+                padding: 5px;
+            }
+            QToolButton:hover {
+                background-color: palette(highlight);
+            }
+            QToolButton:checked {
+                background-color: palette(highlight);
+            }
+        """)
         toolbar.setMovable(False)
         toolbar.setIconSize(QSize(16, 16))
         
@@ -680,6 +718,23 @@ class MainWindow(QMainWindow):
     def create_bottom_toolbar(self):
 
         toolbar = QToolBar(self.t("main_GUI.bottom_toolbar.toolbar"))
+        toolbar.setStyleSheet("""
+            QToolBar {
+                background-color: palette(base);
+                border: none;
+            }
+            QToolButton {
+                background-color: transparent;
+                border: none;
+                padding: 5px;
+            }
+            QToolButton:hover {
+                background-color: palette(highlight);
+            }
+            QToolButton:checked {
+                background-color: palette(highlight);
+            }
+        """)
         toolbar.setMovable(False)
         toolbar.setIconSize(QSize(16, 16))
 
