@@ -1,6 +1,6 @@
 from Imports import (QDialog, pyqtSignal, QObject, QsciLexerPython, QFont,
                       QsciScintilla, QsciAPIs, Qt, QColor, QVBoxLayout, QWidget,
-                      QPropertyAnimation, QEasingCurve, QTimer, QRect, QIcon) 
+                      QPropertyAnimation, QEasingCurve, QTimer, QRect, QIcon, QPalette) 
 import keyword, builtins
 
 from Imports import get_Utils
@@ -67,13 +67,17 @@ class CodeEditorWindow(QWidget):
         lexer.setDefaultFont(material_font)
         lexer.setFont(material_font)
 
+        pallette = self.palette()
+
+
+
         # --- 2. Base Editor Colors ---
-        bg_color = QColor("#3A3A3A")          # Material Darker Background
-        fg_color = QColor("#EEFFFF")          # Material Default Text
-        selection_bg = QColor("#2C3941")      # Highlighted text background
-        caret_color = QColor("#FFCC00")       # Yellow cursor
-        current_line_bg = QColor("#2F2F2F")   # Active line highlight
-        margin_fg = QColor("#4A4A4A")         # Line numbers color
+        bg_color = pallette.color(QPalette.ColorRole.Window)        # Material Darker Background
+        fg_color = pallette.color(QPalette.ColorRole.Text)          # Material Default Text
+        selection_bg = pallette.color(QPalette.ColorRole.Highlight)      # Highlighted text background
+        caret_color = pallette.color(QPalette.ColorRole.Text)       # Yellow cursor
+        current_line_bg = pallette.color(QPalette.ColorRole.Base)   # Active line highlight
+        margin_fg = pallette.color(QPalette.ColorRole.Text)         # Line numbers color
 
         # Apply base colors to the Lexer
         lexer.setDefaultPaper(bg_color)
@@ -144,81 +148,3 @@ class CodeEditorWindow(QWidget):
         # Standard identifiers and default text -> Off-White
         lexer.setColor(fg_color, QsciLexerPython.Identifier)
         lexer.setColor(fg_color, QsciLexerPython.Default)
-    
-    def pulse_window(self):
-        if hasattr(self, "_pulse_animation") and self._pulse_animation.state() == QPropertyAnimation.State.Running:
-            return
-
-        self._pulse_animation = QPropertyAnimation(self, b"geometry")
-        self._pulse_animation.setDuration(100)
-        self._pulse_animation.setEasingCurve(QEasingCurve.Type.OutQuad)
-
-        # Get current geometry
-        orig = self.geometry()
-        
-        # Calculate a larger geometry (expanding from the center)
-        offset = 5  # Pixels to expand
-        expanded = QRect(
-            orig.x() - offset, 
-            orig.y() - offset, 
-            orig.width() + (offset * 2), 
-            orig.height() + (offset * 2)
-        )
-
-        # Define keyframes: Start -> Expanded -> Original
-        self._pulse_animation.setStartValue(orig)
-        self._pulse_animation.setKeyValueAt(0.5, expanded)
-        self._pulse_animation.setEndValue(orig)
-
-        self._pulse_animation.start()
-
-    def flash_window(self):
-        original_style = self.styleSheet()
-        highlight_style = original_style + "QDialog { background-color: palette(norole); }"
-        
-        def toggle_style(step):
-            if step >= 8:  # 4 flashes = 8 toggles (on/off)
-                self.setStyleSheet(original_style)
-                return
-            
-            # If step is even, show highlight; if odd, show original
-            if step % 2 == 0:
-                self.setStyleSheet(highlight_style)
-                self.pulse_window()  # Add pulse effect on highlight
-            else:
-                self.setStyleSheet(original_style)
-            
-            # Schedule the next toggle in 150ms
-            QTimer.singleShot(100, lambda: toggle_style(step + 1))
-
-        # Start the sequence
-        toggle_style(0)
-
-    def open(self):
-        #print("Opening DeviceSettingsWindow")
-        if self.is_hidden:
-            #print("Initially hidden, showing window")
-            self.is_hidden = False
-            with open("File.py", "r", encoding="utf-8") as f:
-                sample_code = f.read()
-            if self.editor:
-                self.editor.setText(sample_code)
-
-            self.show()
-            self.raise_()
-            self.activateWindow()
-        else:
-            #print("DeviceSettingsWindow already open, raising to front")
-            self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
-            self.raise_()           # Brings the widget to the top of the stack
-            self.activateWindow()    # Gives the window keyboard focus   
-            self.flash_window()
-        return self
-    
-    def reject(self):
-        self.close()
-
-    def closeEvent(self, event):
-        self.is_hidden = True
-        self.state_manager.app_state.on_code_editor_dialog_close()
-        event.accept()

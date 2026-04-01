@@ -50,12 +50,7 @@ class LoaderThread(QThread):
         time.sleep(0.5)
         self.progress.emit(60)
         
-        # PHASE 4: Preparing UI
-        self.status.emit("Preparing Interface...")
-        time.sleep(0.5)
-        self.progress.emit(80)
-
-        # Done
+        # PHASE 4: Finalize Initialization
         self.finished.emit()
 
 class NativeSplash(QSplashScreen):
@@ -432,6 +427,9 @@ class HubWindow(QWidget):
 #MARK: - MainWindow
 class MainWindow(QMainWindow):
 
+    ui_load_process = pyqtSignal(int, str)  # (progress, status)
+    ui_load_finished = pyqtSignal()
+
     def __init__(self):
         super().__init__()
 
@@ -439,25 +437,66 @@ class MainWindow(QMainWindow):
         self.t = self.translation_manager.translate
         self.undo_stack = QUndoStack(self)
 
-        
         self.reset_file()
-        self.setup_ui()
-        self.create_shortcuts()
-        self.setup_auto_save_timer()
-
-        #if getattr(sys, 'frozen', False):
-        self.start_update_check()
-
-    def setup_ui(self):
+    
+    def start_ui_load(self):
+        self.ui_load_process.emit(85, "Setting up GUI...")
         self.setWindowTitle(self.t("main_GUI._metadata.app_title") + " " + Utils.config['CURRENT_VERSION'])
         self.setWindowIcon(QIcon('resources/images/APPicon.ico'))
         self.resize(1200, 800)
 
-        self.create_stacked_widget()
+        self.stacked_widget = QStackedWidget()
+        self.setCentralWidget(self.stacked_widget)
+
+        QTimer.singleShot(100, self._load_hub)  # Delay to allow UI to show loading screen
+    
+    def _load_hub(self):
+        self.ui_load_process.emit(90, "Loading Hub...")
+        self.hub_widget = HubWindow()
+        self.stacked_widget.addWidget(self.hub_widget)
+
+        QTimer.singleShot(100, self._load_visual_programming_window)
+
+    def _load_visual_programming_window(self):
+        self.ui_load_process.emit(94, "Loading Visual Programming Editor...")
+        self.visual_programming_window = GraphicPrograminWindow(self)
+        self.stacked_widget.addWidget(self.visual_programming_window)
+
+        QTimer.singleShot(100, self._load_code_editor_window)
+    
+    def _load_code_editor_window(self):
+        self.ui_load_process.emit(98, "Loading Code Editor...")
+        self.code_editor_window = CodeEditorWindow()
+        self.stacked_widget.addWidget(self.code_editor_window)
+
+        QTimer.singleShot(100, self._finalize_ui)
+
+    def _finalize_ui(self):
+        self.ui_load_process.emit(100, "Finalizing...")
+
+        self.hub_widget.switch_widget_signal.connect(self.switch_widget)
+        self.hub_widget.visual_programming_window = self.visual_programming_window
+
         self.create_menu_bar()
         self.create_top_toolbar()
         self.create_bottom_toolbar()
-        self.switch_widget(0)  # Start with Hub view
+
+        self.switch_widget(0)  # Start on the hub view
+        QApplication.processEvents()  # Ensure UI updates before heavy lifting
+        self.switch_widget(1)  # Preload visual programming view to initialize it
+        QApplication.processEvents()
+        self.switch_widget(2)
+        self.code_editor_window.show()  # Ensure code editor is fully initialized
+        self.code_editor_window.repaint()  # Force repaint to finalize UI elements
+        QApplication.processEvents()
+        self.switch_widget(0)  # Return to hub after preloading others
+
+        self.create_shortcuts()
+        self.setup_auto_save_timer()
+
+        self.start_update_check()
+
+        self.ui_load_finished.emit()
     
     def create_shortcuts(self):
         """Create Ctrl+S keyboard shortcut for saving"""
@@ -731,7 +770,7 @@ class MainWindow(QMainWindow):
         toolbar.setStyleSheet("""
             QToolBar {
                 background-color: palette(base);
-                border_top: 2px solid palette(window);
+                border-top: 2px solid palette(window);
             }
             QToolButton {
                 background-color: transparent;
@@ -1149,6 +1188,7 @@ class MainWindow(QMainWindow):
         self.visual_programming_window.close_child_windows()
         event.accept()
 
+#MARK: - Main Application Setup
 def apply_scale():
     with open(Utils.get_base_path()/"app_settings.json", "r") as f:
         app_settings = json.load(f)
@@ -1214,16 +1254,14 @@ def apply_theme(app):
         palette.setColor(QPalette.ColorRole.Accent, QColor(255, 0, 0))
     
     app.setPalette(palette)
+
+
 def main():
 
     apply_scale()
 
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
-    
-    
-
-    
 
     app.setStyleSheet("QToolTip { color: palette(text); background-color: palette(highlight); border: 1px solid white; }")
 
@@ -1242,17 +1280,23 @@ def main():
     def on_loaded():
         # Update splash one last time
         splash.update_status("Starting GUI...")
-        splash.update_progress(100)
+        splash.update_progress(80)
         
         apply_theme(app)
         # CRITICAL: Initialize MainWindow on the MAIN THREAD
         # We define 'window' global or attached to app so it doesn't get garbage collected
         global window 
         window = MainWindow()
-        window.show()
+
+        window.ui_load_process.connect(lambda value, status:(splash.update_status(status), splash.update_progress(value)) )
+
+        def on_ui_finished():
+            window.show()
+            splash.finish(window)
         
-        # Close splash when window is ready
-        splash.finish(window)
+        window.ui_load_finished.connect(on_ui_finished)
+
+        window.start_ui_load()
     
     # 4. CONNECT SIGNALS
     loader.progress.connect(splash.update_progress)

@@ -1956,22 +1956,21 @@ class GUI(QWidget):
             self.canvas_added = None
         else:
             tab_button = QPushButton(tab_name)
-        try:
-            tab_button.setStyleSheet("""
-                QPushButton {
-                    background-color: palette(base);
-                    color: palette(text);
-                    border: none;
-                    padding: 12px;
-                    text-align: left;
-                }
-                
-                QPushButton:hover {
-                    background-color: palette(highlight);
-                }
-            """)
-        except Exception as e:
-            print(f"Error setting stylesheet for tab button '{tab_name}': {e}")
+        tab_button.setStyleSheet("""
+            QPushButton {
+                background-color: palette(base);
+                color: palette(text);
+                border: 0px solid transparent;
+                border-left: 3px solid transparent;
+                padding: 12px;
+                text-align: left;
+            }
+            
+            QPushButton:hover {
+                background-color: palette(highlight);
+                color: palette(highlightedText);
+            }
+        """)
         tab_index = self.page_count
         self.tab_buttons.append({
             'button': tab_button,
@@ -2135,30 +2134,29 @@ class GUI(QWidget):
                 for tb in self.tab_buttons:
                     if tb['index'] == tab_index:
                         #print(f"Setting active style for tab '{tb['name']}' at index {tab_index}")
-                        try:
-                            tb['button'].setStyleSheet("""
-                                QPushButton {
-                                    background-color: palette(highlight);
-                                    color: palette(highlighted-text);
-                                    border: none;
-                                    border-left: 3px solid palette(highlight);
-                                    padding: 12px;
-                                    text-align: left;
-                                }
-                            """)
-                        except Exception as e:
-                            print(f"Error setting active stylesheet for tab button '{tb['name']}': {e}")
+                        tb['button'].setStyleSheet("""
+                            QPushButton {
+                                background-color: palette(highlight);
+                                color: palette(highlightedText);
+                                border: 0px solid transparent;
+                                border-left: 3px solid palette(highlight);
+                                padding: 12px;
+                                text-align: left;
+                            }
+                        """)
                     else:
                         tb['button'].setStyleSheet("""
                             QPushButton {
-                                background-color: palette(window);
+                                background-color: palette(base);
                                 color: palette(text);
-                                border: none;
+                                border: 0px solid transparent;
+                                border-left: 3px solid transparent;
                                 padding: 12px;
                                 text-align: left;
                             }
                             QPushButton:hover {
                                 background-color: palette(highlight);
+                                color: palette(highlightedText);
                             }
                         """)
                 if reference == "canvas":
