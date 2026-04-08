@@ -8,6 +8,15 @@ RewriteEngine On
 RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
 RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
 
+# Redirect explicit requests for /Admin to the subdomain
+RewriteCond %{THE_REQUEST} \s/+Admin(?:/([^\s?]*))? [NC]
+RewriteRule ^ https://admin.omniboardstudio.cz/%1 [R=301,L]
+
+# Redirect admin.omniboardstudio.cz to Admin folder
+RewriteCond %{HTTP_HOST} ^admin\.omniboardstudio\.cz [NC]
+RewriteCond %{REQUEST_URI} !^/Admin/
+RewriteRule ^(.*$) /Admin/$1 [L,QSA]
+
 # Remove trailing slash from URLs (unless it is an actual, existing directory)
 # This prevents the server from forcing a directory redirect if a folder is deleted or moved.
 RewriteCond %{REQUEST_FILENAME} !-d

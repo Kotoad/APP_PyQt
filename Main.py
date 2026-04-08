@@ -1214,44 +1214,72 @@ def apply_theme(app):
     palette = QPalette()
 
     if theme == 'dark':
-        # Slate 900 main background
+        # Primary Backgrounds & Texts
         palette.setColor(QPalette.ColorRole.Window, QColor(15, 23, 42))
-        # Slate 200 main text
         palette.setColor(QPalette.ColorRole.WindowText, QColor(226, 232, 240))
-        # Slate 800 surface/panels
         palette.setColor(QPalette.ColorRole.Base, QColor(30, 41, 59))
-        # Slate 700 alternate backgrounds/borders
         palette.setColor(QPalette.ColorRole.AlternateBase, QColor(51, 65, 85))
-        palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(30, 41, 59))
-        palette.setColor(QPalette.ColorRole.ToolTipText, QColor(226, 232, 240))
         palette.setColor(QPalette.ColorRole.Text, QColor(226, 232, 240))
+        palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(148, 163, 184)) 
+        
+        # Tooltips
+        palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(15, 23, 42))
+        palette.setColor(QPalette.ColorRole.ToolTipText, QColor(226, 232, 240))
+        
+        # Buttons
         palette.setColor(QPalette.ColorRole.Button, QColor(30, 41, 59))
         palette.setColor(QPalette.ColorRole.ButtonText, QColor(226, 232, 240))
-        # Warning/Moved accent
-        palette.setColor(QPalette.ColorRole.BrightText, QColor(255, 160, 0))
-        # Primary Teal accent for links and highlights
-        palette.setColor(QPalette.ColorRole.Link, QColor(59, 130, 246))
+        
+        # Highlights & Links
         palette.setColor(QPalette.ColorRole.Highlight, QColor(59, 130, 246))
         palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
-        palette.setColor(QPalette.ColorRole.NoRole, QColor(51, 65, 85))
-        # Teal accent
+        palette.setColor(QPalette.ColorRole.Link, QColor(59, 130, 246))
+        palette.setColor(QPalette.ColorRole.LinkVisited, QColor(139, 92, 246)) 
         palette.setColor(QPalette.ColorRole.Accent, QColor(59, 130, 246))
+        palette.setColor(QPalette.ColorRole.BrightText, QColor(255, 160, 0)) 
+        
+        # 3D Bevels & Shadows (Light to Dark)
+        palette.setColor(QPalette.ColorRole.Light, QColor(51, 65, 85))
+        palette.setColor(QPalette.ColorRole.Midlight, QColor(30, 41, 59))
+        palette.setColor(QPalette.ColorRole.Mid, QColor(15, 23, 42))
+        palette.setColor(QPalette.ColorRole.Dark, QColor(2, 6, 23))
+        palette.setColor(QPalette.ColorRole.Shadow, QColor(0, 0, 0))
+        
+        palette.setColor(QPalette.ColorRole.NoRole, QColor(51, 65, 85))
+        
     elif theme == 'light':
+        # Primary Backgrounds & Texts
         palette.setColor(QPalette.ColorRole.Window, QColor(253, 245, 230))
-        palette.setColor(QPalette.ColorRole.WindowText, Qt.GlobalColor.black)
+        palette.setColor(QPalette.ColorRole.WindowText, QColor(0, 0, 0))
         palette.setColor(QPalette.ColorRole.Base, QColor(224, 218, 202))
         palette.setColor(QPalette.ColorRole.AlternateBase, QColor(225, 225, 225))
-        palette.setColor(QPalette.ColorRole.ToolTipBase, Qt.GlobalColor.black)
-        palette.setColor(QPalette.ColorRole.ToolTipText, Qt.GlobalColor.black)
-        palette.setColor(QPalette.ColorRole.Text, Qt.GlobalColor.black)
+        palette.setColor(QPalette.ColorRole.Text, QColor(0, 0, 0))
+        palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(120, 120, 120)) 
+        
+        # Tooltips (Dark contrast for readability)
+        palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(30, 30, 30))
+        palette.setColor(QPalette.ColorRole.ToolTipText, QColor(255, 255, 255))
+        
+        # Buttons
         palette.setColor(QPalette.ColorRole.Button, QColor(253, 245, 230))
-        palette.setColor(QPalette.ColorRole.ButtonText, Qt.GlobalColor.black)
-        palette.setColor(QPalette.ColorRole.BrightText, Qt.GlobalColor.red)
-        palette.setColor(QPalette.ColorRole.Link, QColor(0, 120, 215))
+        palette.setColor(QPalette.ColorRole.ButtonText, QColor(0, 0, 0))
+        
+        # Highlights & Links
         palette.setColor(QPalette.ColorRole.Highlight, QColor(0, 120, 215))
-        palette.setColor(QPalette.ColorRole.HighlightedText, Qt.GlobalColor.black)
+        palette.setColor(QPalette.ColorRole.HighlightedText, QColor(255, 255, 255))
+        palette.setColor(QPalette.ColorRole.Link, QColor(0, 120, 215))
+        palette.setColor(QPalette.ColorRole.LinkVisited, QColor(128, 0, 128)) 
+        palette.setColor(QPalette.ColorRole.Accent, QColor(0, 120, 215))
+        palette.setColor(QPalette.ColorRole.BrightText, QColor(220, 38, 38)) 
+        
+        # 3D Bevels & Shadows (Light to Dark)
+        palette.setColor(QPalette.ColorRole.Light, QColor(255, 255, 255))
+        palette.setColor(QPalette.ColorRole.Midlight, QColor(240, 240, 240))
+        palette.setColor(QPalette.ColorRole.Mid, QColor(200, 200, 200))
+        palette.setColor(QPalette.ColorRole.Dark, QColor(160, 160, 160))
+        palette.setColor(QPalette.ColorRole.Shadow, QColor(100, 100, 100))
+        
         palette.setColor(QPalette.ColorRole.NoRole, QColor(169, 169, 169))
-        palette.setColor(QPalette.ColorRole.Accent, QColor(255, 0, 0))
     
     app.setPalette(palette)
 
