@@ -172,7 +172,8 @@ class ColoredConsoleFormatter(logging.Formatter):
 def setup_colored_logging():
     """Initializes the root logger with the colored console handler."""
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG) # Capture all levels of logs
+    if getattr(sys, 'frozen', True):
+        logger.setLevel(logging.DEBUG) # Capture all levels of logs
 
     # Prevent adding multiple handlers if called twice
     if not logger.handlers:
@@ -189,19 +190,23 @@ def _get_or_create_install_id() -> str:
     import uuid as _uuid
     data_dir = os.path.join(
         os.environ.get('APPDATA', os.path.expanduser('~')),
-        'Visual Programming'
+        'OmniBoardStudio'
     )
+    #logging.debug(f"Data directory for install ID: {data_dir}")
     id_file = os.path.join(data_dir, 'install_id.txt')
     try:
         if os.path.isfile(id_file):
             stored = open(id_file).read().strip()
+            #logging.debug(f"Found existing install ID: {stored}")
             if stored:
                 return stored
         os.makedirs(data_dir, exist_ok=True)
         new_id = str(_uuid.uuid4())
         open(id_file, 'w').write(new_id)
+        #logging.debug(f"Created new install ID: {new_id}")
         return new_id
     except Exception:
+        logging.error("Failed to create or read install ID.")
         return ''
 
 def check_for_updates():

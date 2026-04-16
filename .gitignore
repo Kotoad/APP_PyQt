@@ -11,6 +11,7 @@ build/
 dist/
 New Folder/
 Node_modules/
+Config/
 
 # Python cache files
 __pycache__/

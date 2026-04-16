@@ -469,7 +469,7 @@ if ($ph_res && isset($ph_res[0]['data'])) {
             <div class="w-10 h-10 bg-slate-700 rounded-lg flex items-center justify-center text-white text-xl group-hover:bg-slate-600 transition-colors">&#9733;</div>
             <div>
                 <p class="font-semibold text-slate-100">GitHub Repository</p>
-                <p class="text-slate-400 text-xs"><?= GITHUB_REPO ?></p>
+                <p class="text-slate-400 text-xs"><?= htmlspecialchars($gh_repo['full_name'] ?? GITHUB_REPO) ?></p>
             </div>
         </a>
     </div>
