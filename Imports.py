@@ -33,17 +33,17 @@ from PyQt6.QtWidgets import (
     QInputDialog, QStyleOptionComboBox, QStyledItemDelegate, QTextEdit, QProgressDialog,
     QSplitter, QTreeWidget, QTreeWidgetItem, QListWidget, QGraphicsView, QGraphicsScene,
     QGraphicsRectItem, QGraphicsPathItem, QGraphicsItem, QGraphicsPixmapItem, QGraphicsObject,
-    QListWidgetItem, QStackedWidget, QGraphicsObject, QGraphicsEllipseItem, QSplashScreen,
+    QListWidgetItem, QStackedWidget, QGraphicsEllipseItem, QSplashScreen,
     QTextBrowser, QToolBar, QSlider
 )
 from PyQt6.QtCore import (
     Qt, QPoint, QRect, QSize, pyqtSignal, QRegularExpression, QTimer, QEvent,
     pyqtProperty, QEasingCurve, QRectF, QPropertyAnimation, QObject, QLine, QCoreApplication,
-    QSortFilterProxyModel, QAbstractAnimation, QPointF, QRectF, QThread,
+    QSortFilterProxyModel, QAbstractAnimation, QPointF, QThread,
 )
 from PyQt6.QtGui import (
     QPainter, QPen, QColor, QBrush, QPalette, QMouseEvent, QKeySequence, QShortcut, QEventPoint,
-    QRegularExpressionValidator, QFont, QPixmap, QImage, QStandardItem, QMovie, QTouchEvent,
+    QRegularExpressionValidator, QFont, QImage, QStandardItem, QMovie, QTouchEvent,
     QPainterPath, QIcon, QStandardItemModel, QAction, QPixmap, QInputDevice, QCursor,
     QIntValidator, QDoubleValidator, QUndoStack, QUndoCommand
 )
@@ -73,7 +73,7 @@ def get_Spawn_Blocks():
     from spawn_blocks_pyqt import spawning_blocks, blocks_events, BlockGraphicsItem
     return BlockGraphicsItem, spawning_blocks, blocks_events
 
-def get_Device_Settings_Mindow():
+def get_Device_Settings_Window():
     """Lazy import DeviceSettingsWindow - avoid circular import"""
     from settings_window import DeviceSettingsWindow
     return DeviceSettingsWindow

@@ -17,7 +17,7 @@ from Imports import (
     QStackedWidget, QSplitter, json, QScroller, QIntValidator, QPixmap, logging
 )
 from Imports import (
-    get_Spawn_Blocks, get_Device_Settings_Mindow,
+    get_Spawn_Blocks, get_Device_Settings_Window,
     get_Path_Manager, get_Blocks_Window, get_Utils,
     get_Code_Editor_Window, get_Commands
 )
@@ -26,7 +26,7 @@ Utils = get_Utils()
 BlockGraphicsItem = get_Spawn_Blocks()[0]
 spawningblocks = get_Spawn_Blocks()[1]
 elementevents = get_Spawn_Blocks()[2]
-DeviceSettingsWindow = get_Device_Settings_Mindow()
+DeviceSettingsWindow = get_Device_Settings_Window()
 PathManager = get_Path_Manager()[0]
 PathGraphicsItem = get_Path_Manager()[1]
 blocksWindow = get_Blocks_Window()
@@ -2661,6 +2661,48 @@ class GUI(QWidget):
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), second_var_label)
             current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), value_2_name_input)
 
+        if block_data['type'] in ["Not", "And", "Or", "Nor", "Nand", "Xor", "Xnor"]:
+            first_var_label = QLabel(self.t("main_GUI.inspector.first_variable"))
+            value_1_name_input = SearchableLineEdit()
+            value_1_name_input.setText(block_data.get('value_1_name', ''))
+            value_1_name_input.setPlaceholderText(self.t("main_GUI.inspector.first_variable_placeholder"))
+            value_1_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_1_name_changed(text, bd))
+
+            operators = {
+                "Not": "NOT",
+                "And": "AND",
+                "Or": "OR",
+                "Nor": "NOR",
+                "Nand": "NAND",
+                "Xor": "XOR",
+                "Xnor": "XNOR"
+            }
+
+            operator_label = QLabel(self.t("main_GUI.inspector.operator") + f": {operators.get(block_data['type'], 'E')}")
+
+            if block_data['type'] != "Not":
+                second_var_label = QLabel(self.t("main_GUI.inspector.second_variable"))
+                value_2_name_input = SearchableLineEdit()
+                value_2_name_input.setText(block_data.get('value_2_name', ''))
+                value_2_name_input.setPlaceholderText(self.t("main_GUI.inspector.second_variable_placeholder"))
+                value_2_name_input.textChanged.connect(lambda text, bd=block_data: self.Block_value_2_name_changed(text, bd))
+
+            self.insert_items(block, value_1_name_input, canvas=current_canvas)
+            if block_data['type'] != "Not":
+                self.insert_items(block, value_2_name_input, canvas=current_canvas)
+
+            if block_data['type'] != "Not":
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), first_var_label)
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), value_1_name_input)
+
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), operator_label)
+
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), second_var_label)
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), value_2_name_input)
+            else:
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), operator_label)
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), first_var_label)
+                current_canvas.inspector_content_layout.insertWidget(current_canvas.inspector_content_layout.count(), value_1_name_input)
 
         if block_data['type'] in ("Plus_one", "Minus_one"):
 

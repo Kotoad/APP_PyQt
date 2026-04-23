@@ -124,7 +124,7 @@ class RemoveBlockCommand(QUndoCommand):
 
             for path_id, path_info in self.paths_data.items():
                 self.paths_dict[path_id] = path_info['data']
-                self.canvas.scene.addItem(path_info['data']['item'])
+                self.canvas.scene.removeItem(path_info['data']['item'])
 
                 other_id = path_info['other_block_id']
                 if other_id in self.blocks_dict and path_info['other_conn_type'] is not None:

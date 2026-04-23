@@ -5,7 +5,7 @@ from Imports import (QThread, pyqtSignal, QSplashScreen, QPixmap, QColor, QProgr
                      QPushButton, QScrollArea, QListWidget, QSplitter, QInputDialog, QLineEdit, QUndoStack, logging)
 import urllib.request, ssl, certifi, tempfile, traceback as tb, glob, webbrowser
 from Imports import (get_Utils, get_Code_Compiler, get_State_Manager, get_File_Manager, get_Data_Control, get_Translation_Manager,
-                     get_Graphic_Programing_Window, get_Code_Editor_Window, get_Device_Settings_Mindow, get_Blocks_Window,
+                     get_Graphic_Programing_Window, get_Code_Editor_Window, get_Device_Settings_Window, get_Blocks_Window,
                      get_Commands)
 
 Utils = get_Utils()
@@ -16,7 +16,7 @@ TranslationManager = get_Translation_Manager()
 CodeCompiler = get_Code_Compiler()
 CodeEditorWindow = get_Code_Editor_Window()
 GraphicPrograminWindow = get_Graphic_Programing_Window()[0]
-DeviceSettingsWindow = get_Device_Settings_Mindow()
+DeviceSettingsWindow = get_Device_Settings_Window()
 BlocksWindow = get_Blocks_Window()
 #MARK: - Loading Screen
 class LoaderThread(QThread):
@@ -136,9 +136,6 @@ class NativeSplash(QSplashScreen):
         self.loading_text = text
         self.repaint()
 
-import logging
-import sys
-
 class ColoredConsoleFormatter(logging.Formatter):
     """Custom formatter to add colors to console logs based on severity."""
     
@@ -172,7 +169,7 @@ class ColoredConsoleFormatter(logging.Formatter):
 def setup_colored_logging():
     """Initializes the root logger with the colored console handler."""
     logger = logging.getLogger()
-    if getattr(sys, 'frozen', True):
+    if not getattr(sys, 'frozen', False):
         logger.setLevel(logging.DEBUG) # Capture all levels of logs
 
     # Prevent adding multiple handlers if called twice
@@ -196,13 +193,15 @@ def _get_or_create_install_id() -> str:
     id_file = os.path.join(data_dir, 'install_id.txt')
     try:
         if os.path.isfile(id_file):
-            stored = open(id_file).read().strip()
+            with open(id_file, 'r') as f:
+                stored = f.read().strip()
             #logging.debug(f"Found existing install ID: {stored}")
             if stored:
                 return stored
         os.makedirs(data_dir, exist_ok=True)
         new_id = str(_uuid.uuid4())
-        open(id_file, 'w').write(new_id)
+        with open(id_file, 'w') as f:
+            f.write(new_id)
         #logging.debug(f"Created new install ID: {new_id}")
         return new_id
     except Exception:
@@ -613,27 +612,6 @@ class MainWindow(QMainWindow):
                     f.write("")
         except Exception as e:
             logging.error("Error resetting error_log.txt")
-
-
-    def create_stacked_widget(self):
-        self.stacked_widget = QStackedWidget()
-        self.setCentralWidget(self.stacked_widget)
-
-        self.hub_widget = HubWindow()
-        self.stacked_widget.addWidget(self.hub_widget)
-
-        self.visual_programming_window = GraphicPrograminWindow(self)
-        self.stacked_widget.addWidget(self.visual_programming_window)
-
-        self.code_editor_window = CodeEditorWindow()
-        self.stacked_widget.addWidget(self.code_editor_window)
-
-        self.visual_programming_window.ensurePolished()  # Ensure it's fully initialized before connecting signals
-        self.code_editor_window.ensurePolished()
-
-        self.hub_widget.switch_widget_signal.connect(self.switch_widget)
-
-        self.hub_widget.visual_programming_window = self.visual_programming_window
 
     #MARK: - UI Creation Methods
     def create_menu_bar(self):
@@ -1239,7 +1217,7 @@ class MainWindow(QMainWindow):
             comparison = Utils.file_manager.compare_projects(name)
             #logging.debug("Comparison result for '%s': %s", name, comparison)
             #logging.debug("Has changes: %s", comparison)
-            if comparison == True:
+            if comparison:
                 #logging.info("Unsaved changes detected, prompting user")
                 
                 reply = QMessageBox.question(

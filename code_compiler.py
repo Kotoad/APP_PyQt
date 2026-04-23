@@ -50,6 +50,13 @@ class CodeCompiler:
             "Not_equal": self.handle_logic_block,
             "Greater_equal": self.handle_logic_block,
             "Lower_equal": self.handle_logic_block,
+            "And": self.handle_bool_block,
+            "Or": self.handle_bool_block,
+            "Not": self.handle_bool_block,
+            "Nand": self.handle_bool_block,
+            "Nor": self.handle_bool_block,
+            "Xor": self.handle_bool_block,
+            "Xnor": self.handle_bool_block,
             "Function": self.handle_function_block,
             "Networks": self.handle_networks_block,
             "Return": self.handle_return_block
@@ -962,7 +969,7 @@ class CodeCompiler:
             #logging.debug(f"{value_str} is a literal number.")
             return False      # It's a literal number
         except ValueError:
-            logging.error(f"{value_str} is a variable reference.")
+            #logging.info(f"{value_str} is a variable reference.")
             return True 
         
     def writeline(self, text):
@@ -1285,6 +1292,39 @@ class CodeCompiler:
             #logging.info(f"Processing next block after Logic: {next_id}")
             pass
         self.process_block(next_id)
+
+    def handle_bool_block(self, block):
+        value_1 = self.resolve_value(block['value_1_name'], block['value_1_type'])
+        if block['type'] != 'Not':
+            value_2 = self.resolve_value(block['value_2_name'], block['value_2_type'])
+
+        out_1_id = self.get_next_block_from_output(block['id'], 'out_1')
+
+        if block['type'] == 'Not':
+            self.writeline(f"{value_1} = not {value_1}")
+        elif block['type'] == 'And':
+            self.writeline(f"if {value_1} == True and {value_2} == True:")
+        elif block['type'] == 'Nand':
+            self.writeline(f"if {value_1} == False or {value_2} == False:")
+        elif block['type'] == 'Or':
+            self.writeline(f"if {value_1} == True or {value_2} == True:")
+        elif block['type'] == 'Nor':
+            self.writeline(f"if {value_1} == False and {value_2} == False:")
+        elif block['type'] == 'Xor':
+            self.writeline(f"if {value_1} != {value_2}:")
+        elif block['type'] == 'Xnor':
+            self.writeline(f"if {value_1} == {value_2}:")
+        next_id = self.get_next_block(block['id'])
+        if block['type'] != 'Not':
+            self.indent_level += 1
+            self.process_block(out_1_id)
+            self.indent_level -= 1
+        
+        if next_id:
+            #logging.info(f"Processing next block after Bool: {next_id}")
+            pass
+        if block['type'] == 'Not':
+            self.process_block(next_id)
 
     def handle_LED_block(self, block):
         if block['type'] in ('Blink_LED', 'Toggle_LED', 'PWM_LED', 'LED_ON', 'LED_OFF'):

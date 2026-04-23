@@ -114,7 +114,7 @@ class AppStateMachine(QObject):
         return self.state == AppStates.MAIN_WINDOW and self.canvas_state_machine.current_state() == 'IDLE'
 
     def on_main_window(self):
-        if self.can_go_to_main_window():
+        if self.can_open_window('Main'):
             self.change_state(AppStates.MAIN_WINDOW)
             return True
         return False
